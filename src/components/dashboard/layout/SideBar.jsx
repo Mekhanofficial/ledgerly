@@ -22,7 +22,7 @@ import {
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../../context/ThemeContext';
 
-const Sidebar = ({ isOpen, mobileOpen, onMobileToggle }) => {
+const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const { isDarkMode, toggleTheme } = useTheme();
 
@@ -298,4 +298,4 @@ const Sidebar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   );
 };
 
-export default Sidebar;
+export default SideBar;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import Navbar from './NavBar';
-import Sidebar from './Sidebar';
 import { useTheme } from '../../../context/ThemeContext';
+import NavBar from '../../dashboard/layout/NavBar';
+import SideBar from '../../dashboard/layout/SideBar';
 
 const DashboardLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -18,7 +18,7 @@ const DashboardLayout = ({ children }) => {
         />
       )}
 
-      <Sidebar 
+      <SideBar 
         isOpen={sidebarOpen} 
         mobileOpen={mobileSidebarOpen}
         onMobileToggle={() => setMobileSidebarOpen(!mobileSidebarOpen)}
@@ -26,7 +26,7 @@ const DashboardLayout = ({ children }) => {
 
       {/* Main Content */}
       <div className={`flex flex-col transition-all duration-300 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
-        <Navbar 
+        <NavBar 
           onMenuClick={() => setMobileSidebarOpen(true)}
           sidebarOpen={sidebarOpen}
           onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
