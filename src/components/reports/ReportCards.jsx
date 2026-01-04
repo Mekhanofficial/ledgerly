@@ -1,8 +1,10 @@
 import React from 'react';
 import { BarChart3, PieChart, TrendingUp, Download, Calendar } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useTheme } from '../../context/ThemeContext';
 
 const ReportCards = ({ onGenerateReport }) => {
+  const { isDarkMode } = useTheme();
+  
   const reports = [
     {
       id: 'sales',
@@ -57,16 +59,36 @@ const ReportCards = ({ onGenerateReport }) => {
   return (
     <div className="space-y-6">
       {/* Quick Actions */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
+      <div className={`border rounded-xl p-6 ${
+        isDarkMode 
+          ? 'bg-gray-800 border-gray-700' 
+          : 'bg-white border-gray-200'
+      }`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Generate Custom Report</h3>
-            <p className="text-gray-600 mt-1">Create a custom report with specific filters and date ranges</p>
+            <h3 className={`text-lg font-semibold ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Generate Custom Report
+            </h3>
+            <p className={`mt-1 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-600'
+            }`}>
+              Create a custom report with specific filters and date ranges
+            </p>
           </div>
           <div className="flex items-center space-x-3 mt-4 md:mt-0">
-            <div className="flex items-center px-4 py-2 border border-gray-300 rounded-lg">
-              <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-              <select className="border-none focus:ring-0 text-sm">
+            <div className={`flex items-center px-4 py-2 border rounded-lg ${
+              isDarkMode
+                ? 'border-gray-600 bg-gray-700'
+                : 'border-gray-300 bg-white'
+            }`}>
+              <Calendar className={`w-4 h-4 mr-2 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-400'
+              }`} />
+              <select className={`border-none focus:ring-0 text-sm bg-transparent ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
                 <option>Last 30 days</option>
                 <option>This month</option>
                 <option>Last month</option>
@@ -89,7 +111,11 @@ const ReportCards = ({ onGenerateReport }) => {
         {reports.map((report) => {
           const Icon = report.icon;
           return (
-            <div key={report.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
+            <div key={report.id} className={`border rounded-xl overflow-hidden hover:shadow-xl transition-shadow ${
+              isDarkMode 
+                ? 'bg-gray-800 border-gray-700 hover:border-primary-500' 
+                : 'bg-white border-gray-200 hover:border-primary-300'
+            }`}>
               <div className={`h-2 ${report.color}`}></div>
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -98,15 +124,27 @@ const ReportCards = ({ onGenerateReport }) => {
                       <Icon className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">{report.title}</h3>
-                      <p className="text-sm text-gray-600 mt-1">{report.description}</p>
+                      <h3 className={`font-semibold ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        {report.title}
+                      </h3>
+                      <p className={`text-sm mt-1 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        {report.description}
+                      </p>
                     </div>
                   </div>
                 </div>
                 
-                <div className="mt-4 text-sm text-gray-500">
+                <div className={`mt-4 text-sm ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                }`}>
                   <div className="flex items-center">
-                    <Calendar className="w-4 h-4 mr-2" />
+                    <Calendar className={`w-4 h-4 mr-2 ${
+                      isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                    }`} />
                     Last generated: {report.lastGenerated}
                   </div>
                 </div>
@@ -118,7 +156,11 @@ const ReportCards = ({ onGenerateReport }) => {
                   >
                     Generate Now
                   </button>
-                  <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+                  <button className={`p-2 rounded-lg ${
+                    isDarkMode
+                      ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
+                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                  }`}>
                     <Download className="w-4 h-4" />
                   </button>
                 </div>
