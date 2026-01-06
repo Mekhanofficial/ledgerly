@@ -7,7 +7,7 @@ const CTA = () => {
     <section className="py-20">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative">
-          <div className="card-gradient rounded-3xl p-8 md:p-12 overflow-hidden">
+          <div className="bg-gradient-to-br from-white to-primary-50/30 rounded-3xl p-8 md:p-12 overflow-hidden border border-primary-100/50">
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary-500/10 to-cyan-500/10 rounded-full -translate-y-32 translate-x-32"></div>
             <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-br from-primary-500/10 to-purple-500/10 rounded-full translate-y-32 -translate-x-32"></div>
             
@@ -24,12 +24,12 @@ const CTA = () => {
                 <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
                   <Link 
                     to="/dashboard" 
-                    className="btn-primary text-lg px-10 py-5 inline-flex items-center justify-center group"
+                    className="bg-gradient-to-r from-primary-600 to-primary-700 text-white px-10 py-5 rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 transition-all duration-300 inline-flex items-center justify-center group shadow-lg shadow-primary-500/20 hover:shadow-xl hover:shadow-primary-500/30"
                   >
                     <span>Start Free Trial</span>
                     <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                   </Link>
-                  <button className="btn-secondary text-lg px-10 py-5">
+                  <button className="bg-white text-primary-700 px-10 py-5 rounded-xl font-semibold border-2 border-primary-200 hover:bg-primary-50 transition-all duration-300 shadow-sm hover:shadow-md">
                     Schedule a Demo
                   </button>
                 </div>

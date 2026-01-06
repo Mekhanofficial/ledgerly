@@ -1,32 +1,37 @@
+// src/components/invoices/templates/TemplateStats.jsx
 import React from 'react';
 import { FileText, Layout, Star, Palette } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 
-const TemplateStats = () => {
+const TemplateStats = ({ templates = [] }) => {
   const { isDarkMode } = useTheme();
+  
+  const defaultTemplate = templates.find(t => t.isDefault);
+  const customTemplates = templates.filter(t => t.category === 'custom');
+  const favoriteTemplates = templates.filter(t => t.isFavorite);
   
   const stats = [
     { 
       label: 'Total Templates', 
-      value: '8', 
+      value: templates.length.toString(), 
       icon: FileText, 
       color: 'bg-blue-500' 
     },
     { 
-      label: 'In Use', 
-      value: '3', 
-      icon: Layout, 
-      color: 'bg-emerald-500' 
-    },
-    { 
-      label: 'Default Template', 
-      value: 'Standard', 
+      label: 'Favorite Templates', 
+      value: favoriteTemplates.length.toString(), 
       icon: Star, 
       color: 'bg-amber-500' 
     },
     { 
+      label: 'Default Template', 
+      value: defaultTemplate?.name || 'Standard', 
+      icon: Layout, 
+      color: 'bg-emerald-500' 
+    },
+    { 
       label: 'Custom Templates', 
-      value: '2', 
+      value: customTemplates.length.toString(), 
       icon: Palette, 
       color: 'bg-violet-500' 
     }

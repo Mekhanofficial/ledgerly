@@ -1,14 +1,46 @@
+// src/components/invoices/recurring/RecurringStats.jsx
 import React from 'react';
-import { Play, DollarSign, Users, Calendar } from 'lucide-react';
+import { Play, DollarSign, Users, Calendar, Clock } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
-const RecurringStats = () => {
+
+const RecurringStats = ({ invoices = [] }) => {
   const { isDarkMode } = useTheme();
   
+  const activeInvoices = invoices.filter(inv => inv.status === 'active');
+  const totalValue = activeInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+  const next30Days = activeInvoices.filter(inv => {
+    if (!inv.nextRun) return false;
+    const nextRun = new Date(inv.nextRun);
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    return nextRun <= thirtyDaysFromNow;
+  }).length;
+
   const stats = [
-    { label: 'Active Profiles', value: '3', icon: Play, color: 'bg-emerald-500' },
-    { label: 'Total Value', value: '$7,398/mo', icon: DollarSign, color: 'bg-blue-500' },
-    { label: 'Customers', value: '5', icon: Users, color: 'bg-violet-500' },
-    { label: 'Next 30 Days', value: '8 invoices', icon: Calendar, color: 'bg-amber-500' }
+    { 
+      label: 'Active Profiles', 
+      value: activeInvoices.length.toString(), 
+      icon: Play, 
+      color: 'bg-emerald-500' 
+    },
+    { 
+      label: 'Total Value', 
+      value: `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}/mo`, 
+      icon: DollarSign, 
+      color: 'bg-blue-500' 
+    },
+    { 
+      label: 'Customers', 
+      value: [...new Set(invoices.map(inv => inv.customer?.name || inv.customer))].length.toString(), 
+      icon: Users, 
+      color: 'bg-violet-500' 
+    },
+    { 
+      label: 'Next 30 Days', 
+      value: `${next30Days} invoices`, 
+      icon: Calendar, 
+      color: 'bg-amber-500' 
+    }
   ];
 
   return (

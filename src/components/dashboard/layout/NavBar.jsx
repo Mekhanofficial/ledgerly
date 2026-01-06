@@ -207,7 +207,6 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
 
   // User menu items
   const userMenuItems = [
-    { label: 'Profile', icon: User, path: '/profile' },
     { label: 'Account Settings', icon: Settings, path: '/settings' },
     { label: 'Help & Support', icon: HelpCircle, path: '/support' },
     { label: 'Sign Out', icon: LogOut, path: '/login', isLogout: true }

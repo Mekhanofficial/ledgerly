@@ -42,7 +42,7 @@ const Features = () => {
   ];
 
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-gray-50">
+    <section className="py-20 bg-gradient-to-b from-white to-gray-50" id="features">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -59,8 +59,7 @@ const Features = () => {
           {features.map((feature, idx) => (
             <div 
               key={idx} 
-              className="card card-hover group animate-fade-in"
-              style={{ animationDelay: `${idx * 100}ms` }}
+              className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/5 hover:border-primary-300 hover:-translate-y-1"
             >
               <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
                 <div className="text-white">

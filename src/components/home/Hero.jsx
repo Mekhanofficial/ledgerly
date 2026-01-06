@@ -11,7 +11,7 @@ const Hero = () => {
   ];
 
   return (
-    <section className="pt-20 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8">
+    <section className="pt-20 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white to-gray-50">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           {/* Left Content */}
@@ -50,12 +50,12 @@ const Hero = () => {
             <div className="flex flex-col sm:flex-row gap-4">
               <Link 
                 to="/dashboard" 
-                className="btn-primary text-lg px-8 py-4 inline-flex items-center justify-center group"
+                className="bg-gradient-to-r from-primary-600 to-primary-700 text-white px-8 py-4 rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 transition-all duration-300 inline-flex items-center justify-center group shadow-lg shadow-primary-500/20 hover:shadow-xl hover:shadow-primary-500/30"
               >
                 <span>Start Free Trial</span>
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Link>
-              <button className="btn-secondary text-lg px-8 py-4 inline-flex items-center justify-center">
+              <button className="bg-white text-primary-700 px-8 py-4 rounded-xl font-semibold border-2 border-primary-200 hover:bg-primary-50 transition-all duration-300 inline-flex items-center justify-center shadow-sm hover:shadow-md">
                 <span>Watch Demo (2 min)</span>
               </button>
             </div>
@@ -69,7 +69,7 @@ const Hero = () => {
           <div className="lg:w-1/2 relative">
             <div className="relative">
               {/* Dashboard Preview */}
-              <div className="card-gradient rounded-2xl p-6 shadow-2xl shadow-primary-500/10 animate-float">
+              <div className="bg-gradient-to-br from-white to-primary-50/30 rounded-2xl p-6 shadow-2xl shadow-primary-500/10 border border-primary-100/50 animate-float">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center space-x-3">
                     <div className="w-3 h-3 rounded-full bg-red-400"></div>

@@ -14,7 +14,7 @@ const NavBar = () => {
   ];
 
   return (
-    <nav className="fixed top-0 w-full z-50 glass">
+    <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -36,7 +36,7 @@ const NavBar = () => {
             <div className="relative">
               <button 
                 onClick={() => setIsSolutionsOpen(!isSolutionsOpen)}
-                className="nav-link inline-flex items-center"
+                className="inline-flex items-center text-gray-600 hover:text-primary-700 font-medium px-3 py-2 rounded-lg hover:bg-primary-50 transition-colors"
               >
                 Solutions
                 <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${isSolutionsOpen ? 'rotate-180' : ''}`} />
@@ -55,7 +55,7 @@ const NavBar = () => {
               <a 
                 key={item.label} 
                 href={item.href}
-                className="nav-link"
+                className="text-gray-600 hover:text-primary-700 font-medium px-3 py-2 rounded-lg hover:bg-primary-50 transition-colors"
               >
                 {item.label}
               </a>
@@ -67,7 +67,7 @@ const NavBar = () => {
             <Link to="/login" className="text-gray-700 hover:text-primary-700 font-medium">
               Sign In
             </Link>
-            <Link to="/dashboard" className="btn-primary">
+            <Link to="/dashboard" className="bg-gradient-to-r from-primary-600 to-primary-700 text-white px-6 py-3 rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 transition-all duration-300 shadow-lg shadow-primary-500/20 hover:shadow-xl hover:shadow-primary-500/30">
               Get Started Free
             </Link>
           </div>
@@ -108,7 +108,7 @@ const NavBar = () => {
                 </Link>
                 <Link 
                   to="/dashboard" 
-                  className="btn-primary block text-center"
+                  className="bg-gradient-to-r from-primary-600 to-primary-700 text-white px-6 py-3 rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 transition-all duration-300 text-center block"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Get Started Free

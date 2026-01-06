@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Bell, Mail, Smartphone, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
 const NotificationSettings = () => {
+  const { isDarkMode } = useTheme();
   const [notifications, setNotifications] = useState({
     email: {
       newInvoice: true,
@@ -66,13 +68,29 @@ const NotificationSettings = () => {
   ];
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
+    <div className={`border rounded-xl p-6 ${
+      isDarkMode 
+        ? 'bg-gray-800 border-gray-700' 
+        : 'bg-white border-gray-200'
+    }`}>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Notification Settings</h3>
-          <p className="text-gray-600 mt-1">Choose how you want to receive notifications</p>
+          <h3 className={`text-lg font-semibold ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            Notification Settings
+          </h3>
+          <p className={`mt-1 ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            Choose how you want to receive notifications
+          </p>
         </div>
-        <button className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+        <button className={`px-4 py-2 border rounded-lg ${
+          isDarkMode 
+            ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
+            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+        }`}>
           Reset to Default
         </button>
       </div>
@@ -81,14 +99,26 @@ const NotificationSettings = () => {
         {notificationCategories.map((category) => {
           const Icon = category.icon;
           return (
-            <div key={category.type} className="border border-gray-200 rounded-lg p-6">
+            <div key={category.type} className={`border rounded-lg p-6 ${
+              isDarkMode 
+                ? 'border-gray-700 bg-gray-800/50' 
+                : 'border-gray-200 bg-gray-50/50'
+            }`}>
               <div className="flex items-center mb-6">
-                <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mr-4">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-4 ${
+                  isDarkMode ? 'bg-primary-900/30' : 'bg-primary-100'
+                }`}>
                   <Icon className="w-5 h-5 text-primary-600" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900">{category.title}</h4>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <h4 className={`font-semibold ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    {category.title}
+                  </h4>
+                  <p className={`text-sm mt-1 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
                     {category.type === 'email' && 'Notifications sent to your email address'}
                     {category.type === 'push' && 'Notifications on your desktop and mobile devices'}
                     {category.type === 'sms' && 'Text message notifications'}
@@ -98,10 +128,20 @@ const NotificationSettings = () => {
 
               <div className="space-y-4">
                 {category.items.map((item) => (
-                  <div key={item.key} className="flex items-center justify-between py-4 border-b border-gray-100 last:border-0">
+                  <div key={item.key} className={`flex items-center justify-between py-4 border-b last:border-0 ${
+                    isDarkMode ? 'border-gray-700' : 'border-gray-100'
+                  }`}>
                     <div className="flex-1">
-                      <div className="font-medium text-gray-900">{item.label}</div>
-                      <div className="text-sm text-gray-600 mt-1">{item.description}</div>
+                      <div className={`font-medium ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        {item.label}
+                      </div>
+                      <div className={`text-sm mt-1 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        {item.description}
+                      </div>
                     </div>
                     <button
                       onClick={() => toggleNotification(category.type, item.key)}
@@ -110,7 +150,9 @@ const NotificationSettings = () => {
                       {notifications[category.type][item.key] ? (
                         <ToggleRight className="w-10 h-6 text-primary-600" />
                       ) : (
-                        <ToggleLeft className="w-10 h-6 text-gray-400" />
+                        <ToggleLeft className={`w-10 h-6 ${
+                          isDarkMode ? 'text-gray-600' : 'text-gray-400'
+                        }`} />
                       )}
                     </button>
                   </div>
@@ -121,14 +163,26 @@ const NotificationSettings = () => {
         })}
       </div>
 
-      <div className="mt-8 pt-6 border-t border-gray-200">
-        <h4 className="font-medium text-gray-900 mb-4">Notification Schedule</h4>
+      <div className={`mt-8 pt-6 border-t ${
+        isDarkMode ? 'border-gray-700' : 'border-gray-200'
+      }`}>
+        <h4 className={`font-medium mb-4 ${
+          isDarkMode ? 'text-white' : 'text-gray-900'
+        }`}>
+          Notification Schedule
+        </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={`block text-sm font-medium mb-2 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Quiet Hours Start
             </label>
-            <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <select className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'border-gray-300 text-gray-900'
+            }`}>
               <option>8:00 PM</option>
               <option>9:00 PM</option>
               <option>10:00 PM</option>
@@ -136,10 +190,16 @@ const NotificationSettings = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={`block text-sm font-medium mb-2 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Quiet Hours End
             </label>
-            <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <select className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'border-gray-300 text-gray-900'
+            }`}>
               <option>7:00 AM</option>
               <option>8:00 AM</option>
               <option>9:00 AM</option>

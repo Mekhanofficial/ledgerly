@@ -4,8 +4,10 @@ import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import SettingsSidebar from '../../components/settings/SettingsSidebar';
 import AccountSettings from '../../components/settings/AccountSettings';
 import NotificationSettings from '../../components/settings/NotificationSettings';
+import { useTheme } from '../../context/ThemeContext';
 
 const Settings = () => {
+  const { isDarkMode } = useTheme();
   const [activeSection, setActiveSection] = useState('account');
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -32,46 +34,118 @@ const Settings = () => {
     }
   };
 
-  // Placeholder components for other sections
+  // Placeholder components with dark mode
   const SecuritySettings = () => (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-gray-900">Security Settings</h3>
-      <p className="text-gray-600 mt-1">Manage password, 2FA, and security preferences</p>
+    <div className={`border rounded-xl p-6 ${
+      isDarkMode 
+        ? 'bg-gray-800 border-gray-700' 
+        : 'bg-white border-gray-200'
+    }`}>
+      <h3 className={`text-lg font-semibold ${
+        isDarkMode ? 'text-white' : 'text-gray-900'
+      }`}>
+        Security Settings
+      </h3>
+      <p className={`mt-1 ${
+        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+      }`}>
+        Manage password, 2FA, and security preferences
+      </p>
     </div>
   );
 
   const BillingSettings = () => (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-gray-900">Billing & Plan</h3>
-      <p className="text-gray-600 mt-1">Manage subscription, payment methods, and invoices</p>
+    <div className={`border rounded-xl p-6 ${
+      isDarkMode 
+        ? 'bg-gray-800 border-gray-700' 
+        : 'bg-white border-gray-200'
+    }`}>
+      <h3 className={`text-lg font-semibold ${
+        isDarkMode ? 'text-white' : 'text-gray-900'
+      }`}>
+        Billing & Plan
+      </h3>
+      <p className={`mt-1 ${
+        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+      }`}>
+        Manage subscription, payment methods, and invoices
+      </p>
     </div>
   );
 
   const TeamSettings = () => (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-gray-900">Team Management</h3>
-      <p className="text-gray-600 mt-1">Add team members and manage permissions</p>
+    <div className={`border rounded-xl p-6 ${
+      isDarkMode 
+        ? 'bg-gray-800 border-gray-700' 
+        : 'bg-white border-gray-200'
+    }`}>
+      <h3 className={`text-lg font-semibold ${
+        isDarkMode ? 'text-white' : 'text-gray-900'
+      }`}>
+        Team Management
+      </h3>
+      <p className={`mt-1 ${
+        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+      }`}>
+        Add team members and manage permissions
+      </p>
     </div>
   );
 
   const AppearanceSettings = () => (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-gray-900">Appearance</h3>
-      <p className="text-gray-600 mt-1">Customize theme, colors, and layout</p>
+    <div className={`border rounded-xl p-6 ${
+      isDarkMode 
+        ? 'bg-gray-800 border-gray-700' 
+        : 'bg-white border-gray-200'
+    }`}>
+      <h3 className={`text-lg font-semibold ${
+        isDarkMode ? 'text-white' : 'text-gray-900'
+      }`}>
+        Appearance
+      </h3>
+      <p className={`mt-1 ${
+        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+      }`}>
+        Customize theme, colors, and layout
+      </p>
     </div>
   );
 
   const DataSettings = () => (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-gray-900">Data & Privacy</h3>
-      <p className="text-gray-600 mt-1">Manage data export, backup, and privacy settings</p>
+    <div className={`border rounded-xl p-6 ${
+      isDarkMode 
+        ? 'bg-gray-800 border-gray-700' 
+        : 'bg-white border-gray-200'
+    }`}>
+      <h3 className={`text-lg font-semibold ${
+        isDarkMode ? 'text-white' : 'text-gray-900'
+      }`}>
+        Data & Privacy
+      </h3>
+      <p className={`mt-1 ${
+        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+      }`}>
+        Manage data export, backup, and privacy settings
+      </p>
     </div>
   );
 
   const IntegrationSettings = () => (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-gray-900">Integrations</h3>
-      <p className="text-gray-600 mt-1">Connect with other apps and services</p>
+    <div className={`border rounded-xl p-6 ${
+      isDarkMode 
+        ? 'bg-gray-800 border-gray-700' 
+        : 'bg-white border-gray-200'
+    }`}>
+      <h3 className={`text-lg font-semibold ${
+        isDarkMode ? 'text-white' : 'text-gray-900'
+      }`}>
+        Integrations
+      </h3>
+      <p className={`mt-1 ${
+        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+      }`}>
+        Connect with other apps and services
+      </p>
     </div>
   );
 
@@ -81,8 +155,16 @@ const Settings = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-600 mt-1">Manage your account and preferences</p>
+            <h1 className={`text-2xl md:text-3xl font-bold ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Settings
+            </h1>
+            <p className={`mt-1 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Manage your account and preferences
+            </p>
           </div>
           <div className="flex items-center space-x-3 mt-4 md:mt-0">
             {hasChanges && (
@@ -108,20 +190,52 @@ const Settings = () => {
         </div>
 
         {/* System Info */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">System Information</h3>
+        <div className={`border rounded-xl p-6 ${
+          isDarkMode 
+            ? 'bg-gray-800 border-gray-700' 
+            : 'bg-white border-gray-200'
+        }`}>
+          <h3 className={`text-lg font-semibold mb-4 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            System Information
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <div className="text-sm text-gray-600">App Version</div>
-              <div className="font-medium text-gray-900">Ledgerly v2.4.1</div>
+              <div className={`text-sm ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                App Version
+              </div>
+              <div className={`font-medium ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                Ledgerly v2.4.1
+              </div>
             </div>
             <div>
-              <div className="text-sm text-gray-600">Last Updated</div>
-              <div className="font-medium text-gray-900">Dec 15, 2024</div>
+              <div className={`text-sm ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Last Updated
+              </div>
+              <div className={`font-medium ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                Dec 15, 2024
+              </div>
             </div>
             <div>
-              <div className="text-sm text-gray-600">Storage Used</div>
-              <div className="font-medium text-gray-900">245 MB / 5 GB</div>
+              <div className={`text-sm ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Storage Used
+              </div>
+              <div className={`font-medium ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                245 MB / 5 GB
+              </div>
             </div>
           </div>
         </div>

@@ -60,7 +60,7 @@ const Pricing = () => {
   ];
 
   return (
-    <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
+    <section className="py-20 bg-gradient-to-b from-gray-50 to-white" id="pricing">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -115,8 +115,8 @@ const Pricing = () => {
                 to={plan.ctaLink}
                 className={`w-full py-4 rounded-xl font-semibold text-center block transition-all duration-300 ${
                   plan.popular 
-                    ? 'btn-primary' 
-                    : 'btn-secondary'
+                    ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white hover:from-primary-700 hover:to-primary-800 shadow-lg shadow-primary-500/20 hover:shadow-xl hover:shadow-primary-500/30' 
+                    : 'bg-white text-primary-700 border-2 border-primary-200 hover:bg-primary-50 hover:border-primary-300 shadow-sm hover:shadow-md'
                 }`}
               >
                 {plan.ctaText}

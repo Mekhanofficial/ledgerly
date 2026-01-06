@@ -1,7 +1,10 @@
 import React from 'react';
 import { User, Shield, Bell, CreditCard, Users, Palette, Database, Globe } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
 const SettingsSidebar = ({ activeSection, onSectionChange }) => {
+  const { isDarkMode } = useTheme();
+  
   const sections = [
     { id: 'account', label: 'Account', icon: User },
     { id: 'security', label: 'Security', icon: Shield },
@@ -14,8 +17,16 @@ const SettingsSidebar = ({ activeSection, onSectionChange }) => {
   ];
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4">
-      <h3 className="font-semibold text-gray-900 mb-4">Settings</h3>
+    <div className={`border rounded-xl p-4 ${
+      isDarkMode 
+        ? 'bg-gray-800 border-gray-700' 
+        : 'bg-white border-gray-200'
+    }`}>
+      <h3 className={`font-semibold mb-4 ${
+        isDarkMode ? 'text-white' : 'text-gray-900'
+      }`}>
+        Settings
+      </h3>
       <nav className="space-y-1">
         {sections.map((section) => {
           const Icon = section.icon;
@@ -26,8 +37,12 @@ const SettingsSidebar = ({ activeSection, onSectionChange }) => {
               className={`
                 w-full flex items-center px-3 py-3 rounded-lg text-sm transition-colors
                 ${activeSection === section.id
-                  ? 'bg-primary-50 text-primary-700 font-medium'
-                  : 'text-gray-700 hover:bg-gray-50'
+                  ? isDarkMode
+                    ? 'bg-primary-900/30 text-primary-400 font-medium'
+                    : 'bg-primary-50 text-primary-700 font-medium'
+                  : isDarkMode
+                    ? 'text-gray-300 hover:bg-gray-700'
+                    : 'text-gray-700 hover:bg-gray-50'
                 }
               `}
             >

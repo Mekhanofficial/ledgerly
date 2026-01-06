@@ -15,16 +15,14 @@ import {
   FileArchive,
   CreditCard,
   Calendar,
-  Mail,
-  Moon,
-  Sun
+  Mail
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../../context/ThemeContext';
 
 const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
-  const { isDarkMode, toggleTheme } = useTheme();
+  useTheme(); // Removed toggleTheme since we're removing the button
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', badge: null },
@@ -180,26 +178,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
 
         {/* Bottom Menu */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-          {/* Theme Toggle - Added to sidebar */}
-          <button
-            onClick={toggleTheme}
-            className={`w-full flex items-center px-3 py-3 rounded-lg transition-colors mb-4 ${
-              isDarkMode
-                ? 'bg-gray-800 text-white hover:bg-gray-700'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5" />
-            ) : (
-              <Moon className="w-5 h-5" />
-            )}
-            {isOpen && (
-              <span className="ml-3 font-medium">
-                {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-              </span>
-            )}
-          </button>
+          {/* Removed Theme Toggle button from here */}
 
           <nav className="space-y-1">
             {bottomMenuItems.map((item) => (
@@ -251,24 +230,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         </div>
 
         <div className="overflow-y-auto h-full py-4 px-3">
-          {/* Theme Toggle for Mobile */}
-          <button
-            onClick={toggleTheme}
-            className={`w-full flex items-center px-3 py-3 rounded-lg transition-colors mb-4 ${
-              isDarkMode
-                ? 'bg-gray-800 text-white hover:bg-gray-700'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5 mr-3" />
-            ) : (
-              <Moon className="w-5 h-5 mr-3" />
-            )}
-            <span className="font-medium">
-              {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-            </span>
-          </button>
+          {/* Removed Theme Toggle for Mobile as well */}
 
           <nav className="space-y-1">
             {[...menuItems, ...bottomMenuItems].map((item) => (

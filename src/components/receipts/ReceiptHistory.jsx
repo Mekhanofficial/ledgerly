@@ -1,39 +1,106 @@
-import React from 'react';
-import { Eye, Printer, Mail, CreditCard, Wallet, Smartphone } from 'lucide-react';
+// src/components/receipts/ReceiptHistory.js
+import React, { useState, useEffect } from 'react';
+import { Eye, Printer, Mail, CreditCard, Wallet, Smartphone, Download, Trash2, RefreshCw } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useToast } from '../../context/ToastContext';
+import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
 
-const ReceiptHistory = ({ receipts }) => {
+const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted }) => {
   const { isDarkMode } = useTheme();
-  
-  const recentReceipts = [
-    {
-      id: 'RCP-2024-098',
-      date: 'Dec 16, 2024',
-      customer: 'Walk-in Customer',
-      amount: 89.50,
-      paymentMethod: 'Card',
-      status: 'completed',
-      icon: CreditCard
-    },
-    {
-      id: 'RCP-2024-097',
-      date: 'Dec 16, 2024',
-      customer: 'sarahj@email.com',
-      amount: 156.25,
-      paymentMethod: 'Cash',
-      status: 'completed',
-      icon: Wallet
-    },
-    {
-      id: 'RCP-2024-096',
-      date: 'Dec 15, 2024',
-      customer: 'mike.chen@email.com',
-      amount: 42.75,
-      paymentMethod: 'Mobile Money',
-      status: 'completed',
-      icon: Smartphone
+  const { addToast } = useToast();
+  const [loading, setLoading] = useState(false);
+
+  // Listen for storage changes and custom events
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'invoiceflow_receipts' || e.type === 'receiptsUpdated') {
+        if (onRefresh) {
+          onRefresh();
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('receiptsUpdated', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('receiptsUpdated', handleStorageChange);
+    };
+  }, [onRefresh]);
+
+  const handleReprint = (receipt) => {
+    try {
+      const pdfDoc = generateReceiptPDF(receipt);
+      pdfDoc.save(`${receipt.id}-reprint.pdf`);
+      addToast(`Receipt ${receipt.id} reprinted`, 'success');
+    } catch (error) {
+      addToast('Error reprinting receipt', 'error');
     }
-  ];
+  };
+
+  const handleResendEmail = (receipt) => {
+    if (!receipt.customerEmail) {
+      addToast('No email address found for this receipt', 'warning');
+      return;
+    }
+
+    const emailBody = `
+Receipt Reprint: ${receipt.id}
+
+Original Purchase Date: ${receipt.date}
+
+Items:
+${receipt.items?.map(item => 
+  `- ${item.name}: ${item.quantity} × $${item.price?.toFixed(2) || '0.00'} = $${((item.price || 0) * item.quantity).toFixed(2)}`
+).join('\n') || 'No items found'}
+
+Subtotal: $${receipt.subtotal?.toFixed(2) || '0.00'}
+Tax (8.5%): $${receipt.tax?.toFixed(2) || '0.00'}
+Total: $${receipt.total?.toFixed(2) || '0.00'}
+
+Thank you for shopping with us!
+    `;
+
+    const subject = encodeURIComponent(`Receipt Reprint: ${receipt.id}`);
+    const body = encodeURIComponent(emailBody);
+    const mailtoLink = `mailto:${receipt.customerEmail}?subject=${subject}&body=${body}`;
+    
+    window.open(mailtoLink, '_blank');
+    addToast(`Email opened for ${receipt.id}`, 'success');
+  };
+
+  const handleDownloadPDF = (receipt) => {
+    try {
+      const pdfDoc = generateReceiptPDF(receipt);
+      pdfDoc.save(`${receipt.id}.pdf`);
+      addToast(`Receipt ${receipt.id} downloaded`, 'success');
+    } catch (error) {
+      addToast('Error downloading receipt', 'error');
+    }
+  };
+
+  const handleDeleteReceipt = (receiptId) => {
+    if (window.confirm('Are you sure you want to delete this receipt?')) {
+      try {
+        const currentReceipts = JSON.parse(localStorage.getItem('invoiceflow_receipts') || '[]');
+        const updatedReceipts = currentReceipts.filter(receipt => receipt.id !== receiptId);
+        localStorage.setItem('invoiceflow_receipts', JSON.stringify(updatedReceipts));
+        
+        // Dispatch custom event to notify all components
+        window.dispatchEvent(new CustomEvent('receiptsUpdated'));
+        
+        // Call parent callback to update state
+        if (onReceiptDeleted) {
+          onReceiptDeleted();
+        }
+        
+        addToast('Receipt deleted successfully', 'success');
+      } catch (error) {
+        addToast('Error deleting receipt', 'error');
+      }
+    }
+  };
 
   const getPaymentMethodColor = (method) => {
     const colors = {
@@ -53,6 +120,28 @@ const ReceiptHistory = ({ receipts }) => {
     return icons[method] || CreditCard;
   };
 
+  const handleRefresh = () => {
+    if (onRefresh) {
+      setLoading(true);
+      onRefresh();
+      setTimeout(() => setLoading(false), 500);
+    }
+  };
+
+  const handleViewReceipt = (receipt) => {
+    // Generate and open PDF in new tab
+    try {
+      const pdfDoc = generateReceiptPDF(receipt);
+      const pdfBlob = pdfDoc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+      addToast(`Opening receipt ${receipt.id}`, 'info');
+    } catch (error) {
+      addToast('Error viewing receipt', 'error');
+    }
+  };
+
   return (
     <div className={`border rounded-xl overflow-hidden ${
       isDarkMode 
@@ -64,137 +153,210 @@ const ReceiptHistory = ({ receipts }) => {
           ? 'bg-gray-700 border-gray-600' 
           : 'bg-gray-50 border-gray-200'
       }`}>
-        <h3 className={`text-lg font-semibold ${
-          isDarkMode ? 'text-white' : 'text-gray-900'
-        }`}>
-          Recent Receipts
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className={`text-lg font-semibold ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            Recent Receipts ({receipts.length})
+          </h3>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className={`p-2 rounded-lg transition-colors ${
+                isDarkMode
+                  ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+              } ${loading ? 'animate-spin' : ''}`}
+              title="Refresh"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
       
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
-            <tr>
-              <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-500'
-              }`}>
-                Receipt #
-              </th>
-              <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-500'
-              }`}>
-                Date
-              </th>
-              <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-500'
-              }`}>
-                Customer
-              </th>
-              <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-500'
-              }`}>
-                Amount
-              </th>
-              <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-500'
-              }`}>
-                Payment Method
-              </th>
-              <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-500'
-              }`}>
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className={`divide-y divide-gray-200 dark:divide-gray-700 ${
-            isDarkMode ? 'bg-gray-800' : 'bg-white'
+      {receipts.length === 0 ? (
+        <div className="p-6 text-center">
+          <div className={`text-lg font-medium mb-2 ${
+            isDarkMode ? 'text-gray-300' : 'text-gray-700'
           }`}>
-            {recentReceipts.map((receipt) => {
-              const PaymentIcon = getPaymentIcon(receipt.paymentMethod);
-              return (
-                <tr key={receipt.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`font-medium ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {receipt.id}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                    }`}>
-                      {receipt.date}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm font-medium ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {receipt.customer}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm font-bold ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      ${receipt.amount.toFixed(2)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <PaymentIcon className={`w-4 h-4 mr-2 ${
+            No receipt history
+          </div>
+          <div className={`text-sm ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+          }`}>
+            Generate receipts to see them here
+          </div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                  Receipt #
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                  Items
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                  Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                  Payment
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {receipts.slice(0, 10).map((receipt) => {
+                const PaymentIcon = getPaymentIcon(receipt.paymentMethod);
+                const receiptDate = receipt.savedAt 
+                  ? new Date(receipt.savedAt).toLocaleDateString()
+                  : new Date().toLocaleDateString();
+                  
+                return (
+                  <tr key={receipt.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
+                    <td className="px-6 py-4">
+                      <div className={`font-medium cursor-pointer hover:text-primary-600 ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`} onClick={() => handleViewReceipt(receipt)}>
+                        {receipt.id}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className={`text-sm ${
                         isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                      }`} />
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentMethodColor(receipt.paymentMethod)}`}>
-                        {receipt.paymentMethod}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-2">
-                      <button 
-                        className={`flex items-center px-3 py-1 text-sm rounded-lg ${
-                          isDarkMode 
-                            ? 'text-gray-300 hover:bg-gray-700' 
-                            : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                        title="View"
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        View
-                      </button>
-                      <button 
-                        className={`flex items-center px-3 py-1 text-sm rounded-lg ${
-                          isDarkMode 
-                            ? 'text-blue-400 hover:bg-blue-900/20' 
-                            : 'text-blue-600 hover:bg-blue-50'
-                        }`}
-                        title="Reprint"
-                      >
-                        <Printer className="w-4 h-4 mr-1" />
-                        Reprint
-                      </button>
-                      <button 
-                        className={`flex items-center px-3 py-1 text-sm rounded-lg ${
-                          isDarkMode 
-                            ? 'text-green-400 hover:bg-green-900/20' 
-                            : 'text-green-600 hover:bg-green-50'
-                        }`}
-                        title="Resend Email"
-                      >
-                        <Mail className="w-4 h-4 mr-1" />
-                        Email
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                      }`}>
+                        {receiptDate}
+                        <div className="text-xs">
+                          {receipt.date?.split(',')[1]?.trim() || ''}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className={`text-sm ${
+                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>
+                        {receipt.items?.length || 0} items
+                        {receipt.customerEmail && (
+                          <div className="text-xs truncate max-w-[150px]" title={receipt.customerEmail}>
+                            📧 {receipt.customerEmail}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className={`font-bold ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        ${receipt.total?.toFixed(2) || '0.00'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <PaymentIcon className={`w-4 h-4 mr-2 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                        }`} />
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentMethodColor(receipt.paymentMethod)}`}>
+                          {receipt.paymentMethod || 'Cash'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-2">
+                        <button 
+                          onClick={() => handleViewReceipt(receipt)}
+                          className={`p-2 rounded transition-colors ${
+                            isDarkMode 
+                              ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                              : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                          }`}
+                          title="View"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDownloadPDF(receipt)}
+                          className={`p-2 rounded transition-colors ${
+                            isDarkMode 
+                              ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                              : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                          }`}
+                          title="Download PDF"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleReprint(receipt)}
+                          className={`p-2 rounded transition-colors ${
+                            isDarkMode 
+                              ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/20' 
+                              : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+                          }`}
+                          title="Reprint"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleResendEmail(receipt)}
+                          className={`p-2 rounded transition-colors ${
+                            isDarkMode 
+                              ? 'text-green-400 hover:text-green-300 hover:bg-green-900/20' 
+                              : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                          }`}
+                          title="Resend Email"
+                          disabled={!receipt.customerEmail}
+                        >
+                          <Mail className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteReceipt(receipt.id)}
+                          className={`p-2 rounded transition-colors ${
+                            isDarkMode 
+                              ? 'text-red-400 hover:text-red-300 hover:bg-red-900/20' 
+                              : 'text-red-600 hover:text-red-700 hover:bg-red-50'
+                          }`}
+                          title="Delete Receipt"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pagination and Summary */}
+      {receipts.length > 0 && (
+        <div className={`px-6 py-4 border-t ${
+          isDarkMode ? 'border-gray-700' : 'border-gray-200'
+        }`}>
+          <div className="flex flex-col md:flex-row md:items-center justify-between">
+            <div className={`text-sm ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-500'
+            }`}>
+              Showing {Math.min(10, receipts.length)} of {receipts.length} receipts
+            </div>
+            <div className={`text-sm mt-2 md:mt-0 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              Total Revenue: $
+              {receipts.reduce((sum, receipt) => sum + (receipt.total || 0), 0).toFixed(2)}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -27,7 +27,7 @@ const Testimonials = () => {
   ];
 
   return (
-    <section className="py-20 bg-gray-900">
+    <section className="py-20 bg-gray-900" id="testimonials">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
@@ -41,7 +41,7 @@ const Testimonials = () => {
         
         <div className="grid md:grid-cols-3 gap-8">
           {testimonials.map((testimonial, idx) => (
-            <div key={idx} className="glass-dark rounded-2xl p-8 hover:border-primary-500/50 transition-all duration-300">
+            <div key={idx} className="bg-gray-800/90 backdrop-blur-md rounded-2xl p-8 border border-gray-700 hover:border-primary-500/50 transition-all duration-300">
               <div className="flex items-center mb-6">
                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg">
                   {testimonial.avatar}
