@@ -10,7 +10,7 @@ export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((message, type = 'info', duration = 5000) => {
-    const id = Date.now();
+    const id = Date.now() + Math.random(); // Add random to ensure unique keys
     const newToast = { 
       id, 
       message, 
@@ -76,53 +76,6 @@ export const ToastProvider = ({ children }) => {
     }
   };
 
-  // Add CSS styles dynamically
-  const toastStyles = `
-    @keyframes slideInRight {
-      from {
-        transform: translateX(100%);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
-    }
-    
-    @keyframes slideOutRight {
-      from {
-        transform: translateX(0);
-        opacity: 1;
-      }
-      to {
-        transform: translateX(100%);
-        opacity: 0;
-      }
-    }
-    
-    .toast-enter {
-      animation: slideInRight 0.3s ease-out;
-    }
-    
-    .toast-exit {
-      animation: slideOutRight 0.3s ease-out;
-    }
-    
-    .toast-progress {
-      animation: shrink linear forwards;
-      animation-duration: 5s;
-    }
-    
-    @keyframes shrink {
-      from {
-        width: 100%;
-      }
-      to {
-        width: 0%;
-      }
-    }
-  `;
-
   return (
     <ToastContext.Provider value={{ 
       addToast, 
@@ -130,7 +83,6 @@ export const ToastProvider = ({ children }) => {
       clearAllToasts,
       toasts 
     }}>
-      <style>{toastStyles}</style>
       {children}
       
       {/* Toast Container */}
@@ -139,21 +91,25 @@ export const ToastProvider = ({ children }) => {
           {toasts.map((toast) => (
             <div
               key={toast.id}
-              className={`toast-enter relative min-w-[320px] max-w-md rounded-lg border shadow-lg ${getBgColor(toast.type)}`}
+              className={`animate-in slide-in-from-right fade-in duration-300 relative min-w-[320px] max-w-md rounded-lg border shadow-lg ${getBgColor(toast.type)}`}
             >
               {/* Progress Bar */}
-              <div className={`absolute top-0 left-0 h-1 ${getBgColor(toast.type).replace('bg-', 'bg-').replace('/20', '')}`}>
-                <div className={`h-full ${getBgColor(toast.type).replace('bg-', 'bg-').replace('/20', '')} toast-progress`}></div>
+              <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-lg overflow-hidden`}>
+                <div 
+                  className={`h-full ${getBgColor(toast.type).replace('bg-', 'bg-').replace('/20', '')} animate-progress`}
+                  style={{ animationDuration: '5s' }}
+                ></div>
               </div>
               
               {/* Toast Content */}
-              <div className="flex items-start p-4">
+              <div className="flex items-start p-4 pt-5">
                 <div className="flex-shrink-0 mr-3">
                   {getIcon(toast.type)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium ${getTextColor(toast.type)}`}>
-                    {toast.message}
+                    {/* Ensure message is a string */}
+                    {typeof toast.message === 'string' ? toast.message : JSON.stringify(toast.message)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {toast.timestamp}
@@ -172,12 +128,14 @@ export const ToastProvider = ({ children }) => {
           
           {/* Clear All Button */}
           {toasts.length > 1 && (
-            <button
-              onClick={clearAllToasts}
-              className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 ml-auto block"
-            >
-              Clear all ({toasts.length})
-            </button>
+            <div className="text-right">
+              <button
+                onClick={clearAllToasts}
+                className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                Clear all ({toasts.length})
+              </button>
+            </div>
           )}
         </div>
       )}

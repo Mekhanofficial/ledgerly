@@ -24,55 +24,31 @@ import {
   CreditCard,
   FileCheck,
   ShoppingCart,
-  BarChart
+  BarChart,
+  XCircle,
+  Clock,
+  FileArchive,
+  DollarSign
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../../../context/ThemeContext';
+import { useNotifications } from '../../../context/NotificationContext';
 
 const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   const { isDarkMode, toggleTheme } = useTheme();
+  const { 
+    notifications, 
+    unreadCount, 
+    markAsRead, 
+    markAllAsRead, 
+    clearAll,
+    getRecentNotifications 
+  } = useNotifications();
+  
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [searchWidth, setSearchWidth] = useState('max-w-2xl');
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState([
-    { 
-      id: 1, 
-      text: 'Payment received from Acme Corp', 
-      time: '2 min ago', 
-      read: false,
-      icon: CheckCircle,
-      color: 'text-green-600 dark:text-green-400',
-      bgColor: 'bg-green-100 dark:bg-green-900/20'
-    },
-    { 
-      id: 2, 
-      text: 'Invoice #INV-2024-100 is overdue', 
-      time: '1 hour ago', 
-      read: false,
-      icon: AlertCircle,
-      color: 'text-red-600 dark:text-red-400',
-      bgColor: 'bg-red-100 dark:bg-red-900/20'
-    },
-    { 
-      id: 3, 
-      text: 'Low stock alert: Wireless Mouse', 
-      time: '3 hours ago', 
-      read: true,
-      icon: Info,
-      color: 'text-amber-600 dark:text-amber-400',
-      bgColor: 'bg-amber-100 dark:bg-amber-900/20'
-    },
-    { 
-      id: 4, 
-      text: 'New customer registered: TechStart Inc', 
-      time: '5 hours ago', 
-      read: true,
-      icon: Users,
-      color: 'text-blue-600 dark:text-blue-400',
-      bgColor: 'bg-blue-100 dark:bg-blue-900/20'
-    },
-  ]);
   const [showNotifications, setShowNotifications] = useState(false);
 
   const userMenuRef = useRef(null);
@@ -117,29 +93,44 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
     }
   };
 
-  // Mark notification as read
-  const markAsRead = (id) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id ? { ...notification, read: true } : notification
-      )
-    );
+  // Handle notification click
+  const handleNotificationClick = (id, link) => {
+    markAsRead(id);
+    navigate(link);
+    setShowNotifications(false);
   };
 
-  // Mark all as read
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, read: true }))
-    );
+  // Get icon component based on notification icon type
+  const getNotificationIcon = (iconType) => {
+    switch(iconType) {
+      case 'CheckCircle': return CheckCircle;
+      case 'AlertCircle': return AlertCircle;
+      case 'Info': return Info;
+      case 'Users': return Users;
+      case 'DollarSign': return DollarSign;
+      case 'FileText': return FileText;
+      case 'Clock': return Clock;
+      case 'Bell': return Bell;
+      case 'Package': return Package;
+      default: return Bell;
+    }
   };
 
-  // Clear all notifications
-  const clearAllNotifications = () => {
-    setNotifications([]);
+  // Get color based on notification type
+  const getNotificationColor = (type) => {
+    switch(type) {
+      case 'new-invoice': return 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20';
+      case 'new-customer': return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20';
+      case 'overdue': return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
+      case 'payment': return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20';
+      case 'warning': return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20';
+      case 'info': return 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20';
+      default: return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50';
+    }
   };
 
-  // Unread notification count
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // Get recent notifications (limit to 5 for dropdown)
+  const recentNotifications = getRecentNotifications(5);
 
   // Create menu items with actual navigation
   const createItems = [
@@ -169,7 +160,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       description: 'New customer record',
       icon: Users,
       color: 'bg-amber-100 dark:bg-amber-900 text-amber-600 dark:text-amber-300',
-      path: '/customers/new'
+      path: '/customers'
     }
   ];
 
@@ -236,6 +227,22 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
     { label: 'Customers', value: '156', icon: Users },
     { label: 'Revenue', value: '$12.5k', icon: Briefcase }
   ];
+
+  // Format relative time
+  const formatRelativeTime = (timestamp) => {
+    const now = new Date();
+    const notificationTime = new Date(timestamp);
+    const diffMs = now - notificationTime;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return notificationTime.toLocaleDateString();
+  };
 
   return (
     <header className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
@@ -377,7 +384,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                 <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 {unreadCount > 0 && (
                   <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {unreadCount}
+                    {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
@@ -398,7 +405,10 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                       <div className="flex items-center space-x-2">
                         {unreadCount > 0 && (
                           <button
-                            onClick={markAllAsRead}
+                            onClick={() => {
+                              markAllAsRead();
+                              setShowNotifications(false);
+                            }}
                             className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 px-3 py-1 rounded-md hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                           >
                             Mark all read
@@ -406,7 +416,10 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                         )}
                         {notifications.length > 0 && (
                           <button
-                            onClick={clearAllNotifications}
+                            onClick={() => {
+                              clearAll();
+                              setShowNotifications(false);
+                            }}
                             className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 px-3 py-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                           >
                             Clear all
@@ -418,34 +431,42 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                   
                   {/* Notifications List */}
                   <div className="max-h-[320px] overflow-y-auto">
-                    {notifications.length === 0 ? (
+                    {recentNotifications.length === 0 ? (
                       <div className="px-6 py-12 text-center">
                         <Bell className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
                         <p className="text-sm text-gray-500 dark:text-gray-400">No notifications</p>
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">You're all caught up!</p>
                       </div>
                     ) : (
-                      notifications.map((notification) => {
-                        const Icon = notification.icon;
+                      recentNotifications.map((notification) => {
+                        const Icon = getNotificationIcon(notification.icon || 'Bell');
                         return (
                           <button
                             key={notification.id}
-                            onClick={() => markAsRead(notification.id)}
+                            onClick={() => handleNotificationClick(notification.id, notification.link)}
                             className={`w-full text-left px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
                               !notification.read ? 'bg-blue-50 dark:bg-blue-900/10' : ''
                             }`}
                           >
                             <div className="flex items-start space-x-4">
-                              <div className={`w-10 h-10 rounded-lg ${notification.bgColor} flex items-center justify-center flex-shrink-0`}>
-                                <Icon className={`w-5 h-5 ${notification.color}`} />
+                              <div className={`w-10 h-10 rounded-lg ${getNotificationColor(notification.type)} flex items-center justify-center flex-shrink-0`}>
+                                <Icon className="w-5 h-5" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm text-gray-900 dark:text-white leading-relaxed">
-                                  {notification.text}
+                                <p className="text-sm font-medium text-gray-900 dark:text-white leading-relaxed">
+                                  {notification.title}
                                 </p>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                  {notification.description}
+                                </p>
+                                {notification.details && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    {notification.details}
+                                  </p>
+                                )}
                                 <div className="flex items-center justify-between mt-2">
                                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {notification.time}
+                                    {formatRelativeTime(notification.timestamp)}
                                   </p>
                                   {!notification.read && (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
@@ -466,9 +487,10 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                     <Link
                       to="/notifications"
                       className="flex items-center justify-center w-full px-4 py-2 text-sm text-primary-600 dark:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      onClick={() => setShowNotifications(false)}
                     >
                       <Bell className="w-4 h-4 mr-2" />
-                      View all notifications
+                      View all notifications ({notifications.length})
                     </Link>
                   </div>
                 </div>

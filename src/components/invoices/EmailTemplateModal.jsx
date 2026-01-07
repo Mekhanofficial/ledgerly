@@ -26,8 +26,8 @@ const EmailTemplateModal = ({ subject, message, onSave, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center">
             <Mail className="w-5 h-5 mr-2 text-primary-600" />
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Customize Email Template</h2>
@@ -40,7 +40,7 @@ const EmailTemplateModal = ({ subject, message, onSave, onClose }) => {
           </button>
         </div>
         
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto flex-grow">
           {/* Variables */}
           <div>
             <h3 className="text-sm font-medium mb-3 text-gray-700 dark:text-gray-300">Insert Variables</h3>
@@ -80,7 +80,7 @@ const EmailTemplateModal = ({ subject, message, onSave, onClose }) => {
               id="emailMessage"
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
-              rows="10"
+              rows="8"
               className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
               placeholder="Dear {customerName},..."
             />
@@ -89,7 +89,7 @@ const EmailTemplateModal = ({ subject, message, onSave, onClose }) => {
           {/* Preview */}
           <div>
             <h3 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Preview</h3>
-            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto">
               <div className="text-sm text-gray-600 dark:text-gray-400">Subject: {customSubject}</div>
               <div className="mt-2 text-gray-700 dark:text-gray-300 whitespace-pre-line">
                 {customMessage.replace(/\{.*?\}/g, match => (
@@ -102,7 +102,7 @@ const EmailTemplateModal = ({ subject, message, onSave, onClose }) => {
           </div>
         </div>
         
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3">
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3 flex-shrink-0">
           <button
             onClick={onClose}
             className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"

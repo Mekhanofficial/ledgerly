@@ -1,29 +1,29 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, DollarSign, FileText, Users, Package } from 'lucide-react';
 
-const StatsCards = () => {
+const StatsCards = ({ statsData }) => {
   const stats = [
     {
       title: 'Total Revenue',
-      value: '$42,580',
-      change: '+12.5%',
-      trend: 'up',
+      value: statsData?.totalRevenue || '$0.00',
+      change: statsData?.revenueChange || '0%',
+      trend: statsData?.revenueChange?.startsWith('+') ? 'up' : 'down',
       icon: DollarSign,
       color: 'bg-gradient-to-br from-emerald-500 to-green-500',
       period: 'This month'
     },
     {
       title: 'Total Invoices',
-      value: '248',
-      change: '+8.2%',
-      trend: 'up',
+      value: statsData?.totalInvoices || '0',
+      change: statsData?.invoiceChange || '0%',
+      trend: statsData?.invoiceChange?.startsWith('+') ? 'up' : 'down',
       icon: FileText,
       color: 'bg-gradient-to-br from-blue-500 to-cyan-500',
       period: 'This month'
     },
     {
       title: 'Active Customers',
-      value: '1,248',
+      value: statsData?.activeCustomers || '0',
       change: '+5.1%',
       trend: 'up',
       icon: Users,
@@ -31,9 +31,9 @@ const StatsCards = () => {
       period: 'Total'
     },
     {
-      title: 'Low Stock Items',
-      value: '5',
-      change: '-2',
+      title: 'Overdue Invoices',
+      value: statsData?.overdueInvoices || '0',
+      change: 'Urgent',
       trend: 'down',
       icon: Package,
       color: 'bg-gradient-to-br from-amber-500 to-orange-500',

@@ -1,13 +1,11 @@
 // src/components/invoices/create/QuickActions.jsx
 import React from 'react';
-import { Download, Save, Palette, Printer } from 'lucide-react';
+import { Download, Save, Printer } from 'lucide-react';
 
 const QuickActions = ({ 
   onDownloadPDF, 
   onSaveDraft, 
-  onSaveTemplate, 
-  onPrint,
-  isSavingTemplate = false 
+  onPrint
 }) => {
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
@@ -32,19 +30,6 @@ const QuickActions = ({
           Save Draft
         </button>
         
-        <button
-          onClick={onSaveTemplate}
-          disabled={isSavingTemplate}
-          className={`w-full flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg transition-colors duration-200 ${
-            isSavingTemplate 
-              ? 'opacity-50 cursor-not-allowed text-gray-500' 
-              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-          }`}
-        >
-          <Palette className="w-4 h-4 mr-2" />
-          {isSavingTemplate ? 'Saving Template...' : 'Save as Template'}
-        </button>
-        
         {onPrint && (
           <button
             onClick={onPrint}
@@ -54,13 +39,6 @@ const QuickActions = ({
             Print Invoice
           </button>
         )}
-      </div>
-      
-      {/* Template Usage Info */}
-      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          <strong>Tip:</strong> Save this invoice as a template to reuse it later for similar invoices.
-        </p>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 // src/routes/invoices/CreateInvoice.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Eye, Mail, Download, Repeat, Save, Printer, Palette } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
@@ -13,19 +13,27 @@ import InvoiceSummary from '../../components/invoices/create/InvoiceSummary';
 import AttachmentsSection from '../../components/invoices/create/AttachmentsSection';
 import EmailTemplateSection from '../../components/invoices/create/EmailTemplateSection';
 import QuickActions from '../../components/invoices/create/QuickActions';
-import { useToast } from '../../context/ToastContext';
-import { draftStorage } from '../../utils/draftStorage';
-import { generateInvoicePDF } from '../../utils/pdfGenerator';
-import { saveInvoice } from '../../utils/invoiceStorage';
-import { saveRecurringInvoice } from '../../utils/recurringStorage';
-import { templateStorage, getAvailableTemplates } from '../../utils/templateStorage';
+import { useToast } from '../../context/ToastContext'; // Already imported
+import { useInvoice } from '../../context/InvoiceContext';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const CreateInvoice = () => {
-  const { addToast } = useToast();
+  const { addToast } = useToast(); // Toast context already available
+  const { 
+    addInvoice, 
+    addCustomer, 
+    saveDraft,
+    customers,
+    saveRecurringInvoice,
+    getAvailableTemplates 
+  } = useInvoice();
+  
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const templateId = searchParams.get('template');
+  const invoiceRef = useRef(null);
   
   // Main state
   const [invoiceNumber, setInvoiceNumber] = useState(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
@@ -56,17 +64,11 @@ const CreateInvoice = () => {
   
   // Customer state
   const [selectedCustomer, setSelectedCustomer] = useState('');
-  const [customers, setCustomers] = useState([
-    { id: 'nextgen', name: 'NextGen Technologies', email: 'contact@nextgentech.com', address: '123 Innovation Drive, Tech Valley, CA 94025', phone: '+1 (555) 123-4567' },
-    { id: 'acme', name: 'Acme Corp', email: 'billing@acmecorp.com', address: '456 Business Ave, Suite 100, New York, NY 10001', phone: '+1 (555) 987-6543' },
-    { id: 'techstart', name: 'TechStart Inc', email: 'finance@techstart.com', address: '789 Startup Blvd, San Francisco, CA 94107', phone: '+1 (555) 456-7890' },
-  ]);
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', address: '' });
   
-  // Line items state
+  // Line items state - EMPTY BY DEFAULT
   const [lineItems, setLineItems] = useState([
-    { id: 1, description: 'Web Development Services', quantity: 1, rate: 125.00, tax: 10, amount: 137.50 },
-    { id: 2, description: 'UI/UX Design', quantity: 1, rate: 150.00, tax: 10, amount: 165.00 }
+    { id: 1, description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }
   ]);
   
   // Modal states
@@ -74,40 +76,48 @@ const CreateInvoice = () => {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   
-  // Load available templates
-  useEffect(() => {
-    loadTemplates();
-  }, []);
+  // Calculate totals
+  const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+  const totalTax = lineItems.reduce((sum, item) => sum + (item.quantity * item.rate * (item.tax / 100)), 0);
+  const totalAmount = subtotal + totalTax;
 
-  // Load template if provided
+  // Load templates
+  useEffect(() => {
+    const templates = getAvailableTemplates();
+    setAvailableTemplates(templates);
+    
+    // Set initial template data if available
+    const defaultTemplate = templates.find(t => t.id === 'standard');
+    if (defaultTemplate) {
+      setNotes(defaultTemplate.notes || '');
+      setTerms(defaultTemplate.terms || '');
+      setEmailSubject(defaultTemplate.emailSubject || 'Invoice for Services Rendered');
+      setEmailMessage(defaultTemplate.emailMessage || 'Dear valued customer,\n\nPlease find attached your invoice for services rendered.\n\nThank you for your business.\n\nBest regards,');
+      setCurrency(defaultTemplate.currency || 'USD');
+      setPaymentTerms(defaultTemplate.paymentTerms || 'net-30');
+    }
+  }, [getAvailableTemplates]);
+
+  // Load specific template if provided in URL
   useEffect(() => {
     if (templateId) {
       loadTemplate(templateId);
     }
   }, [templateId]);
 
-  const loadTemplates = () => {
-    const templates = getAvailableTemplates();
-    setAvailableTemplates(templates);
-  };
-
-  // Calculate totals
-  const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
-  const totalTax = lineItems.reduce((sum, item) => sum + (item.quantity * item.rate * (item.tax / 100)), 0);
-  const totalAmount = subtotal + totalTax;
-
   const loadTemplate = (templateId) => {
     setLoadingTemplate(true);
     try {
-      const template = templateStorage.getTemplate(templateId);
+      const templates = getAvailableTemplates();
+      const template = templates.find(t => t.id === templateId);
       if (template) {
         // Apply template settings
         if (template.lineItems && template.lineItems.length > 0) {
           setLineItems(template.lineItems.map(item => ({
             ...item,
+            id: Date.now() + Math.random(),
             amount: item.quantity * item.rate * (1 + (item.tax || 0) / 100)
           })));
         }
@@ -117,11 +127,7 @@ const CreateInvoice = () => {
         if (template.emailMessage) setEmailMessage(template.emailMessage);
         if (template.currency) setCurrency(template.currency);
         if (template.paymentTerms) setPaymentTerms(template.paymentTerms);
-        
-        // Set template style if available
-        if (template.templateStyle) {
-          setSelectedTemplate(template.templateStyle);
-        }
+        if (template.templateStyle) setSelectedTemplate(template.templateStyle);
         
         addToast(`Template "${template.name}" loaded successfully!`, 'success');
       } else {
@@ -135,17 +141,23 @@ const CreateInvoice = () => {
     }
   };
 
-  // Handler functions
+  // Handler functions for line items - FIXED INPUT ISSUE
   const updateLineItem = (id, field, value) => {
     setLineItems(lineItems.map(item => {
       if (item.id === id) {
         const updatedItem = { ...item, [field]: value };
         
         if (field === 'quantity' || field === 'rate' || field === 'tax') {
-          const quantity = field === 'quantity' ? parseInt(value) || 0 : item.quantity;
-          const rate = field === 'rate' ? parseFloat(value) || 0 : item.rate;
-          const tax = field === 'tax' ? parseFloat(value) || 0 : item.tax;
-          updatedItem.amount = quantity * rate * (1 + tax / 100);
+          const quantity = field === 'quantity' ? (value === '' ? '' : parseFloat(value) || 0) : item.quantity;
+          const rate = field === 'rate' ? (value === '' ? '' : parseFloat(value) || 0) : item.rate;
+          const tax = field === 'tax' ? (value === '' ? '' : parseFloat(value) || 0) : item.tax;
+          
+          // Only calculate amount if all values are numbers
+          if (quantity !== '' && rate !== '' && tax !== '') {
+            updatedItem.amount = quantity * rate * (1 + tax / 100);
+          } else {
+            updatedItem.amount = 0;
+          }
         }
         
         return updatedItem;
@@ -174,19 +186,14 @@ const CreateInvoice = () => {
       return;
     }
     
-    const newCustomerId = `cust_${Date.now()}`;
-    const customerToAdd = {
-      id: newCustomerId,
-      name: newCustomer.name,
-      email: newCustomer.email,
-      phone: newCustomer.phone,
-      address: newCustomer.address
-    };
-    
-    setCustomers([...customers, customerToAdd]);
-    setSelectedCustomer(newCustomerId);
-    setNewCustomer({ name: '', email: '', phone: '', address: '' });
-    addToast('Customer added successfully', 'success');
+    try {
+      const addedCustomer = addCustomer(newCustomer);
+      setSelectedCustomer(addedCustomer.id);
+      setNewCustomer({ name: '', email: '', phone: '', address: '' });
+      addToast(`Customer "${addedCustomer.name}" added successfully!`, 'success'); // Notification added
+    } catch (error) {
+      addToast('Error adding customer', 'error');
+    }
   };
 
   const getSelectedCustomer = () => {
@@ -203,10 +210,13 @@ const CreateInvoice = () => {
         issueDate,
         dueDate,
         paymentTerms,
-        customer,
+        customer: customer || newCustomer,
         lineItems: lineItems.map(item => ({
-          ...item,
-          amount: item.quantity * item.rate * (1 + item.tax / 100)
+          description: item.description,
+          quantity: item.quantity,
+          rate: item.rate,
+          tax: item.tax,
+          amount: item.amount
         })),
         subtotal,
         totalTax,
@@ -214,108 +224,350 @@ const CreateInvoice = () => {
         notes,
         terms,
         currency,
-        attachments: attachments.map(file => ({
-          name: file.name,
-          size: file.size,
-          type: file.type
-        })),
         emailSubject,
         emailMessage,
         templateStyle: selectedTemplate,
         isRecurring,
         recurringSettings,
+        attachments: attachments.map(att => ({
+          name: att.name,
+          type: att.type,
+          size: att.size,
+          url: URL.createObjectURL(att) // Store as data URL for preview
+        })),
         status: 'draft',
-        savedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
+        savedAt: new Date().toISOString()
       };
 
-      const saved = draftStorage.saveDraft(invoiceData);
-      
-      if (saved) {
-        addToast('Invoice saved as draft successfully!', 'success');
-        navigate('/invoices/drafts');
-      } else {
-        addToast('Failed to save draft', 'error');
-      }
+      saveDraft(invoiceData);
+      addToast('Draft saved successfully!', 'success');
+      navigate('/invoices/drafts');
     } catch (error) {
       addToast('Error saving draft: ' + error.message, 'error');
     }
   };
 
-  const handleSendInvoice = async () => {
-    if (!selectedCustomer) {
-      addToast('Please select a customer', 'error');
-      return;
+  const generatePDF = async (download = true) => {
+    try {
+      const customer = getSelectedCustomer() || newCustomer;
+      
+      // Create a hidden div for PDF generation
+      const pdfContainer = document.createElement('div');
+      pdfContainer.style.position = 'absolute';
+      pdfContainer.style.left = '-9999px';
+      pdfContainer.style.top = '-9999px';
+      pdfContainer.style.width = '800px';
+      pdfContainer.style.backgroundColor = 'white';
+      pdfContainer.style.padding = '40px';
+      pdfContainer.style.fontFamily = 'Arial, sans-serif';
+      
+      const templateColors = {
+        standard: { primary: '#2980b9', secondary: '#3498db', bg: '#f8f9fa' },
+        modern: { primary: '#2ecc71', secondary: '#27ae60', bg: '#ffffff' },
+        minimal: { primary: '#34495e', secondary: '#2c3e50', bg: '#ffffff' },
+        professional: { primary: '#8e44ad', secondary: '#9b59b6', bg: '#f5f5f5' },
+        creative: { primary: '#e74c3c', secondary: '#f1948a', bg: '#fef9e7' }
+      };
+      
+      const colors = templateColors[selectedTemplate] || templateColors.standard;
+      
+      // Prepare attachments HTML
+      let attachmentsHtml = '';
+      if (attachments.length > 0) {
+        attachmentsHtml = `
+          <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${colors.primary};">
+            <div style="color: ${colors.primary}; font-weight: bold; margin-bottom: 15px; font-size: 14px;">
+              <span style="margin-right: 8px;">📎</span>Attachments
+            </div>
+        `;
+        
+        for (const file of attachments) {
+          if (file.type.startsWith('image/')) {
+            // For images in PDF, we'll embed them
+            const reader = new FileReader();
+            const imagePromise = new Promise((resolve) => {
+              reader.onload = function(e) {
+                attachmentsHtml += `
+                  <div style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 6px; border: 1px solid #e9ecef;">
+                    <div style="font-weight: bold; color: #495057; margin-bottom: 8px; font-size: 13px;">${file.name}</div>
+                    <div style="color: #6c757d; font-size: 12px; margin-bottom: 10px;">${(file.size / 1024).toFixed(1)} KB</div>
+                    <img src="${e.target.result}" style="max-width: 300px; max-height: 200px; border-radius: 4px; border: 1px solid #dee2e6;" />
+                  </div>
+                `;
+                resolve();
+              };
+              reader.readAsDataURL(file);
+            });
+            await imagePromise;
+          } else {
+            attachmentsHtml += `
+              <div style="margin-bottom: 10px; padding: 10px; background: white; border-radius: 6px; border: 1px solid #e9ecef;">
+                <div style="font-weight: bold; color: #495057; font-size: 13px;">${file.name}</div>
+                <div style="color: #6c757d; font-size: 12px;">${(file.size / 1024).toFixed(1)} KB • ${file.type}</div>
+              </div>
+            `;
+          }
+        }
+        
+        attachmentsHtml += '</div>';
+      }
+      
+      const htmlContent = `
+        <div id="invoice-content" style="max-width: 800px; margin: 0 auto;">
+          <!-- Header -->
+          <div style="border-bottom: 3px solid ${colors.primary}; padding-bottom: 30px; margin-bottom: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <h1 style="font-size: 32px; font-weight: bold; color: ${colors.primary}; margin: 0 0 10px 0;">INVOICE</h1>
+                <div style="background: ${colors.primary}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block;">
+                  ${selectedTemplate.toUpperCase()} TEMPLATE
+                </div>
+                <div style="color: #6c757d; font-size: 14px; margin-top: 15px;">
+                  <div><strong>Invoice #:</strong> ${invoiceNumber}</div>
+                  <div><strong>Issue Date:</strong> ${new Date(issueDate).toLocaleDateString()}</div>
+                  <div><strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString()}</div>
+                  <div><strong>Payment Terms:</strong> ${paymentTerms}</div>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 18px; font-weight: bold; color: ${colors.primary}; margin-bottom: 10px;">LEDGERLY</div>
+                <div style="color: #6c757d; font-size: 14px;">
+                  123 Business Street<br>
+                  City, State 12345<br>
+                  contact@ledgerly.com
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Customer Info -->
+          ${customer ? `
+            <div style="background: #f8f9fa; padding: 25px; margin: 20px 0 30px 0; border-radius: 8px; border-left: 4px solid ${colors.primary};">
+              <div style="font-weight: bold; margin-bottom: 15px; color: ${colors.primary}; font-size: 16px;">Bill To:</div>
+              <div style="color: #495057;">
+                <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">${customer.name}</div>
+                ${customer.address ? `<div style="margin-bottom: 5px;">${customer.address}</div>` : ''}
+                <div style="margin-bottom: 5px;">${customer.email}</div>
+                ${customer.phone ? `<div>${customer.phone}</div>` : ''}
+              </div>
+            </div>
+          ` : ''}
+          
+          <!-- Items Table -->
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0 30px 0;">
+            <thead>
+              <tr style="background: ${colors.primary}; color: white;">
+                <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Description</th>
+                <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Qty</th>
+                <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Rate</th>
+                <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Tax</th>
+                <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lineItems.map((item, index) => `
+                <tr style="${index % 2 === 0 ? 'background: #f8f9fa;' : ''} border-bottom: 1px solid #e9ecef;">
+                  <td style="padding: 15px; font-size: 14px; color: #495057;">${item.description || 'Item'}</td>
+                  <td style="padding: 15px; font-size: 14px; color: #495057;">${item.quantity}</td>
+                  <td style="padding: 15px; font-size: 14px; color: #495057;">${currency} ${item.rate.toFixed(2)}</td>
+                  <td style="padding: 15px; font-size: 14px; color: #495057;">${item.tax}%</td>
+                  <td style="padding: 15px; font-size: 14px; font-weight: bold; color: #495057;">${currency} ${item.amount.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <!-- Totals -->
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid ${colors.primary}; text-align: right;">
+            <div style="margin-bottom: 10px;">
+              <span style="color: #6c757d; font-size: 14px;">Subtotal:</span>
+              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${subtotal.toFixed(2)}</span>
+            </div>
+            <div style="margin-bottom: 20px;">
+              <span style="color: #6c757d; font-size: 14px;">Tax:</span>
+              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${totalTax.toFixed(2)}</span>
+            </div>
+            <div>
+              <span style="color: ${colors.primary}; font-weight: bold; font-size: 20px;">Total:</span>
+              <span style="color: ${colors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${totalAmount.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <!-- Attachments -->
+          ${attachmentsHtml}
+          
+          <!-- Notes -->
+          ${notes ? `
+            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+              <div style="color: ${colors.primary}; font-weight: bold; margin-bottom: 15px; font-size: 14px;">
+                <span style="margin-right: 8px;">📝</span>Notes
+              </div>
+              <div style="color: #495057; line-height: 1.6; font-size: 14px; white-space: pre-line;">${notes}</div>
+            </div>
+          ` : ''}
+          
+          <!-- Terms -->
+          ${terms ? `
+            <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+              <div style="color: ${colors.primary}; font-weight: bold; margin-bottom: 15px; font-size: 14px;">
+                <span style="margin-right: 8px;">⚖️</span>Terms & Conditions
+              </div>
+              <div style="color: #495057; line-height: 1.6; font-size: 13px; white-space: pre-line;">${terms}</div>
+            </div>
+          ` : ''}
+          
+          <!-- Footer -->
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #dee2e6; text-align: center; color: #6c757d; font-size: 12px;">
+            <div>Thank you for your business!</div>
+            <div style="margin-top: 5px;">Generated by Ledgerly Invoice System • ${selectedTemplate.charAt(0).toUpperCase() + selectedTemplate.slice(1)} Template</div>
+          </div>
+        </div>
+      `;
+      
+      pdfContainer.innerHTML = htmlContent;
+      document.body.appendChild(pdfContainer);
+      
+      // Wait for images to load
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Generate PDF from HTML
+      const canvas = await html2canvas(pdfContainer, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210; // A4 width in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      
+      // Clean up
+      document.body.removeChild(pdfContainer);
+      
+      if (download) {
+        pdf.save(`${invoiceNumber}.pdf`);
+        addToast('PDF invoice downloaded successfully!', 'success');
+      }
+      
+      return pdf;
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      addToast('Error generating PDF: ' + error.message, 'error');
+      throw error;
     }
-    
-    const customer = getSelectedCustomer();
-    if (!customer?.email) {
-      addToast('Customer email is required to send invoice', 'error');
+  };
+
+  const handleDownloadPDF = async () => {
+    try {
+      await generatePDF(true);
+    } catch (error) {
+      addToast('Error downloading PDF', 'error');
+    }
+  };
+
+ // In handleSendInvoice function of CreateInvoice.js - FIXED VERSION
+
+const handleSendInvoice = async () => {
+  try {
+    if (!selectedCustomer && !newCustomer.name) {
+      addToast('Please select a customer or add new customer details', 'error');
       return;
     }
     
     setIsSending(true);
     
-    try {
-      const invoiceId = `inv_${Date.now()}`;
-      const invoiceData = {
-        id: invoiceId,
-        invoiceNumber,
-        issueDate,
-        dueDate,
-        paymentTerms,
+    let customer = getSelectedCustomer();
+    
+    // If no existing customer selected but new customer data exists, add them
+    if (!customer && newCustomer.name && newCustomer.email) {
+      customer = await addCustomer(newCustomer);
+      // REMOVED: addToast(`Customer "${customer.name}" added and invoice sent!`, 'success');
+    }
+    // REMOVED: else if (customer) {
+    //   addToast(`Invoice sent to ${customer.name}!`, 'success');
+    // }
+    
+    if (!customer) {
+      throw new Error('Customer information is required');
+    }
+    
+    // Generate PDF first
+    const pdf = await generatePDF(false);
+    
+    // Convert PDF to Blob for email attachment
+    const pdfBlob = pdf.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    
+    const invoiceData = {
+      id: `inv_${Date.now()}`,
+      number: invoiceNumber,
+      invoiceNumber,
+      issueDate,
+      dueDate,
+      paymentTerms,
+      customer: customer.name,
+      customerEmail: customer.email,
+      customerId: customer.id,
+      lineItems: lineItems.map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        rate: item.rate,
+        tax: item.tax,
+        amount: item.amount
+      })),
+      items: lineItems.length,
+      amount: totalAmount,
+      totalAmount,
+      subtotal,
+      totalTax,
+      notes,
+      terms,
+      currency,
+      status: 'sent',
+      sentAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      templateStyle: selectedTemplate
+    };
+
+    // Add to invoices
+    const createdInvoice = addInvoice(invoiceData);
+
+    // If recurring, save recurring profile
+    if (isRecurring) {
+      const recurringData = {
+        id: `rec_${Date.now()}`,
+        invoiceNumber: createdInvoice.invoiceNumber,
+        invoiceId: createdInvoice.id,
         customer,
+        amount: totalAmount,
+        frequency: recurringSettings.frequency,
+        startDate: recurringSettings.startDate,
+        endDate: recurringSettings.endDate,
+        nextRun: recurringSettings.startDate,
+        totalCycles: recurringSettings.totalCycles,
+        cyclesCompleted: 1,
+        status: 'active',
         lineItems: lineItems.map(item => ({
-          ...item,
-          amount: item.quantity * item.rate * (1 + item.tax / 100)
+          description: item.description,
+          quantity: item.quantity,
+          rate: item.rate,
+          tax: item.tax,
+          amount: item.amount
         })),
-        subtotal,
-        totalTax,
-        totalAmount,
-        notes,
-        terms,
-        currency,
-        templateStyle: selectedTemplate,
-        status: 'sent',
-        sentAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
+        templateStyle: selectedTemplate
       };
-
-      // Save to sent invoices
-      saveInvoice(invoiceData);
-
-      // If recurring, save recurring profile
-      if (isRecurring) {
-        const recurringData = {
-          id: `rec_${Date.now()}`,
-          invoiceId,
-          invoiceNumber,
-          customer,
-          amount: totalAmount,
-          frequency: recurringSettings.frequency,
-          startDate: recurringSettings.startDate,
-          endDate: recurringSettings.endDate,
-          nextRun: recurringSettings.startDate,
-          totalCycles: recurringSettings.totalCycles,
-          cyclesCompleted: 1,
-          status: 'active',
-          lineItems: lineItems.map(item => ({
-            ...item,
-            amount: item.quantity * item.rate * (1 + item.tax / 100)
-          })),
-          templateStyle: selectedTemplate,
-          created: new Date().toISOString()
-        };
-        
-        saveRecurringInvoice(recurringData);
-        addToast('Recurring invoice profile created', 'success');
-      }
-
-      // Generate PDF with template
-      const pdfDoc = generateInvoicePDF(invoiceData, selectedTemplate);
       
-      // Generate email body
-      const emailBody = `
+      saveRecurringInvoice(recurringData);
+      // REMOVED: addToast('Recurring invoice profile created', 'success');
+    }
+
+    // Create email body with invoice details
+    const emailBody = `
 ${emailMessage}
 
 INVOICE DETAILS
@@ -326,364 +578,165 @@ Due Date: ${new Date(dueDate).toLocaleDateString()}
 Total Amount: ${currency} ${totalAmount.toFixed(2)}
 
 ITEMS:
-${lineItems.map(item => `- ${item.description}: ${item.quantity} × ${currency}${item.rate} = ${currency}${item.amount.toFixed(2)}`).join('\n')}
+${lineItems.map(item => `- ${item.description}: ${item.quantity} × ${currency}${item.rate.toFixed(2)} = ${currency}${item.amount.toFixed(2)}`).join('\n')}
 
 Thank you for your business!
-      `;
-      
-      // Convert PDF to Blob for download
-      const pdfBlob = pdfDoc.output('blob');
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      
-      // Create download link for the PDF
-      const downloadLink = document.createElement('a');
-      downloadLink.href = pdfUrl;
-      downloadLink.download = `${invoiceNumber}-${selectedTemplate}.pdf`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(pdfUrl);
-      
-      // Create mailto link
-      const subject = encodeURIComponent(emailSubject);
-      const body = encodeURIComponent(emailBody);
-      const mailtoLink = `mailto:${customer.email}?subject=${subject}&body=${body}`;
-      
-      // Open email client
-      window.open(mailtoLink, '_blank');
-      
-      addToast(`Invoice sent to ${customer.email} successfully!${isRecurring ? ' Recurring profile created.' : ''}`, 'success');
-      
-      // Reset form after successful send
-      setTimeout(() => {
-        setInvoiceNumber(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
-        setIssueDate(new Date().toISOString().split('T')[0]);
-        setDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-        setSelectedCustomer('');
-        setLineItems([{ id: 1, description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }]);
-        setAttachments([]);
-        setSelectedTemplate('standard');
-        setNotes('Payment due within 30 days. Late payments subject to 1.5% monthly interest.');
-        setTerms('All services are subject to our terms and conditions. For any questions, please contact our billing department.');
-        setIsRecurring(false);
-        navigate('/invoices');
-      }, 2000);
-      
-    } catch (error) {
-      addToast('Error sending invoice: ' + error.message, 'error');
-    } finally {
-      setIsSending(false);
-    }
-  };
 
-  const handleDownloadPDF = () => {
-    try {
-      const invoiceData = {
-        invoiceNumber,
-        issueDate,
-        dueDate,
-        paymentTerms,
-        customer: getSelectedCustomer(),
-        lineItems,
-        subtotal,
-        totalTax,
-        totalAmount,
-        notes,
-        terms,
-        currency,
-        templateStyle: selectedTemplate
-      };
-
-      const pdfDoc = generateInvoicePDF(invoiceData, selectedTemplate);
-      pdfDoc.save(`${invoiceNumber}-${selectedTemplate}.pdf`);
-      addToast('PDF invoice downloaded successfully!', 'success');
-    } catch (error) {
-      addToast('Error generating PDF: ' + error.message, 'error');
-    }
-  };
+--
+This email was sent from Ledgerly Invoice System
+    `;
+    
+    // Create download link for the PDF
+    const downloadLink = document.createElement('a');
+    downloadLink.href = pdfUrl;
+    downloadLink.download = `${invoiceNumber}.pdf`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(pdfUrl);
+    
+    // Create mailto link with subject and body
+    const subject = encodeURIComponent(emailSubject);
+    const body = encodeURIComponent(emailBody);
+    const mailtoLink = `mailto:${customer.email}?subject=${subject}&body=${body}`;
+    
+    // Open email client
+    window.open(mailtoLink, '_blank');
+    
+    // SINGLE TOAST - ADDED
+    addToast(`Invoice sent to ${customer.email} successfully!`, 'success');
+    
+    // Reset form after successful send
+    setTimeout(() => {
+      resetForm();
+      navigate('/invoices');
+    }, 2000);
+    
+  } catch (error) {
+    addToast('Error sending invoice: ' + error.message, 'error');
+  } finally {
+    setIsSending(false);
+  }
+};
 
   const handlePreview = () => {
     setShowPreview(true);
   };
 
-  const handleSaveAsTemplate = () => {
-    setIsSavingTemplate(true);
-    try {
-      const templateName = prompt('Enter template name:', `Template from ${invoiceNumber}`);
-      
-      if (!templateName) {
-        addToast('Template name is required', 'warning');
-        setIsSavingTemplate(false);
-        return;
-      }
-      
-      const templateData = {
-        id: `template_${Date.now()}`,
-        name: templateName,
-        description: 'Custom template created from invoice',
-        category: 'custom',
-        isDefault: false,
-        isFavorite: false,
-        previewColor: 'bg-gradient-to-br from-primary-500 to-primary-600',
-        lineItems: lineItems.map(item => ({
-          description: item.description,
-          quantity: item.quantity,
-          rate: item.rate,
-          tax: item.tax
-        })),
-        notes,
-        terms,
-        emailSubject,
-        emailMessage,
-        currency,
-        paymentTerms,
-        templateStyle: selectedTemplate,
-        createdAt: new Date().toISOString()
-      };
-
-      templateStorage.saveTemplate(templateData);
-      addToast(`Template "${templateName}" saved successfully!`, 'success');
-      
-      // Navigate to templates page
-      setTimeout(() => {
-        navigate('/invoices/templates');
-      }, 1500);
-    } catch (error) {
-      addToast('Error saving template: ' + error.message, 'error');
-    } finally {
-      setIsSavingTemplate(false);
-    }
-  };
-
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
-    const invoiceData = {
-      invoiceNumber,
-      issueDate,
-      dueDate,
-      paymentTerms,
-      customer: getSelectedCustomer(),
-      lineItems,
-      subtotal,
-      totalTax,
-      totalAmount,
-      notes,
-      terms,
-      currency,
-      templateStyle: selectedTemplate
-    };
-
-    const templateColors = {
-      standard: { primary: '#2980b9', bg: '#f8f9fa' },
-      modern: { primary: '#2ecc71', bg: '#ffffff' },
-      minimal: { primary: '#34495e', bg: '#ffffff' },
-      professional: { primary: '#8e44ad', bg: '#f5f5f5' },
-      creative: { primary: '#e74c3c', bg: '#fef9e7' }
-    };
-
-    const colors = templateColors[selectedTemplate] || templateColors.standard;
-
+    const customer = getSelectedCustomer() || newCustomer;
+    
     const printContent = `
       <html>
         <head>
-          <title>Invoice ${invoiceNumber}</title>
+          <title>Print Invoice ${invoiceNumber}</title>
           <style>
             body { 
               font-family: Arial, sans-serif; 
               margin: 40px; 
-              background: ${colors.bg};
-            }
-            .invoice-container {
-              max-width: 800px;
-              margin: 0 auto;
               background: white;
-              padding: 30px;
-              border-radius: 8px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            }
-            .invoice-header { 
-              border-bottom: 3px solid ${colors.primary}; 
-              padding-bottom: 20px; 
-              margin-bottom: 30px; 
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-start;
-            }
-            .invoice-title { 
-              font-size: 28px; 
-              font-weight: bold; 
-              color: ${colors.primary}; 
-              margin: 0;
-            }
-            .template-badge {
-              background: ${colors.primary};
-              color: white;
-              padding: 4px 12px;
-              border-radius: 20px;
-              font-size: 12px;
-              font-weight: bold;
-            }
-            .invoice-details { 
-              margin-top: 20px; 
-              color: #666;
-              font-size: 14px;
-            }
-            .customer-info { 
-              background: #f8f9fa; 
-              padding: 20px; 
-              margin: 20px 0; 
-              border-radius: 5px; 
-              border-left: 4px solid ${colors.primary};
-            }
-            .items-table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin: 20px 0; 
-            }
-            .items-table th { 
-              background: ${colors.primary}; 
-              color: white; 
-              padding: 12px; 
-              text-align: left; 
-              font-weight: bold;
-            }
-            .items-table td { 
-              padding: 12px; 
-              border-bottom: 1px solid #ddd; 
-            }
-            .items-table tr:nth-child(even) {
-              background: #f8f9fa;
-            }
-            .total-section { 
-              margin-top: 30px; 
-              text-align: right; 
-              padding-top: 20px;
-              border-top: 2px solid ${colors.primary};
-            }
-            .total-amount { 
-              font-size: 24px; 
-              font-weight: bold; 
-              color: ${colors.primary}; 
-            }
-            .notes-section, .terms-section {
-              margin-top: 25px;
-              padding: 15px;
-              background: #f8f9fa;
-              border-radius: 5px;
-            }
-            .section-title {
-              color: ${colors.primary};
-              font-weight: bold;
-              margin-bottom: 10px;
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            }
-            .section-title:before {
-              content: "•";
-              font-size: 20px;
             }
             @media print {
-              body { margin: 0; background: white; }
-              .invoice-container { box-shadow: none; padding: 20px; }
+              body { margin: 20px; }
               .no-print { display: none; }
-              .template-badge { display: none; }
             }
           </style>
         </head>
         <body>
-          <div class="invoice-container">
-            <!-- Header -->
-            <div class="invoice-header">
-              <div>
-                <h1 class="invoice-title">INVOICE</h1>
-                <span class="template-badge">${selectedTemplate.toUpperCase()} TEMPLATE</span>
-                <div class="invoice-details">
-                  <strong>Invoice #:</strong> ${invoiceNumber}<br>
-                  <strong>Issue Date:</strong> ${new Date(issueDate).toLocaleDateString()}<br>
-                  <strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString()}<br>
-                  <strong>Payment Terms:</strong> ${paymentTerms}
+          <div style="max-width: 800px; margin: 0 auto; padding: 30px; border: 1px solid #ddd; background: white;">
+            <!-- Same HTML as in generatePDF function but simplified for printing -->
+            <div style="border-bottom: 3px solid #2980b9; padding-bottom: 30px; margin-bottom: 30px;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <h1 style="font-size: 32px; font-weight: bold; color: #2980b9; margin: 0 0 10px 0;">INVOICE</h1>
+                  <div style="color: #6c757d; font-size: 14px; margin-top: 15px;">
+                    <div><strong>Invoice #:</strong> ${invoiceNumber}</div>
+                    <div><strong>Issue Date:</strong> ${new Date(issueDate).toLocaleDateString()}</div>
+                    <div><strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString()}</div>
+                    <div><strong>Payment Terms:</strong> ${paymentTerms}</div>
+                  </div>
                 </div>
-              </div>
-              <div style="text-align: right;">
-                <div style="font-size: 18px; font-weight: bold; color: ${colors.primary};">LEDGERLY</div>
-                <div style="color: #666; font-size: 14px;">
-                  123 Business Street<br>
-                  City, State 12345<br>
-                  contact@ledgerly.com
+                <div style="text-align: right;">
+                  <div style="font-size: 18px; font-weight: bold; color: #2980b9; margin-bottom: 10px;">LEDGERLY</div>
+                  <div style="color: #6c757d; font-size: 14px;">
+                    123 Business Street<br>
+                    City, State 12345<br>
+                    contact@ledgerly.com
+                  </div>
                 </div>
               </div>
             </div>
             
-            <!-- Customer Info -->
-            ${invoiceData.customer ? `
-              <div class="customer-info">
-                <div style="font-weight: bold; margin-bottom: 10px; color: ${colors.primary};">Bill To:</div>
-                <div style="color: #333;">
-                  <div style="font-weight: bold;">${invoiceData.customer.name}</div>
-                  <div>${invoiceData.customer.address}</div>
-                  <div>${invoiceData.customer.email}</div>
-                  <div>${invoiceData.customer.phone}</div>
+            ${customer ? `
+              <div style="background: #f8f9fa; padding: 25px; margin: 20px 0 30px 0; border-radius: 8px; border-left: 4px solid #2980b9;">
+                <div style="font-weight: bold; margin-bottom: 15px; color: #2980b9; font-size: 16px;">Bill To:</div>
+                <div style="color: #495057;">
+                  <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">${customer.name}</div>
+                  ${customer.address ? `<div style="margin-bottom: 5px;">${customer.address}</div>` : ''}
+                  <div style="margin-bottom: 5px;">${customer.email}</div>
+                  ${customer.phone ? `<div>${customer.phone}</div>` : ''}
                 </div>
               </div>
             ` : ''}
             
             <!-- Items Table -->
-            <table class="items-table">
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0 30px 0;">
               <thead>
-                <tr>
-                  <th>Description</th>
-                  <th>Qty</th>
-                  <th>Rate</th>
-                  <th>Tax</th>
-                  <th>Amount</th>
+                <tr style="background: #2980b9; color: white;">
+                  <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Description</th>
+                  <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Qty</th>
+                  <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Rate</th>
+                  <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Tax</th>
+                  <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                ${lineItems.map(item => `
-                  <tr>
-                    <td>${item.description}</td>
-                    <td>${item.quantity}</td>
-                    <td>${currency} ${item.rate.toFixed(2)}</td>
-                    <td>${item.tax}%</td>
-                    <td><strong>${currency} ${item.amount.toFixed(2)}</strong></td>
+                ${lineItems.map((item, index) => `
+                  <tr style="${index % 2 === 0 ? 'background: #f8f9fa;' : ''} border-bottom: 1px solid #e9ecef;">
+                    <td style="padding: 15px; font-size: 14px; color: #495057;">${item.description || 'Item'}</td>
+                    <td style="padding: 15px; font-size: 14px; color: #495057;">${item.quantity}</td>
+                    <td style="padding: 15px; font-size: 14px; color: #495057;">${currency} ${item.rate.toFixed(2)}</td>
+                    <td style="padding: 15px; font-size: 14px; color: #495057;">${item.tax}%</td>
+                    <td style="padding: 15px; font-size: 14px; font-weight: bold; color: #495057;">${currency} ${item.amount.toFixed(2)}</td>
                   </tr>
                 `).join('')}
               </tbody>
             </table>
             
             <!-- Totals -->
-            <div class="total-section">
-              <div style="margin-bottom: 8px;"><strong>Subtotal:</strong> ${currency} ${subtotal.toFixed(2)}</div>
-              <div style="margin-bottom: 16px;"><strong>Tax:</strong> ${currency} ${totalTax.toFixed(2)}</div>
-              <div class="total-amount">Total: ${currency} ${totalAmount.toFixed(2)}</div>
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #2980b9; text-align: right;">
+              <div style="margin-bottom: 20px;">
+                <span style="color: #6c757d; font-size: 14px;">Subtotal:</span>
+                <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${subtotal.toFixed(2)}</span>
+              </div>
+              <div style="margin-bottom: 20px;">
+                <span style="color: #6c757d; font-size: 14px;">Tax:</span>
+                <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${totalTax.toFixed(2)}</span>
+              </div>
+              <div>
+                <span style="color: #2980b9; font-weight: bold; font-size: 20px;">Total:</span>
+                <span style="color: #2980b9; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${totalAmount.toFixed(2)}</span>
+              </div>
             </div>
             
-            <!-- Notes -->
+            <!-- Notes & Terms -->
             ${notes ? `
-              <div class="notes-section">
-                <div class="section-title">Notes</div>
-                <div style="color: #333; line-height: 1.6;">${notes.replace(/\n/g, '<br>')}</div>
+              <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                <div style="color: #2980b9; font-weight: bold; margin-bottom: 15px; font-size: 14px;">Notes</div>
+                <div style="color: #495057; line-height: 1.6; font-size: 14px; white-space:pre-line;">${notes}</div>
               </div>
             ` : ''}
             
-            <!-- Terms -->
             ${terms ? `
-              <div class="terms-section">
-                <div class="section-title">Terms & Conditions</div>
-                <div style="color: #333; line-height: 1.6; font-size: 14px;">${terms.replace(/\n/g, '<br>')}</div>
+              <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                <div style="color: #2980b9; font-weight: bold; margin-bottom: 15px; font-size: 14px;">Terms & Conditions</div>
+                <div style="color: #495057; line-height: 1.6; font-size: 13px; white-space: pre-line;">${terms}</div>
               </div>
             ` : ''}
             
-            <!-- Footer -->
-            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 12px;">
-              <div>Thank you for your business!</div>
-              <div style="margin-top: 5px;">Generated by Ledgerly Invoice System • ${selectedTemplate.charAt(0).toUpperCase() + selectedTemplate.slice(1)} Template</div>
-            </div>
-            
-            <!-- Print Controls -->
             <div class="no-print" style="margin-top: 50px; text-align: center; padding-top: 20px; border-top: 1px solid #ddd;">
-              <button onclick="window.print()" style="padding: 12px 24px; background: ${colors.primary}; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+              <button onclick="window.print()" style="padding: 12px 24px; background: #2980b9; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
                 Print Invoice
               </button>
               <button onclick="window.close()" style="padding: 12px 24px; background: #666; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">
@@ -697,7 +750,29 @@ Thank you for your business!
 
     printWindow.document.write(printContent);
     printWindow.document.close();
+    
+    // Trigger print after content loads
+    printWindow.onload = function() {
+      printWindow.print();
+    };
+    
     addToast('Print preview opened', 'info');
+  };
+
+  const resetForm = () => {
+    setInvoiceNumber(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+    setIssueDate(new Date().toISOString().split('T')[0]);
+    setDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    setSelectedCustomer('');
+    setLineItems([
+      { id: 1, description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }
+    ]);
+    setAttachments([]);
+    setSelectedTemplate('standard');
+    setNotes('Payment due within 30 days. Late payments subject to 1.5% monthly interest.');
+    setTerms('All services are subject to our terms and conditions. For any questions, please contact our billing department.');
+    setIsRecurring(false);
+    setNewCustomer({ name: '', email: '', phone: '', address: '' });
   };
 
   return (
@@ -799,10 +874,13 @@ Thank you for your business!
                         <div 
                           className="w-8 h-8 rounded-lg mb-2 shadow-inner"
                           style={{ 
-                            backgroundColor: `rgb(${template.colors.primary.join(',')})`,
-                            background: `linear-gradient(135deg, 
-                              rgb(${template.colors.primary.join(',')}) 0%, 
-                              rgb(${template.colors.secondary.join(',')}) 100%)`
+                            backgroundColor: template.colors?.primary ? 
+                              `rgb(${template.colors.primary.join(',')})` : '#2980b9',
+                            background: template.colors?.primary && template.colors?.secondary ? 
+                              `linear-gradient(135deg, 
+                               rgb(${template.colors.primary.join(',')}) 0%, 
+                               rgb(${template.colors.secondary.join(',')}) 100%)` : 
+                              'linear-gradient(135deg, #2980b9 0%, #2c3e50 100%)'
                           }}
                         ></div>
                         <span className="text-xs font-medium">{template.id}</span>
@@ -932,9 +1010,7 @@ Thank you for your business!
             <QuickActions
               onDownloadPDF={handleDownloadPDF}
               onSaveDraft={handleSaveDraft}
-              onSaveTemplate={handleSaveAsTemplate}
               onPrint={handlePrint}
-              isSavingTemplate={isSavingTemplate}
             />
           </div>
         </div>
@@ -948,7 +1024,7 @@ Thank you for your business!
             issueDate,
             dueDate,
             paymentTerms,
-            customer: getSelectedCustomer(),
+            customer: getSelectedCustomer() || newCustomer,
             lineItems,
             subtotal,
             totalTax,

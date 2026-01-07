@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Download, ChevronDown } from 'lucide-react';
+import { useInvoice } from '../../context/InvoiceContext';
 
 const DashboardHeader = () => {
   const [activeFilter, setActiveFilter] = useState('this-month');
   const [customRangeOpen, setCustomRangeOpen] = useState(false);
+  const { exportInvoicesAsCSV } = useInvoice();
 
   const dateFilters = [
     { id: 'today', label: 'Today' },
@@ -12,12 +14,25 @@ const DashboardHeader = () => {
     { id: 'custom', label: 'Custom', icon: ChevronDown }
   ];
 
+  const handleExport = () => {
+    exportInvoicesAsCSV();
+  };
+
+  const handleDateFilter = (filterId) => {
+    setActiveFilter(filterId);
+    if (filterId === 'custom') {
+      setCustomRangeOpen(!customRangeOpen);
+    }
+  };
+
   return (
     <div className="mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Dashboard Overview</h1>
-          <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">Welcome back, John! Here's what's happening today.</p>
+          <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
+            Welcome back! Here's your real-time business overview.
+          </p>
         </div>
         
         <div className="flex items-center gap-2 mt-3 md:mt-0">
@@ -26,12 +41,7 @@ const DashboardHeader = () => {
             {dateFilters.map((filter) => (
               <button
                 key={filter.id}
-                onClick={() => {
-                  setActiveFilter(filter.id);
-                  if (filter.id === 'custom') {
-                    setCustomRangeOpen(!customRangeOpen);
-                  }
-                }}
+                onClick={() => handleDateFilter(filter.id)}
                 className={`flex items-center px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${
                   activeFilter === filter.id
                     ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-sm'
@@ -45,7 +55,10 @@ const DashboardHeader = () => {
           </div>
 
           {/* Export Button - Right End */}
-          <button className="flex items-center px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium shadow-sm hover:shadow transition-shadow whitespace-nowrap">
+          <button 
+            onClick={handleExport}
+            className="flex items-center px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium shadow-sm hover:shadow transition-shadow whitespace-nowrap"
+          >
             <Download className="w-3 h-3 mr-1.5" />
             <span className="text-xs">Export</span>
           </button>
@@ -70,7 +83,7 @@ const DashboardHeader = () => {
               <input
                 type="date"
                 className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                defaultValue="2024-12-01"
+                defaultValue={new Date().toISOString().split('T')[0]}
               />
             </div>
             <div>
@@ -78,7 +91,7 @@ const DashboardHeader = () => {
               <input
                 type="date"
                 className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                defaultValue="2024-12-31"
+                defaultValue={new Date().toISOString().split('T')[0]}
               />
             </div>
           </div>

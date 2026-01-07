@@ -19,10 +19,13 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../../context/ThemeContext';
+import { useNotifications } from '../../../context/NotificationContext'; // Add this import
 
 const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
-  useTheme(); // Removed toggleTheme since we're removing the button
+  const { unreadCount } = useNotifications(); // Get unread notification count
+  
+  useTheme();
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', badge: null },
@@ -55,10 +58,16 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
     { icon: CreditCard, label: 'Payments', path: '/payments' },
   ];
 
+  // Update bottom menu items to show notification count
   const bottomMenuItems = [
     { icon: HelpCircle, label: 'Help & Support', path: '/support' },
     { icon: Settings, label: 'Settings', path: '/settings' },
-    { icon: Bell, label: 'Notifications', path: '/notifications', badge: '5' },
+    { 
+      icon: Bell, 
+      label: 'Notifications', 
+      path: '/notifications', 
+      badge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount.toString()) : null 
+    },
   ];
 
   const toggleSubmenu = (label) => {
@@ -178,8 +187,6 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
 
         {/* Bottom Menu */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-          {/* Removed Theme Toggle button from here */}
-
           <nav className="space-y-1">
             {bottomMenuItems.map((item) => (
               <SidebarItem key={item.label} item={item} />
@@ -230,8 +237,6 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         </div>
 
         <div className="overflow-y-auto h-full py-4 px-3">
-          {/* Removed Theme Toggle for Mobile as well */}
-
           <nav className="space-y-1">
             {[...menuItems, ...bottomMenuItems].map((item) => (
               <SidebarItem key={item.label} item={item} />

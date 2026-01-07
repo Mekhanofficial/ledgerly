@@ -3,45 +3,40 @@ import { Bell, Filter, Settings, CheckCircle } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import NotificationList from '../../components/notifications/NotificationList';
 import { useTheme } from '../../context/ThemeContext';
+import { useNotifications } from '../../context/NotificationContext'; // Add this import
 
 const Notifications = () => {
   const { isDarkMode } = useTheme();
+  const { 
+    notifications, 
+    unreadCount, 
+    markAsRead, 
+    markAllAsRead, 
+    deleteNotification, 
+    clearAll,
+    getNotificationStats 
+  } = useNotifications(); // Use the context
+  
   const [filter, setFilter] = useState('all');
-  const [notifications, setNotifications] = useState([
-    // ... (same notifications data)
-  ]);
 
-  const handleMarkAsRead = (id) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id
-          ? { ...notification, read: true }
-          : notification
-      )
-    );
-  };
-
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, read: true }))
-    );
-  };
-
-  const handleDelete = (id) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
-  };
-
-  const handleClearAll = () => {
-    setNotifications([]);
-  };
-
-  const filteredNotifications = filter === 'all' 
-    ? notifications 
-    : filter === 'unread'
-    ? notifications.filter(n => !n.read)
-    : notifications.filter(n => n.type === filter);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // Get notification stats
+  const stats = getNotificationStats();
+  
+  // Filter notifications based on selected filter
+  const filteredNotifications = notifications.filter(notification => {
+    switch(filter) {
+      case 'all':
+        return true;
+      case 'unread':
+        return !notification.read;
+      case 'today':
+        const today = new Date().toDateString();
+        const notifDate = new Date(notification.timestamp).toDateString();
+        return notifDate === today;
+      default:
+        return notification.type === filter;
+    }
+  });
 
   return (
     <DashboardLayout>
@@ -70,7 +65,7 @@ const Notifications = () => {
               Settings
             </button>
             <button 
-              onClick={handleMarkAllAsRead}
+              onClick={markAllAsRead}
               className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
@@ -96,7 +91,7 @@ const Notifications = () => {
                 <p className={`text-2xl font-bold mt-1 ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  {notifications.length}
+                  {stats.total}
                 </p>
               </div>
               <Bell className={`w-8 h-8 ${
@@ -119,7 +114,7 @@ const Notifications = () => {
                 <p className={`text-2xl font-bold mt-1 ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  {unreadCount}
+                  {stats.unread}
                 </p>
               </div>
               <Bell className="w-8 h-8 text-blue-400" />
@@ -140,7 +135,7 @@ const Notifications = () => {
                 <p className={`text-2xl font-bold mt-1 ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  {notifications.filter(n => n.time.includes('now') || n.time.includes('hour')).length}
+                  {stats.today}
                 </p>
               </div>
               <Bell className="w-8 h-8 text-emerald-400" />
@@ -161,7 +156,7 @@ const Notifications = () => {
                 <p className={`text-2xl font-bold mt-1 ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  {notifications.filter(n => n.type === 'warning' || n.type === 'error').length}
+                  {stats.important}
                 </p>
               </div>
               <Bell className="w-8 h-8 text-amber-400" />
@@ -177,7 +172,7 @@ const Notifications = () => {
         }`}>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex flex-wrap gap-2">
-              {['all', 'unread', 'success', 'warning', 'info', 'error', 'system', 'reminder'].map((type) => (
+              {['all', 'unread', 'new-invoice', 'new-customer', 'overdue', 'payment', 'warning', 'info'].map((type) => (
                 <button
                   key={type}
                   onClick={() => setFilter(type)}
@@ -194,6 +189,10 @@ const Notifications = () => {
                       <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
                       {type}
                     </>
+                  ) : type === 'new-invoice' ? (
+                    'New Invoice'
+                  ) : type === 'new-customer' ? (
+                    'New Customer'
                   ) : (
                     type
                   )}
@@ -214,9 +213,9 @@ const Notifications = () => {
         {/* Notification List Component */}
         <NotificationList
           notifications={filteredNotifications}
-          onMarkAsRead={handleMarkAsRead}
-          onClearAll={handleClearAll}
-          onDelete={handleDelete}
+          onMarkAsRead={markAsRead}
+          onClearAll={clearAll}
+          onDelete={deleteNotification}
         />
 
         {/* Notification Preferences */}

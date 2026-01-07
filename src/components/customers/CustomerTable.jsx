@@ -1,17 +1,46 @@
 import React, { useState } from 'react';
-import { Search, Filter, Mail, Phone, MoreVertical, Send, Eye, Edit, ChevronDown } from 'lucide-react';
+import { Search, Filter, Mail, Phone, MoreVertical, Send, Eye, Edit, ChevronDown, Trash2 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-const CustomerTable = ({ customers, onSendStatement, onView, onEdit }) => {
+const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete }) => {
   const { isDarkMode } = useTheme();
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // Filter customers based on search and status
+  const filteredCustomers = customers.filter(customer => {
+    // Search filter
+    const matchesSearch = !searchTerm || 
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phone.includes(searchTerm);
+    
+    // Status filter
+    let matchesStatus = true;
+    switch (statusFilter) {
+      case 'no-balance':
+        matchesStatus = customer.outstanding === 0;
+        break;
+      case 'has-balance':
+        matchesStatus = customer.outstanding > 0 && customer.outstanding <= 2000;
+        break;
+      case 'overdue':
+        matchesStatus = customer.outstanding > 2000;
+        break;
+      default:
+        matchesStatus = true;
+    }
+    
+    return matchesSearch && matchesStatus;
+  });
 
   const handleSelectAll = () => {
     if (selectAll) {
       setSelectedCustomers([]);
     } else {
-      setSelectedCustomers(customers.map(c => c.id));
+      setSelectedCustomers(filteredCustomers.map(c => c.id));
     }
     setSelectAll(!selectAll);
   };
@@ -36,6 +65,25 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit }) => {
     return isDarkMode ? 'bg-red-900/20' : 'bg-red-50';
   };
 
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
+  const getFilteredCustomerCount = () => {
+    return {
+      all: customers.length,
+      'no-balance': customers.filter(c => c.outstanding === 0).length,
+      'has-balance': customers.filter(c => c.outstanding > 0 && c.outstanding <= 2000).length,
+      overdue: customers.filter(c => c.outstanding > 2000).length
+    };
+  };
+
+  const filterCounts = getFilteredCustomerCount();
+
   return (
     <div className={`border rounded-xl overflow-hidden ${
       isDarkMode 
@@ -56,6 +104,8 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit }) => {
             }`} />
             <input
               type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by name, email, or phone..."
               className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                 isDarkMode 
@@ -108,18 +158,33 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit }) => {
           : 'bg-white border-gray-200'
       }`}>
         <div className="flex flex-wrap gap-2">
-          {['All', 'No Balance', 'Has Balance', 'Overdue'].map((filter) => (
+          {[
+            { id: 'all', label: 'All', count: filterCounts.all },
+            { id: 'no-balance', label: 'No Balance', count: filterCounts['no-balance'] },
+            { id: 'has-balance', label: 'Has Balance', count: filterCounts['has-balance'] },
+            { id: 'overdue', label: 'Overdue', count: filterCounts.overdue }
+          ].map((filter) => (
             <button
-              key={filter}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === 'All'
+              key={filter.id}
+              onClick={() => setStatusFilter(filter.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center ${
+                statusFilter === filter.id
                   ? 'bg-primary-600 text-white'
                   : isDarkMode
                     ? 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {filter}
+              {filter.label}
+              <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
+                statusFilter === filter.id
+                  ? 'bg-white/20'
+                  : isDarkMode
+                    ? 'bg-gray-500 text-gray-200'
+                    : 'bg-gray-200 text-gray-600'
+              }`}>
+                {filter.count}
+              </span>
             </button>
           ))}
         </div>
@@ -187,7 +252,7 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit }) => {
           <tbody className={`divide-y divide-gray-200 dark:divide-gray-700 ${
             isDarkMode ? 'bg-gray-800' : 'bg-white'
           }`}>
-            {customers.map((customer) => (
+            {filteredCustomers.map((customer) => (
               <tr key={customer.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <input
@@ -255,12 +320,12 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit }) => {
                   <div className={`text-sm font-bold ${
                     isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    ${customer.totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {formatCurrency(customer.totalSpent)}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className={`text-sm font-bold px-2 py-1 rounded-lg ${getOutstandingColor(customer.outstanding)} ${getOutstandingBackground(customer.outstanding)}`}>
-                    ${customer.outstanding.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {formatCurrency(customer.outstanding)}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -272,6 +337,7 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit }) => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center space-x-2">
+                    {/* View Profile Button */}
                     <button
                       onClick={() => onView(customer.id)}
                       className={`p-1.5 rounded-lg ${
@@ -279,10 +345,12 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit }) => {
                           ? 'text-blue-400 hover:bg-blue-900/20' 
                           : 'text-blue-600 hover:bg-blue-50'
                       }`}
-                      title="View"
+                      title="View Profile"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
+                    
+                    {/* Edit Button */}
                     <button
                       onClick={() => onEdit(customer.id)}
                       className={`p-1.5 rounded-lg ${
@@ -294,6 +362,8 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit }) => {
                     >
                       <Edit className="w-4 h-4" />
                     </button>
+                    
+                    {/* Send Statement Button */}
                     <button
                       onClick={() => onSendStatement([customer.id])}
                       className={`p-1.5 rounded-lg ${
@@ -305,12 +375,18 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit }) => {
                     >
                       <Send className="w-4 h-4" />
                     </button>
-                    <button className={`p-1.5 rounded-lg ${
-                      isDarkMode 
-                        ? 'text-gray-400 hover:bg-gray-700' 
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}>
-                      <MoreVertical className="w-4 h-4" />
+                    
+                    {/* Delete Button */}
+                    <button
+                      onClick={() => onDelete(customer.id)}
+                      className={`p-1.5 rounded-lg ${
+                        isDarkMode 
+                          ? 'text-red-400 hover:bg-red-900/20' 
+                          : 'text-red-600 hover:bg-red-50'
+                      }`}
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </td>
@@ -334,10 +410,10 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit }) => {
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>1</span> to <span className={`font-medium ${
               isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>10</span> of{' '}
+            }`}>{Math.min(10, filteredCustomers.length)}</span> of{' '}
             <span className={`font-medium ${
               isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>247</span> customers
+            }`}>{filteredCustomers.length}</span> customers
           </div>
           <div className="flex items-center space-x-4">
             <div className={`text-sm ${

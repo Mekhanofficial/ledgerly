@@ -1,137 +1,95 @@
+// Update Customers.js
 import React, { useState } from 'react';
-import { Users, Plus, Download, Mail } from 'lucide-react';
+import { Users, Plus, Download, Mail, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Added import
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import CustomerStats from '../../components/customers/CustomerStats';
 import CustomerTable from '../../components/customers/CustomerTable';
 import { useTheme } from '../../context/ThemeContext';
+import { useInvoice } from '../../context/InvoiceContext';
+import { useToast } from '../../context/ToastContext';
 
 const Customers = () => {
   const { isDarkMode } = useTheme();
-  const [filter, setFilter] = useState('all');
+  const { customers, addCustomer, deleteCustomer, getCustomerStats } = useInvoice();
+  const { addToast } = useToast();
+  const navigate = useNavigate(); // Added hook
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: ''
+  });
 
-  const customers = [
-    {
-      id: 1,
-      name: 'Acme Corporation',
-      email: 'sarah@acmecorp.com',
-      phone: '+1 (555) 123-4567',
-      transactions: 24,
-      totalSpent: 47850.00,
-      outstanding: 0,
-      lastTransaction: 'Dec 15, 2024',
-      joinedDate: 'Jan 2023'
-    },
-    {
-      id: 2,
-      name: 'TechStart Industries',
-      email: 'john@techstart.com',
-      phone: '+1 (555) 987-6543',
-      transactions: 18,
-      totalSpent: 32500.00,
-      outstanding: 1825.00,
-      lastTransaction: 'Dec 14, 2024',
-      joinedDate: 'Mar 2023'
-    },
-    {
-      id: 3,
-      name: 'Global Solutions Ltd',
-      email: 'mike@globalsolutions.com',
-      phone: '+1 (555) 456-7890',
-      transactions: 31,
-      totalSpent: 68200.00,
-      outstanding: 3200.00,
-      lastTransaction: 'Dec 10, 2024',
-      joinedDate: 'Nov 2022'
-    },
-    {
-      id: 4,
-      name: 'BlueTech Innovations',
-      email: 'lisa@bluetech.com',
-      phone: '+1 (555) 321-0987',
-      transactions: 12,
-      totalSpent: 22750.00,
-      outstanding: 0,
-      lastTransaction: 'Dec 12, 2024',
-      joinedDate: 'Jun 2023'
-    },
-    {
-      id: 5,
-      name: 'Peak Performance Group',
-      email: 'alex@peakperformance.com',
-      phone: '+1 (555) 654-3210',
-      transactions: 8,
-      totalSpent: 15400.00,
-      outstanding: 2100.00,
-      lastTransaction: 'Dec 8, 2024',
-      joinedDate: 'Sep 2023'
-    },
-    {
-      id: 6,
-      name: 'Innovate Labs',
-      email: 'emma@innovatelabs.com',
-      phone: '+1 (555) 789-0123',
-      transactions: 15,
-      totalSpent: 28900.00,
-      outstanding: 4500.00,
-      lastTransaction: 'Dec 5, 2024',
-      joinedDate: 'Feb 2023'
-    },
-    {
-      id: 7,
-      name: 'Digital Dynamics',
-      email: 'david@digitaldynamics.com',
-      phone: '+1 (555) 234-5678',
-      transactions: 22,
-      totalSpent: 41200.00,
-      outstanding: 0,
-      lastTransaction: 'Dec 3, 2024',
-      joinedDate: 'Apr 2023'
-    },
-    {
-      id: 8,
-      name: 'Future Tech Systems',
-      email: 'sophia@futuretech.com',
-      phone: '+1 (555) 876-5432',
-      transactions: 9,
-      totalSpent: 16800.00,
-      outstanding: 1250.00,
-      lastTransaction: 'Nov 29, 2024',
-      joinedDate: 'Aug 2023'
-    },
-    {
-      id: 9,
-      name: 'Alpha Enterprises',
-      email: 'ryan@alphaenterprises.com',
-      phone: '+1 (555) 345-6789',
-      transactions: 17,
-      totalSpent: 31500.00,
-      outstanding: 0,
-      lastTransaction: 'Nov 25, 2024',
-      joinedDate: 'Jul 2023'
-    },
-    {
-      id: 10,
-      name: 'Zenith Solutions',
-      email: 'olivia@zenithsolutions.com',
-      phone: '+1 (555) 987-1234',
-      transactions: 13,
-      totalSpent: 24100.00,
-      outstanding: 800.00,
-      lastTransaction: 'Nov 20, 2024',
-      joinedDate: 'May 2023'
+  // Get stats from context
+  const stats = getCustomerStats();
+
+  // Filter customers based on search
+  const filteredCustomers = customers.filter(customer => 
+    !searchTerm || 
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.phone.includes(searchTerm)
+  );
+
+  const handleAddCustomer = () => {
+    if (!newCustomer.name || !newCustomer.email) {
+      addToast('Please fill in required fields', 'error');
+      return;
     }
-  ];
+    
+    try {
+      addCustomer(newCustomer);
+      addToast(`Customer "${newCustomer.name}" added successfully!`, 'success');
+      setNewCustomer({ name: '', email: '', phone: '', address: '' });
+      setShowAddCustomerModal(false);
+    } catch (error) {
+      addToast('Error adding customer', 'error');
+    }
+  };
 
   const handleSendStatement = (customerIds) => {
     console.log('Send statement to customers:', customerIds);
+    addToast(`Sending statements to ${customerIds.length} customers...`, 'info');
+    // Implement send statement functionality
   };
 
   const handleViewCustomer = (customerId) => {
-    console.log('View customer:', customerId);
+    navigate(`/customers/${customerId}`); // Fixed: use navigate hook
   };
 
   const handleEditCustomer = (customerId) => {
     console.log('Edit customer:', customerId);
+    // For now, navigate to view page. You can create an edit page later
+    navigate(`/customers/${customerId}`, { state: { edit: true } });
+  };
+
+  const handleDeleteCustomer = (customerId) => {
+    const customer = customers.find(c => c.id === customerId);
+    if (window.confirm(`Are you sure you want to delete "${customer?.name}"? This action cannot be undone.`)) {
+      deleteCustomer(customerId);
+      addToast(`Customer "${customer?.name}" deleted successfully!`, 'success');
+    }
+  };
+
+  const handleExportCustomers = () => {
+    try {
+      const dataStr = JSON.stringify(customers, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `customers-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      addToast(`Exported ${customers.length} customers successfully!`, 'success');
+    } catch (error) {
+      addToast('Error exporting customers', 'error');
+    }
   };
 
   return (
@@ -152,27 +110,43 @@ const Customers = () => {
             </p>
           </div>
           <div className="flex items-center space-x-3 mt-4 md:mt-0">
-            <button className={`flex items-center px-4 py-2 border rounded-lg ${
-              isDarkMode
-                ? 'border-gray-600 text-gray-300 hover:bg-gray-800'
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}>
-              <Mail className="w-4 h-4 mr-2" />
-              Email All
-            </button>
-            <button className={`flex items-center px-4 py-2 border rounded-lg ${
-              isDarkMode
-                ? 'border-gray-600 text-gray-300 hover:bg-gray-800'
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}>
+            <button 
+              onClick={handleExportCustomers}
+              className={`flex items-center px-4 py-2 border rounded-lg ${
+                isDarkMode
+                  ? 'border-gray-600 text-gray-300 hover:bg-gray-800'
+                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
               <Download className="w-4 h-4 mr-2" />
               Export
             </button>
-            <button className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+            <button 
+              onClick={() => setShowAddCustomerModal(true)}
+              className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Customer
             </button>
           </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-400'
+          }`} />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by name, email, or phone..."
+            className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+              isDarkMode 
+                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400' 
+                : 'border-gray-300'
+            }`}
+          />
         </div>
 
         {/* Stats Component */}
@@ -180,84 +154,124 @@ const Customers = () => {
 
         {/* Customer Table Component */}
         <CustomerTable
-          customers={customers}
+          customers={filteredCustomers}
           onSendStatement={handleSendStatement}
           onView={handleViewCustomer}
           onEdit={handleEditCustomer}
+          onDelete={handleDeleteCustomer}
         />
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className={`border rounded-xl p-4 ${
-            isDarkMode 
-              ? 'bg-blue-900/20 border-blue-800' 
-              : 'bg-blue-50 border-blue-200'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-sm ${
-                  isDarkMode ? 'text-blue-300' : 'text-gray-600'
-                }`}>
-                  Total Outstanding
-                </p>
-                <p className={`text-2xl font-bold mt-1 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  $31,245
-                </p>
+        {/* Add Customer Modal */}
+        {showAddCustomerModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className={`rounded-xl p-6 max-w-md w-full ${
+              isDarkMode ? 'bg-gray-800' : 'bg-white'
+            }`}>
+              <h3 className={`text-lg font-semibold mb-4 ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                Add New Customer
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomer.name}
+                    onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
+                    className={`w-full px-3 py-2 rounded-lg border ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'border-gray-300'
+                    }`}
+                    placeholder="Customer name"
+                  />
+                </div>
+                
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={newCustomer.email}
+                    onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                    className={`w-full px-3 py-2 rounded-lg border ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'border-gray-300'
+                    }`}
+                    placeholder="customer@example.com"
+                  />
+                </div>
+                
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={newCustomer.phone}
+                    onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
+                    className={`w-full px-3 py-2 rounded-lg border ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'border-gray-300'
+                    }`}
+                    placeholder="+1 (555) 123-4567"
+                  />
+                </div>
+                
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Address
+                  </label>
+                  <textarea
+                    value={newCustomer.address}
+                    onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})}
+                    rows="3"
+                    className={`w-full px-3 py-2 rounded-lg border ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'border-gray-300'
+                    }`}
+                    placeholder="Customer address"
+                  />
+                </div>
               </div>
-              <Users className={`w-8 h-8 ${
-                isDarkMode ? 'text-blue-400' : 'text-blue-600'
-              }`} />
+              
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowAddCustomerModal(false)}
+                  className={`px-4 py-2 rounded-lg ${
+                    isDarkMode
+                      ? 'text-gray-300 hover:bg-gray-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddCustomer}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  Add Customer
+                </button>
+              </div>
             </div>
           </div>
-          <div className={`border rounded-xl p-4 ${
-            isDarkMode 
-              ? 'bg-emerald-900/20 border-emerald-800' 
-              : 'bg-emerald-50 border-emerald-200'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-sm ${
-                  isDarkMode ? 'text-emerald-300' : 'text-gray-600'
-                }`}>
-                  Active This Month
-                </p>
-                <p className={`text-2xl font-bold mt-1 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  87
-                </p>
-              </div>
-              <Users className={`w-8 h-8 ${
-                isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-              }`} />
-            </div>
-          </div>
-          <div className={`border rounded-xl p-4 ${
-            isDarkMode 
-              ? 'bg-amber-900/20 border-amber-800' 
-              : 'bg-amber-50 border-amber-200'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-sm ${
-                  isDarkMode ? 'text-amber-300' : 'text-gray-600'
-                }`}>
-                  Avg. Transaction
-                </p>
-                <p className={`text-2xl font-bold mt-1 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  $1,847
-                </p>
-              </div>
-              <Users className={`w-8 h-8 ${
-                isDarkMode ? 'text-amber-400' : 'text-amber-600'
-              }`} />
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </DashboardLayout>
   );

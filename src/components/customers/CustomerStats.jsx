@@ -1,35 +1,40 @@
 import React from 'react';
 import { Users, UserCheck, DollarSign, TrendingUp } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useInvoice } from '../../context/InvoiceContext'; // Added import
 
 const CustomerStats = () => {
   const { isDarkMode } = useTheme();
+  const { getCustomerStats } = useInvoice(); // Get real stats
+  
+  // Use real stats from context instead of hardcoded values
+  const statsData = getCustomerStats();
   
   const stats = [
     {
       label: 'Total Customers',
-      value: '247',
+      value: statsData[0]?.value || '0',
       description: '+8.3% vs last month',
       icon: Users,
       color: 'bg-blue-500'
     },
     {
       label: 'Active Customers',
-      value: '189',
+      value: statsData[1]?.value || '0',
       description: 'Transactions in last 90 days',
       icon: UserCheck,
       color: 'bg-emerald-500'
     },
     {
       label: 'Total Outstanding',
-      value: '$31,245',
-      description: 'Across 45 customers',
+      value: statsData[2]?.value || '$0.00',
+      description: 'Across all customers',
       icon: DollarSign,
       color: 'bg-amber-500'
     },
     {
       label: 'Avg Transaction Value',
-      value: '$1,847',
+      value: statsData[3]?.value || '$0.00',
       description: '+4.2% vs last month',
       icon: TrendingUp,
       color: 'bg-violet-500'

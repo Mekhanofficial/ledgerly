@@ -7,11 +7,13 @@ import ReceiptHistory from '../../components/receipts/ReceiptHistory';
 import ReceiptPreview from '../../components/receipts/ReceiptPreview';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
+import { useNotifications } from '../../context/NotificationContext'; // Add this import
 import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
 
 const Receipts = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
+  const { addNotification } = useNotifications(); // Add this
   
   const [cartItems, setCartItems] = useState([]);
   const [customerEmail, setCustomerEmail] = useState('');
@@ -170,6 +172,19 @@ const Receipts = () => {
       // Save PDF locally
       pdfDoc.save(`${receiptData.id}.pdf`);
       
+      // ADD NOTIFICATION HERE
+      addNotification({
+        type: 'receipt',
+        title: 'Receipt Generated',
+        description: `Receipt #${receiptId} for ${customerEmail || 'Walk-in Customer'}`,
+        details: `Total: $${total.toFixed(2)} | Items: ${cartItems.length}`,
+        time: 'Just now',
+        action: 'View Receipt',
+        color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+        link: '#',
+        icon: 'Receipt'
+      });
+      
       addToast(`Receipt printed successfully (${receiptData.id})`, 'success');
       
       // Clear cart after successful print
@@ -224,6 +239,19 @@ const Receipts = () => {
       
       // Save PDF locally
       pdfDoc.save(`${receiptData.id}.pdf`);
+      
+      // ADD NOTIFICATION HERE
+      addNotification({
+        type: 'receipt',
+        title: 'Receipt Sent',
+        description: `Receipt #${receiptId} sent to ${customerEmail}`,
+        details: `Total: $${total.toFixed(2)} | Items: ${cartItems.length}`,
+        time: 'Just now',
+        action: 'View Receipt',
+        color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+        link: '#',
+        icon: 'Receipt'
+      });
       
       // Create email body
       const emailBody = `
@@ -300,6 +328,19 @@ Thank you for shopping with us!
 
     // Save receipt to history
     saveReceiptToHistory(receiptData);
+
+    // ADD NOTIFICATION HERE
+    addNotification({
+      type: 'receipt',
+      title: 'Receipt Emailed',
+      description: `Receipt #${receiptId} emailed to ${customerEmail}`,
+      details: `Total: $${total.toFixed(2)} | Items: ${cartItems.length}`,
+      time: 'Just now',
+      action: 'View Receipt',
+      color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
+      link: '#',
+      icon: 'Receipt'
+    });
 
     const emailBody = `
 Thank you for your purchase!

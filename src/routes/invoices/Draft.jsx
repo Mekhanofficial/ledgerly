@@ -1,33 +1,20 @@
-// src/pages/invoices/Drafts.jsx
+// Update Drafts.jsx to use InvoiceContext
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Edit, Trash2, Eye, Mail, Calendar, FileText, User } from 'lucide-react';
+import { Edit, Trash2, Eye, Mail, Calendar, FileText, User, Send } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
-import { draftStorage } from '../../utils/draftStorage';
+import { useInvoice } from '../../context/InvoiceContext';
 import { useToast } from '../../context/ToastContext';
 
 const Drafts = () => {
-  const [drafts, setDrafts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDrafts, setSelectedDrafts] = useState([]);
+  const { drafts, deleteDraft, convertDraftToInvoice, sendInvoice } = useInvoice();
   const { addToast } = useToast();
-
-  useEffect(() => {
-    loadDrafts();
-  }, []);
-
-  const loadDrafts = () => {
-    setLoading(true);
-    const savedDrafts = draftStorage.getDrafts();
-    setDrafts(savedDrafts);
-    setLoading(false);
-  };
+  const [selectedDrafts, setSelectedDrafts] = useState([]);
 
   const handleDeleteDraft = (id, e) => {
-    e.stopPropagation();
+    e?.stopPropagation();
     if (window.confirm('Are you sure you want to delete this draft?')) {
-      draftStorage.deleteDraft(id);
-      setDrafts(drafts.filter(d => d.id !== id));
+      deleteDraft(id);
       addToast('Draft deleted successfully', 'success');
     }
   };
@@ -39,10 +26,28 @@ const Drafts = () => {
     }
 
     if (window.confirm(`Delete ${selectedDrafts.length} selected draft(s)?`)) {
-      selectedDrafts.forEach(id => draftStorage.deleteDraft(id));
-      setDrafts(drafts.filter(d => !selectedDrafts.includes(d.id)));
+      selectedDrafts.forEach(id => deleteDraft(id));
       setSelectedDrafts([]);
       addToast(`${selectedDrafts.length} draft(s) deleted`, 'success');
+    }
+  };
+
+  const handleConvertToInvoice = (draftId) => {
+    try {
+      const invoice = convertDraftToInvoice(draftId);
+      addToast(`Draft converted to invoice: ${invoice.invoiceNumber}`, 'success');
+    } catch (error) {
+      addToast('Error converting draft to invoice', 'error');
+    }
+  };
+
+  const handleSendDraft = (draftId) => {
+    try {
+      const invoice = convertDraftToInvoice(draftId);
+      sendInvoice(invoice.id);
+      addToast(`Invoice ${invoice.invoiceNumber} sent successfully!`, 'success');
+    } catch (error) {
+      addToast('Error sending draft', 'error');
     }
   };
 
@@ -57,18 +62,8 @@ const Drafts = () => {
   };
 
   const calculateTotal = (draft) => {
-    return draft.lineItems?.reduce((sum, item) => sum + item.amount, 0) || 0;
+    return draft.lineItems?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
   };
-
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading drafts...</div>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout>
@@ -214,13 +209,13 @@ const Drafts = () => {
                             {draft.customer && (
                               <div className="flex items-center mt-1 text-sm text-gray-600 dark:text-gray-300">
                                 <User className="w-4 h-4 mr-1" />
-                                {draft.customer.name}
+                                {draft.customer.name || draft.customer}
                               </div>
                             )}
                           </div>
                           <div className="text-right">
                             <div className="text-xl font-bold text-gray-900 dark:text-white">
-                              {draft.currency} {calculateTotal(draft).toFixed(2)}
+                              {draft.currency || 'USD'} {calculateTotal(draft).toFixed(2)}
                             </div>
                             <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-1">
                               <Calendar className="w-3 h-3 mr-1" />
@@ -257,6 +252,13 @@ const Drafts = () => {
                     
                     {/* Actions */}
                     <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleSendDraft(draft.id)}
+                        className="p-2 text-primary-600 dark:text-primary-400 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg"
+                        title="Send Invoice"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
                       <Link
                         to={`/invoices/edit/${draft.id}`}
                         className="p-2 text-gray-600 dark:text-gray-300 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
