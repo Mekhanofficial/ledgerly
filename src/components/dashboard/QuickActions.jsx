@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Receipt, Package, Mail } from 'lucide-react';
+import { FileText, Receipt, Package, Mail, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const QuickActions = () => {
@@ -16,7 +16,7 @@ const QuickActions = () => {
       label: 'Generate Receipt',
       description: 'Quick POS receipt',
       color: 'bg-gradient-to-br from-emerald-500 to-green-500',
-      action: '/receipts/create'
+      action: '/receipts'
     },
     {
       icon: Package,
@@ -25,13 +25,13 @@ const QuickActions = () => {
       color: 'bg-gradient-to-br from-violet-500 to-purple-500',
       action: '/products/create'
     },
-    {
-      icon: Mail,
-      label: 'Send Reminders',
-      description: 'Overdue invoices',
-      color: 'bg-gradient-to-br from-amber-500 to-orange-500',
-      action: '/invoices/reminders'
-    }
+  {
+    icon: BarChart3,
+    label: 'Create Report',
+    description: 'Generate business insights',
+    color: 'bg-gradient-to-br from-blue-500 to-cyan-500',
+    action: '/reports'
+  },
   ];
 
   return (

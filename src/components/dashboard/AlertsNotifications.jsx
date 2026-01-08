@@ -1,5 +1,6 @@
+// src/components/dashboard/AlertsNotifications.js
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { AlertCircle, Package, DollarSign, UserPlus, Clock, ChevronRight, FileText, Receipt } from 'lucide-react';
+import { AlertCircle, Package, DollarSign, UserPlus, Clock, ChevronRight, FileText, Receipt, BarChart3 } from 'lucide-react';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { Link } from 'react-router-dom';
@@ -11,7 +12,38 @@ const AlertsNotifications = () => {
   const [alerts, setAlerts] = useState([]);
   const [previousInvoiceCount, setPreviousInvoiceCount] = useState(invoices.length);
   const [previousCustomerCount, setPreviousCustomerCount] = useState(customers.length);
+  const [reports, setReports] = useState([]);
   
+  // Load reports from localStorage
+  useEffect(() => {
+    try {
+      const savedReports = JSON.parse(localStorage.getItem('ledgerly_reports') || '[]');
+      setReports(savedReports);
+    } catch (error) {
+      console.error('Error loading reports:', error);
+    }
+  }, []);
+
+  // Listen for report updates
+  useEffect(() => {
+    const handleReportUpdate = () => {
+      try {
+        const savedReports = JSON.parse(localStorage.getItem('ledgerly_reports') || '[]');
+        setReports(savedReports);
+      } catch (error) {
+        console.error('Error updating reports:', error);
+      }
+    };
+
+    window.addEventListener('storage', handleReportUpdate);
+    window.addEventListener('reportsUpdated', handleReportUpdate);
+    
+    return () => {
+      window.removeEventListener('storage', handleReportUpdate);
+      window.removeEventListener('reportsUpdated', handleReportUpdate);
+    };
+  }, []);
+
   // Convert notifications to alerts format
   const convertNotificationToAlert = useCallback((notification) => {
     const iconMap = {
@@ -21,7 +53,10 @@ const AlertsNotifications = () => {
       'payment': DollarSign,
       'draft': Package,
       'pending': FileText,
-      'receipt': Receipt
+      'receipt': Receipt,
+      'report': BarChart3,
+      'report-completed': BarChart3,
+      'report-failed': AlertCircle
     };
     
     const colorMap = {
@@ -31,15 +66,21 @@ const AlertsNotifications = () => {
       'payment': 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
       'draft': 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
       'pending': 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
-      'receipt': 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+      'receipt': 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+      'report': 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+      'report-completed': 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+      'report-failed': 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
     };
     
     const priorityMap = {
       'overdue': 0,
+      'report-failed': 0,
       'payment': 1,
       'new-invoice': 1,
       'new-customer': 1,
+      'report-completed': 2,
       'receipt': 2,
+      'report': 2,
       'draft': 3,
       'pending': 4
     };
@@ -55,11 +96,12 @@ const AlertsNotifications = () => {
       color: colorMap[notification.type] || 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800',
       link: notification.link || '#',
       timestamp: new Date(notification.timestamp).getTime(),
-      sortPriority: priorityMap[notification.type] || 5
+      sortPriority: priorityMap[notification.type] || 5,
+      reportId: notification.reportId
     };
   }, []);
 
-  // Calculate ongoing alerts from invoices and customers
+  // Calculate ongoing alerts from invoices, customers, and reports
   const calculateOngoingAlerts = useCallback(() => {
     const ongoingAlerts = [];
     
@@ -175,13 +217,90 @@ const AlertsNotifications = () => {
       console.error('Error checking receipts:', error);
     }
 
+    // Check for processing reports
+    const processingReports = reports.filter(report => report.status === 'processing');
+    if (processingReports.length > 0) {
+      if (processingReports.length === 1) {
+        const report = processingReports[0];
+        ongoingAlerts.push({
+          type: 'report',
+          icon: BarChart3,
+          title: 'Report in Progress',
+          description: `${report.title} is being generated`,
+          details: `${report.progress || 0}% complete`,
+          time: 'Processing',
+          action: 'View Progress',
+          color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+          link: '/reports',
+          timestamp: new Date(report.createdAt).getTime(),
+          sortPriority: 2,
+          reportId: report.id
+        });
+      } else {
+        ongoingAlerts.push({
+          type: 'report',
+          icon: BarChart3,
+          title: 'Reports Processing',
+          description: `${processingReports.length} reports being generated`,
+          details: processingReports.map(r => r.title).join(', '),
+          time: 'In progress',
+          action: 'View Progress',
+          color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+          link: '/reports',
+          timestamp: Date.now(),
+          sortPriority: 2
+        });
+      }
+    }
+
+    // Check for recently completed reports (last 2 hours)
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const recentCompletedReports = reports.filter(report => 
+      report.status === 'completed' && 
+      new Date(report.createdAt) > twoHoursAgo
+    );
+
+    if (recentCompletedReports.length > 0) {
+      if (recentCompletedReports.length === 1) {
+        const report = recentCompletedReports[0];
+        ongoingAlerts.push({
+          type: 'report-completed',
+          icon: BarChart3,
+          title: 'Report Ready',
+          description: `${report.title} is ready to download`,
+          details: `Format: ${report.format?.toUpperCase()}`,
+          time: 'Just completed',
+          action: 'Download',
+          color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+          link: '/reports',
+          timestamp: new Date(report.createdAt).getTime(),
+          sortPriority: 1,
+          reportId: report.id
+        });
+      } else {
+        ongoingAlerts.push({
+          type: 'report-completed',
+          icon: BarChart3,
+          title: 'Reports Ready',
+          description: `${recentCompletedReports.length} reports are ready`,
+          details: recentCompletedReports.map(r => r.title).join(', '),
+          time: 'Ready for download',
+          action: 'View Reports',
+          color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+          link: '/reports',
+          timestamp: Date.now(),
+          sortPriority: 1
+        });
+      }
+    }
+
     return ongoingAlerts;
-  }, [invoices]);
+  }, [invoices, reports]);
 
   // Combine notifications and ongoing alerts
   useEffect(() => {
     // Convert recent notifications to alerts (last 24 hours)
-    const recentNotifications = getRecentNotifications(20); // Get more for filtering
+    const recentNotifications = getRecentNotifications(20);
     
     const recentAlerts = recentNotifications
       .filter(notif => {
@@ -212,7 +331,7 @@ const AlertsNotifications = () => {
     setPreviousInvoiceCount(invoices.length);
     setPreviousCustomerCount(customers.length);
     
-  }, [notifications, invoices, customers, getRecentNotifications, convertNotificationToAlert, calculateOngoingAlerts]);
+  }, [notifications, invoices, customers, reports, getRecentNotifications, convertNotificationToAlert, calculateOngoingAlerts]);
 
   // Sort alerts by priority and time (newest first)
   const sortedAlerts = useMemo(() => {
@@ -236,6 +355,9 @@ const AlertsNotifications = () => {
       case 'new-invoice': return 'text-indigo-500 dark:text-indigo-400';
       case 'pending': return 'text-purple-500 dark:text-purple-400';
       case 'receipt': return 'text-green-500 dark:text-green-400';
+      case 'report': return 'text-blue-500 dark:text-blue-400';
+      case 'report-completed': return 'text-emerald-500 dark:text-emerald-400';
+      case 'report-failed': return 'text-red-500 dark:text-red-400';
       default: return 'text-gray-500 dark:text-gray-400';
     }
   };
@@ -244,6 +366,13 @@ const AlertsNotifications = () => {
     setAlerts([]);
     setPreviousInvoiceCount(invoices.length);
     setPreviousCustomerCount(customers.length);
+  };
+
+  const handleAlertClick = (alert) => {
+    if (alert.reportId) {
+      // Store which report to show when navigating
+      localStorage.setItem('ledgerly_focus_report', alert.reportId);
+    }
   };
 
   return (
@@ -283,6 +412,7 @@ const AlertsNotifications = () => {
               <Link
                 key={`${alert.type}-${index}-${alert.timestamp}`}
                 to={alert.link || '#'}
+                onClick={() => handleAlertClick(alert)}
                 className={`block p-4 rounded-xl border ${alert.color} hover:opacity-90 transition-opacity hover:shadow-md hover:scale-[1.02] transition-transform duration-200`}
               >
                 <div className="flex items-start">

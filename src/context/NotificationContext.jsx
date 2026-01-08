@@ -25,6 +25,7 @@ export const NotificationProvider = ({ children }) => {
   // Use refs to prevent infinite loops
   const prevInvoicesRef = useRef([]);
   const prevCustomersRef = useRef([]);
+  const prevReportsRef = useRef([]);
   const processedItemsRef = useRef(new Set());
 
   // Load notifications from localStorage - only once on mount
@@ -76,11 +77,21 @@ export const NotificationProvider = ({ children }) => {
       const currentProcessedItems = processedItemsRef.current;
       const newProcessedItems = new Set(currentProcessedItems);
 
-      // Only check if invoices or customers have actually changed
+      // Only check if invoices, customers, or reports have actually changed
       const invoicesChanged = JSON.stringify(invoices) !== JSON.stringify(prevInvoicesRef.current);
       const customersChanged = JSON.stringify(customers) !== JSON.stringify(prevCustomersRef.current);
       
-      if (!invoicesChanged && !customersChanged) {
+      // Check reports separately
+      let reports = [];
+      try {
+        reports = JSON.parse(localStorage.getItem('ledgerly_reports') || '[]');
+      } catch (error) {
+        console.error('Error loading reports:', error);
+      }
+      
+      const reportsChanged = JSON.stringify(reports) !== JSON.stringify(prevReportsRef.current);
+      
+      if (!invoicesChanged && !customersChanged && !reportsChanged) {
         return; // No changes, skip processing
       }
 
@@ -241,18 +252,109 @@ export const NotificationProvider = ({ children }) => {
         console.error('Error checking receipts:', error);
       }
 
+      // Check for completed reports
+      if (reportsChanged) {
+        const completedReports = reports.filter(report => {
+          const reportKey = `report_${report.id}`;
+          if (currentProcessedItems.has(reportKey)) return false;
+          
+          return report.status === 'completed' && 
+                 new Date(report.createdAt).getTime() > (Date.now() - 5 * 60 * 1000); // Last 5 minutes
+        });
+
+        completedReports.forEach(report => {
+          const reportKey = `report_${report.id}`;
+          newNotifications.push({
+            id: `notif_${Date.now()}_report_${report.id}`,
+            type: 'report-completed',
+            title: 'Report Generated',
+            description: `${report.title} is ready`,
+            details: `Click to view and download`,
+            time: 'Just now',
+            action: 'View Report',
+            color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+            link: '/reports',
+            timestamp: new Date().toISOString(),
+            read: false,
+            icon: 'BarChart3',
+            reportId: report.id
+          });
+          newProcessedItems.add(reportKey);
+        });
+
+        // Check for failed reports
+        const failedReports = reports.filter(report => {
+          const reportKey = `report_failed_${report.id}`;
+          if (currentProcessedItems.has(reportKey)) return false;
+          
+          return report.status === 'failed' && 
+                 new Date(report.updatedAt || report.createdAt).getTime() > (Date.now() - 5 * 60 * 1000);
+        });
+
+        failedReports.forEach(report => {
+          const reportKey = `report_failed_${report.id}`;
+          newNotifications.push({
+            id: `notif_${Date.now()}_report_failed_${report.id}`,
+            type: 'report-failed',
+            title: 'Report Generation Failed',
+            description: `Failed to generate ${report.title}`,
+            details: 'Click to retry',
+            time: 'Just now',
+            action: 'Retry',
+            color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+            link: '/reports',
+            timestamp: new Date().toISOString(),
+            read: false,
+            icon: 'AlertCircle',
+            reportId: report.id
+          });
+          newProcessedItems.add(reportKey);
+        });
+
+        // Check for new report creation
+        const newReports = reports.filter(report => {
+          const reportKey = `report_new_${report.id}`;
+          if (currentProcessedItems.has(reportKey)) return false;
+          
+          return new Date(report.createdAt).getTime() > (Date.now() - 2 * 60 * 1000); // Last 2 minutes
+        });
+
+        newReports.forEach(report => {
+          const reportKey = `report_new_${report.id}`;
+          newNotifications.push({
+            id: `notif_${Date.now()}_report_new_${report.id}`,
+            type: 'report',
+            title: 'Report Creation Started',
+            description: `${report.title} is being generated`,
+            details: 'Processing...',
+            time: 'Just now',
+            action: 'View Progress',
+            color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+            link: '/reports',
+            timestamp: new Date().toISOString(),
+            read: false,
+            icon: 'BarChart3',
+            reportId: report.id
+          });
+          newProcessedItems.add(reportKey);
+        });
+      }
+
       // Update state if we have new notifications
       if (newNotifications.length > 0) {
         setNotifications(prev => [...newNotifications, ...prev]);
         processedItemsRef.current = newProcessedItems;
         
         // Show a single toast for the most important notification
-        if (newNotifications.some(n => n.type === 'overdue')) {
-          const overdueNotif = newNotifications.find(n => n.type === 'overdue');
-          addToast(overdueNotif.description, 'error');
+        if (newNotifications.some(n => n.type === 'overdue' || n.type === 'report-failed')) {
+          const importantNotif = newNotifications.find(n => n.type === 'overdue' || n.type === 'report-failed');
+          addToast(importantNotif.description, 'error');
         } else if (newNotifications.some(n => n.type === 'payment')) {
           const paymentNotif = newNotifications.find(n => n.type === 'payment');
           addToast(paymentNotif.description, 'success');
+        } else if (newNotifications.some(n => n.type === 'report-completed')) {
+          const reportNotif = newNotifications.find(n => n.type === 'report-completed');
+          addToast(reportNotif.description, 'success');
         } else if (newNotifications.length === 1) {
           addToast(newNotifications[0].description, 'info');
         } else if (newNotifications.length > 1) {
@@ -260,8 +362,10 @@ export const NotificationProvider = ({ children }) => {
           const receiptCount = newNotifications.filter(n => n.type === 'receipt').length;
           const invoiceCount = newNotifications.filter(n => n.type === 'new-invoice').length;
           const customerCount = newNotifications.filter(n => n.type === 'new-customer').length;
+          const reportCount = newNotifications.filter(n => n.type.includes('report')).length;
           
           let message = '';
+          if (reportCount > 0) message += `${reportCount} new report${reportCount > 1 ? 's' : ''} `;
           if (receiptCount > 0) message += `${receiptCount} new receipt${receiptCount > 1 ? 's' : ''} `;
           if (invoiceCount > 0) message += `${invoiceCount} new invoice${invoiceCount > 1 ? 's' : ''} `;
           if (customerCount > 0) message += `${customerCount} new customer${customerCount > 1 ? 's' : ''} `;
@@ -275,6 +379,7 @@ export const NotificationProvider = ({ children }) => {
       // Update refs for next comparison
       prevInvoicesRef.current = [...invoices];
       prevCustomersRef.current = [...customers];
+      prevReportsRef.current = reports;
 
     } catch (error) {
       console.error('Error checking for notifications:', error);
@@ -349,7 +454,7 @@ export const NotificationProvider = ({ children }) => {
       const todayDate = new Date();
       return notifDate.toDateString() === todayDate.toDateString();
     }).length;
-    const important = notifications.filter(n => n.type === 'overdue' || n.type === 'warning' || n.type === 'error').length;
+    const important = notifications.filter(n => n.type === 'overdue' || n.type === 'warning' || n.type === 'error' || n.type === 'report-failed').length;
     
     return { total, unread, today, important };
   }, [notifications]);
@@ -374,11 +479,66 @@ export const NotificationProvider = ({ children }) => {
       .slice(0, limit);
   }, [notifications]);
 
+  // Special function to add report notifications
+  const addReportNotification = useCallback((reportData, status = 'completed') => {
+    const iconMap = {
+      'completed': 'BarChart3',
+      'failed': 'AlertCircle',
+      'processing': 'BarChart3'
+    };
+    
+    const typeMap = {
+      'completed': 'report-completed',
+      'failed': 'report-failed',
+      'processing': 'report'
+    };
+    
+    const colorMap = {
+      'completed': 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+      'failed': 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+      'processing': 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+    };
+    
+    const actionMap = {
+      'completed': 'Download Report',
+      'failed': 'Retry',
+      'processing': 'View Progress'
+    };
+    
+    const titleMap = {
+      'completed': 'Report Generated',
+      'failed': 'Report Generation Failed',
+      'processing': 'Report in Progress'
+    };
+    
+    const descriptionMap = {
+      'completed': `${reportData.title} is ready`,
+      'failed': `Failed to generate ${reportData.title}`,
+      'processing': `${reportData.title} is being generated`
+    };
+    
+    const notification = addNotification({
+      type: typeMap[status],
+      title: titleMap[status],
+      description: descriptionMap[status],
+      details: status === 'completed' ? `Format: ${reportData.format?.toUpperCase()}` : 'Click for details',
+      time: 'Just now',
+      action: actionMap[status],
+      color: colorMap[status],
+      link: '/reports',
+      icon: iconMap[status],
+      reportId: reportData.id
+    });
+    
+    return notification;
+  }, [addNotification]);
+
   const contextValue = {
     notifications,
     unreadCount,
     loading,
     addNotification,
+    addReportNotification, // New function for report notifications
     markAsRead,
     markAllAsRead,
     deleteNotification,
