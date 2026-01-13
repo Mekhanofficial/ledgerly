@@ -1,3 +1,4 @@
+// src/main.jsx
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
@@ -5,8 +6,7 @@ import './styles/globals.css'
 
 // Import components
 import HomePage from './routes/home'
-import Login from './auth/Login'
-import Dashboard from './routes/dashboard.jsx/Dashboard'
+import Dashboard from './routes/dashboard/Dashboard'
 import InvoiceList from './routes/invoices/InvoiceList'
 import CreateInvoice from './routes/invoices/CreateInvoice'
 import RecurringInvoices from './routes/invoices/RecurringInvoices'
@@ -27,71 +27,95 @@ import LiveChatWrapper from './components/livechat/LiveChatWrapper'
 
 // Import context providers
 import { ThemeProvider } from './context/ThemeContext'
-import { InvoiceProvider } from './context/InvoiceContext'
 import { ToastProvider } from './context/ToastContext'
-import { NotificationProvider } from './context/NotificationContext' // Add this
+import { NotificationProvider } from './context/NotificationContext'
+import { InvoiceProvider } from './context/InvoiceContext'
+import { PaymentProvider } from './context/PaymentContext'
+import { InventoryProvider } from './context/InventoryContext'
+import { UserProvider } from './context/UserContext' // Import UserProvider only
 import Drafts from './routes/invoices/Draft'
 import EditInvoice from './routes/invoices/EditInvoice'
 import CustomerProfile from './routes/customers/CustomerProfile'
+import LoginPage from './auth/login/Login'
+import SignupPage from './auth/register/SignUp'
+import ProcessPayment from './routes/payments/ProcessPayment'
+import NewCategory from './routes/inventory/NewCategory'
+import NewProduct from './routes/inventory/NewProduct'
+import EditProduct from './routes/inventory/EditProduct'
+import NewSupplier from './routes/inventory/NewSupplier'
+import NewStockAdjustment from './routes/inventory/NewStockAdjustment'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <ToastProvider>
-        <InvoiceProvider>
-          <NotificationProvider> {/* Add NotificationProvider here */}
-            <BrowserRouter>
-              {/* Live Chat Component - Positioned globally */}
-              <LiveChatWrapper />
-              
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<HomePage />} />
-                <Route path="/login" element={<Login />} />
-                
-                {/* Dashboard & Main App Routes */}
-                <Route path="/dashboard" element={<Dashboard />} />
-                
-                {/* Invoice Management Routes */}
-                <Route path="/invoices" element={<InvoiceList />} />
-                <Route path="/invoices/create" element={<CreateInvoice />} />
-                <Route path="/invoices/drafts" element={<Drafts />} />
-                <Route path="/invoices/edit/:id" element={<EditInvoice />} />
-                <Route path="/invoices/recurring" element={<RecurringInvoices />} />
-                <Route path="/invoices/templates" element={<InvoiceTemplates />} />
-                
-                {/* Receipts Route */}
-                <Route path="/receipts" element={<Receipts />} />
-                
-                {/* Inventory Routes */}
-                <Route path="/inventory" element={<Inventory />} />
-                <Route path="/inventory/products" element={<Products />} />
-                <Route path="/inventory/categories" element={<Categories />} />
-                <Route path="/inventory/stock-adjustments" element={<StockAdjustments />} />
-                <Route path="/inventory/suppliers" element={<Suppliers />} />
-                
-                {/* Customer Management */}
-                <Route path="/customers" element={<Customers />} />
-                <Route path="/customers/:id" element={<CustomerProfile />} />
-                
-                {/* Reports & Analytics */}
-                <Route path="/reports" element={<Reports />} />
-                
-                {/* Payments */}
-                <Route path="/payments" element={<Payments />} />
-                
-                {/* Support & Settings */}
-                <Route path="/support" element={<Support />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/notifications" element={<Notifications />} />
-                
-                {/* 404 Page (optional) */}
-                {/* <Route path="*" element={<NotFound />} /> */}
-              </Routes>
-            </BrowserRouter>
+    <BrowserRouter>
+      <ThemeProvider>
+        <ToastProvider>
+          <NotificationProvider>
+            <UserProvider> {/* Only add UserProvider, no route protection */}
+              <InvoiceProvider>
+                <PaymentProvider>
+                  <InventoryProvider>
+                    {/* Live Chat Component - Positioned globally */}
+                    <LiveChatWrapper />
+                    
+                    <Routes>
+                      {/* Public Routes */}
+                      <Route path="/" element={<HomePage />} />
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/signup" element={<SignupPage />} />
+                      
+                      {/* Dashboard & Main App Routes */}
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      
+                      {/* Invoice Management Routes */}
+                      <Route path="/invoices" element={<InvoiceList />} />
+                      <Route path="/invoices/create" element={<CreateInvoice />} />
+                      <Route path="/invoices/drafts" element={<Drafts />} />
+                      <Route path="/invoices/edit/:id" element={<EditInvoice />} />
+                      <Route path="/invoices/recurring" element={<RecurringInvoices />} />
+                      <Route path="/invoices/templates" element={<InvoiceTemplates />} />
+                      
+                      {/* Receipts Route */}
+                      <Route path="/receipts" element={<Receipts />} />
+                      
+                      {/* Inventory Routes */}
+                      <Route path="/inventory" element={<Inventory />} />
+                      <Route path="/inventory/products" element={<Products />} />
+                      <Route path="/inventory/products/edit/:id" element={<EditProduct />} />
+                      <Route path="/inventory/products/new" element={<NewProduct />} />
+                      <Route path="/inventory/categories" element={<Categories />} />
+                      <Route path="/inventory/categories/new" element={<NewCategory />} />
+                      <Route path="/inventory/stock-adjustments" element={<StockAdjustments />} />
+                      <Route path="/inventory/suppliers" element={<Suppliers />} />
+                      <Route path="/inventory/suppliers/new" element={<NewSupplier />} />
+                      <Route path="/inventory/stock-adjustments/new" element={<NewStockAdjustment />} />
+                      
+                      {/* Customer Management */}
+                      <Route path="/customers" element={<Customers />} />
+                      <Route path="/customers/:id" element={<CustomerProfile />} />
+                      
+                      {/* Payments Routes */}
+                      <Route path="/payments" element={<Payments />} />
+                      <Route path="/payments/process" element={<ProcessPayment />} />
+                      
+                      {/* Reports & Analytics */}
+                      <Route path="/reports" element={<Reports />} />
+                      
+                      {/* Support & Settings */}
+                      <Route path="/support" element={<Support />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/notifications" element={<Notifications />} />
+                      
+                      {/* 404 Page (optional) */}
+                      {/* <Route path="*" element={<NotFound />} /> */}
+                    </Routes>
+                  </InventoryProvider>
+                </PaymentProvider>
+              </InvoiceProvider>
+            </UserProvider>
           </NotificationProvider>
-        </InvoiceProvider>
-      </ToastProvider>
-    </ThemeProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </BrowserRouter>
   </React.StrictMode>
 )

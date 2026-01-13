@@ -11,25 +11,25 @@ const Hero = () => {
   ];
 
   return (
-    <section className="pt-20 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white to-gray-50">
+    <section className="pt-20 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           {/* Left Content */}
           <div className="lg:w-1/2">
-            <div className="inline-flex items-center px-4 py-2 rounded-full bg-primary-100 text-primary-700 text-sm font-medium mb-6">
+            <div className="inline-flex items-center px-4 py-2 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-sm font-medium mb-6">
               <CheckCircle className="w-4 h-4 mr-2" />
               Trusted by 10,000+ businesses worldwide
             </div>
             
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
-              <span className="block text-gray-900">Invoice, Receipt &</span>
-              <span className="block bg-gradient-to-r from-primary-600 via-primary-500 to-cyan-500 bg-clip-text text-transparent">
+              <span className="block text-gray-900 dark:text-white">Invoice, Receipt &</span>
+              <span className="block bg-gradient-to-r from-primary-600 via-primary-500 to-cyan-500 dark:from-primary-400 dark:via-primary-300 dark:to-cyan-400 bg-clip-text text-transparent">
                 Inventory Management
               </span>
-              <span className="block text-gray-900 mt-2">Made Simple</span>
+              <span className="block text-gray-900 dark:text-white mt-2">Made Simple</span>
             </h1>
             
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl">
+            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl">
               All-in-one platform for SMBs, freelancers, and retail stores. Create professional invoices, 
               track inventory, and generate reports in minutes—not hours.
             </p>
@@ -37,12 +37,12 @@ const Hero = () => {
             <div className="space-y-4 mb-8">
               {benefits.map((benefit, index) => (
                 <div key={index} className="flex items-center">
-                  <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center mr-3">
-                    <div className="text-primary-600">
+                  <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mr-3">
+                    <div className="text-primary-600 dark:text-primary-400">
                       {benefit.icon}
                     </div>
                   </div>
-                  <span className="text-gray-700 font-medium">{benefit.text}</span>
+                  <span className="text-gray-700 dark:text-gray-300 font-medium">{benefit.text}</span>
                 </div>
               ))}
             </div>
@@ -50,18 +50,15 @@ const Hero = () => {
             <div className="flex flex-col sm:flex-row gap-4">
               <Link 
                 to="/dashboard" 
-                className="bg-gradient-to-r from-primary-600 to-primary-700 text-white px-8 py-4 rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 transition-all duration-300 inline-flex items-center justify-center group shadow-lg shadow-primary-500/20 hover:shadow-xl hover:shadow-primary-500/30"
+                className="bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-500 dark:to-primary-600 text-white px-8 py-4 rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 dark:hover:from-primary-600 dark:hover:to-primary-700 transition-all duration-300 inline-flex items-center justify-center group shadow-lg shadow-primary-500/20 dark:shadow-primary-400/20 hover:shadow-xl hover:shadow-primary-500/30 dark:hover:shadow-primary-400/30"
               >
-                <span>Start Free Trial</span>
+                <span>Get Started Now</span>
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Link>
-              <button className="bg-white text-primary-700 px-8 py-4 rounded-xl font-semibold border-2 border-primary-200 hover:bg-primary-50 transition-all duration-300 inline-flex items-center justify-center shadow-sm hover:shadow-md">
-                <span>Watch Demo (2 min)</span>
-              </button>
             </div>
             
-            <p className="text-sm text-gray-500 mt-6">
-              No credit card required • 14-day free trial • Cancel anytime
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-6">
+              No credit card required • Cancel anytime • 24/7 customer support
             </p>
           </div>
           
@@ -69,41 +66,41 @@ const Hero = () => {
           <div className="lg:w-1/2 relative">
             <div className="relative">
               {/* Dashboard Preview */}
-              <div className="bg-gradient-to-br from-white to-primary-50/30 rounded-2xl p-6 shadow-2xl shadow-primary-500/10 border border-primary-100/50 animate-float">
+              <div className="bg-gradient-to-br from-white to-primary-50/30 dark:from-gray-800 dark:to-primary-900/20 rounded-2xl p-6 shadow-2xl shadow-primary-500/10 dark:shadow-primary-400/10 border border-primary-100/50 dark:border-primary-800/30 animate-float">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center space-x-3">
                     <div className="w-3 h-3 rounded-full bg-red-400"></div>
                     <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
                     <div className="w-3 h-3 rounded-full bg-green-400"></div>
                   </div>
-                  <div className="text-sm font-medium text-gray-600">Dashboard Preview</div>
+                  <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Dashboard Preview</div>
                 </div>
                 
                 {/* Mock Dashboard */}
                 <div className="space-y-4">
                   {/* Stats Row */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gradient-to-br from-primary-50 to-white p-4 rounded-xl border border-primary-100">
-                      <div className="text-2xl font-bold text-gray-900">$12,847</div>
-                      <div className="text-sm text-gray-600">Monthly Revenue</div>
+                    <div className="bg-gradient-to-br from-primary-50 to-white dark:from-primary-900/30 dark:to-gray-800 p-4 rounded-xl border border-primary-100 dark:border-primary-800">
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">$12,847</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Monthly Revenue</div>
                     </div>
-                    <div className="bg-gradient-to-br from-emerald-50 to-white p-4 rounded-xl border border-emerald-100">
-                      <div className="text-2xl font-bold text-gray-900">98%</div>
-                      <div className="text-sm text-gray-600">On-time Payments</div>
+                    <div className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/30 dark:to-gray-800 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">98%</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">On-time Payments</div>
                     </div>
                   </div>
                   
                   {/* Chart */}
-                  <div className="bg-gradient-to-br from-gray-50 to-white p-4 rounded-xl border border-gray-200">
+                  <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/90 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
                     <div className="flex justify-between items-center mb-3">
-                      <div className="text-sm font-medium text-gray-700">Revenue Trend</div>
-                      <div className="text-xs text-primary-600 font-medium">↑ 24% this month</div>
+                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Revenue Trend</div>
+                      <div className="text-xs text-primary-600 dark:text-primary-400 font-medium">↑ 24% this month</div>
                     </div>
                     <div className="flex items-end space-x-1 h-16">
                       {[30, 45, 60, 75, 90, 80, 70].map((height, idx) => (
                         <div 
                           key={idx}
-                          className="w-6 bg-gradient-to-t from-primary-500 to-primary-300 rounded-t-lg"
+                          className="w-6 bg-gradient-to-t from-primary-500 to-primary-300 dark:from-primary-400 dark:to-primary-200 rounded-t-lg"
                           style={{ height: `${height}%` }}
                         />
                       ))}
@@ -111,8 +108,8 @@ const Hero = () => {
                   </div>
                   
                   {/* Recent Invoices */}
-                  <div className="bg-white p-4 rounded-xl border border-gray-200">
-                    <div className="text-sm font-medium text-gray-700 mb-3">Recent Invoices</div>
+                  <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Recent Invoices</div>
                     <div className="space-y-2">
                       {[
                         { name: 'Acme Corp', amount: '$2,500', status: 'Paid' },
@@ -120,13 +117,13 @@ const Hero = () => {
                         { name: 'Design Studio', amount: '$3,200', status: 'Paid' }
                       ].map((invoice, idx) => (
                         <div key={idx} className="flex justify-between items-center py-2">
-                          <div className="font-medium text-gray-900">{invoice.name}</div>
+                          <div className="font-medium text-gray-900 dark:text-white">{invoice.name}</div>
                           <div className="flex items-center space-x-3">
-                            <span className="text-gray-700">{invoice.amount}</span>
+                            <span className="text-gray-700 dark:text-gray-300">{invoice.amount}</span>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                               invoice.status === 'Paid' 
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-amber-100 text-amber-800'
+                                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'
+                                : 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'
                             }`}>
                               {invoice.status}
                             </span>
@@ -139,8 +136,8 @@ const Hero = () => {
               </div>
               
               {/* Floating Elements */}
-              <div className="absolute -top-6 -left-6 w-24 h-24 bg-gradient-to-br from-cyan-500/20 to-primary-500/20 rounded-3xl blur-xl"></div>
-              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-primary-500/10 to-purple-500/10 rounded-3xl blur-xl"></div>
+              <div className="absolute -top-6 -left-6 w-24 h-24 bg-gradient-to-br from-cyan-500/20 to-primary-500/20 dark:from-cyan-400/20 dark:to-primary-400/20 rounded-3xl blur-xl"></div>
+              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-primary-500/10 to-purple-500/10 dark:from-primary-400/10 dark:to-purple-400/10 rounded-3xl blur-xl"></div>
             </div>
           </div>
         </div>

@@ -1,6 +1,5 @@
-// src/context/NotificationContext.js
+// src/context/NotificationContext.js - FIXED VERSION
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
-import { useInvoice } from './InvoiceContext';
 import { useToast } from './ToastContext';
 
 const NotificationContext = createContext();
@@ -14,7 +13,6 @@ export const useNotifications = () => {
 };
 
 export const NotificationProvider = ({ children }) => {
-  const { invoices, customers } = useInvoice();
   const { addToast } = useToast();
   
   const [notifications, setNotifications] = useState([]);
@@ -49,7 +47,6 @@ export const NotificationProvider = ({ children }) => {
       }
     };
 
-    // Small delay to prevent UI blocking
     const timer = setTimeout(loadData, 100);
     return () => clearTimeout(timer);
   }, []);
@@ -68,31 +65,21 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [notifications, loading, initialized]);
 
-  // Check for new notifications - debounced and optimized
-  const checkForNotifications = useCallback(() => {
-    if (loading || !initialized) return;
+  // Separate function to check for invoice notifications (called externally)
+  const checkInvoiceNotifications = useCallback((invoices, customers) => {
+    if (loading || !initialized) return [];
     
     try {
       const newNotifications = [];
       const currentProcessedItems = processedItemsRef.current;
       const newProcessedItems = new Set(currentProcessedItems);
 
-      // Only check if invoices, customers, or reports have actually changed
+      // Check invoices changed
       const invoicesChanged = JSON.stringify(invoices) !== JSON.stringify(prevInvoicesRef.current);
       const customersChanged = JSON.stringify(customers) !== JSON.stringify(prevCustomersRef.current);
       
-      // Check reports separately
-      let reports = [];
-      try {
-        reports = JSON.parse(localStorage.getItem('ledgerly_reports') || '[]');
-      } catch (error) {
-        console.error('Error loading reports:', error);
-      }
-      
-      const reportsChanged = JSON.stringify(reports) !== JSON.stringify(prevReportsRef.current);
-      
-      if (!invoicesChanged && !customersChanged && !reportsChanged) {
-        return; // No changes, skip processing
+      if (!invoicesChanged && !customersChanged) {
+        return []; // No changes
       }
 
       // Check for new invoices
@@ -157,65 +144,26 @@ export const NotificationProvider = ({ children }) => {
         });
       }
 
-      // Check for paid invoices
-      if (invoicesChanged) {
-        invoices.forEach(inv => {
-          const paidKey = `paid_${inv.id}`;
-          if (currentProcessedItems.has(paidKey)) return;
-          
-          if (inv.status === 'paid') {
-            const paidAt = new Date(inv.paidAt || inv.updatedAt || inv.createdAt);
-            const now = new Date();
-            const hoursAgo = Math.floor((now - paidAt) / (1000 * 60 * 60));
-            
-            if (hoursAgo < 24) { // Within last 24 hours
-              newNotifications.push({
-                id: `notif_${Date.now()}_paid_${inv.id}`,
-                type: 'payment',
-                title: 'Payment Received',
-                description: `$${(inv.totalAmount || inv.amount || 0).toLocaleString()} from ${inv.customer || 'Customer'}`,
-                details: `Invoice #${inv.number || inv.invoiceNumber}`,
-                time: hoursAgo < 1 ? 'Just now' : `${hoursAgo} hour${hoursAgo === 1 ? '' : 's'} ago`,
-                action: 'View Receipt',
-                color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
-                link: `/invoices/view/${inv.id}`,
-                timestamp: new Date().toISOString(),
-                read: false,
-                icon: 'DollarSign',
-                invoiceId: inv.id
-              });
-              newProcessedItems.add(paidKey);
-            }
-          }
-        });
-      }
+      // Update refs
+      prevInvoicesRef.current = [...invoices];
+      prevCustomersRef.current = [...customers];
+      
+      // Update processed items
+      processedItemsRef.current = newProcessedItems;
+      
+      return newNotifications;
+    } catch (error) {
+      console.error('Error checking invoice notifications:', error);
+      return [];
+    }
+  }, [loading, initialized]);
 
-      // Check for overdue invoices
-      if (invoicesChanged) {
-        const overdueInvoices = invoices.filter(inv => 
-          inv.status === 'overdue' && 
-          new Date(inv.dueDate) < new Date() &&
-          !notifications.some(n => n.type === 'overdue' && n.invoiceId === inv.id)
-        );
-
-        overdueInvoices.forEach(inv => {
-          newNotifications.push({
-            id: `notif_${Date.now()}_overdue_${inv.id}`,
-            type: 'overdue',
-            title: 'Overdue Invoice',
-            description: `Invoice #${inv.number || inv.invoiceNumber} is past due`,
-            details: `Due date: ${new Date(inv.dueDate).toLocaleDateString()}`,
-            time: 'Urgent',
-            action: 'View Invoice',
-            color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
-            link: `/invoices/view/${inv.id}`,
-            timestamp: new Date().toISOString(),
-            read: false,
-            icon: 'AlertCircle',
-            invoiceId: inv.id
-          });
-        });
-      }
+  // Check for notifications from external sources
+  const checkExternalNotifications = useCallback(() => {
+    try {
+      const newNotifications = [];
+      const currentProcessedItems = processedItemsRef.current;
+      const newProcessedItems = new Set(currentProcessedItems);
 
       // Check for new receipts
       try {
@@ -253,13 +201,14 @@ export const NotificationProvider = ({ children }) => {
       }
 
       // Check for completed reports
-      if (reportsChanged) {
+      try {
+        const reports = JSON.parse(localStorage.getItem('ledgerly_reports') || '[]');
         const completedReports = reports.filter(report => {
           const reportKey = `report_${report.id}`;
           if (currentProcessedItems.has(reportKey)) return false;
           
           return report.status === 'completed' && 
-                 new Date(report.createdAt).getTime() > (Date.now() - 5 * 60 * 1000); // Last 5 minutes
+                 new Date(report.createdAt).getTime() > (Date.now() - 5 * 60 * 1000);
         });
 
         completedReports.forEach(report => {
@@ -281,132 +230,19 @@ export const NotificationProvider = ({ children }) => {
           });
           newProcessedItems.add(reportKey);
         });
-
-        // Check for failed reports
-        const failedReports = reports.filter(report => {
-          const reportKey = `report_failed_${report.id}`;
-          if (currentProcessedItems.has(reportKey)) return false;
-          
-          return report.status === 'failed' && 
-                 new Date(report.updatedAt || report.createdAt).getTime() > (Date.now() - 5 * 60 * 1000);
-        });
-
-        failedReports.forEach(report => {
-          const reportKey = `report_failed_${report.id}`;
-          newNotifications.push({
-            id: `notif_${Date.now()}_report_failed_${report.id}`,
-            type: 'report-failed',
-            title: 'Report Generation Failed',
-            description: `Failed to generate ${report.title}`,
-            details: 'Click to retry',
-            time: 'Just now',
-            action: 'Retry',
-            color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
-            link: '/reports',
-            timestamp: new Date().toISOString(),
-            read: false,
-            icon: 'AlertCircle',
-            reportId: report.id
-          });
-          newProcessedItems.add(reportKey);
-        });
-
-        // Check for new report creation
-        const newReports = reports.filter(report => {
-          const reportKey = `report_new_${report.id}`;
-          if (currentProcessedItems.has(reportKey)) return false;
-          
-          return new Date(report.createdAt).getTime() > (Date.now() - 2 * 60 * 1000); // Last 2 minutes
-        });
-
-        newReports.forEach(report => {
-          const reportKey = `report_new_${report.id}`;
-          newNotifications.push({
-            id: `notif_${Date.now()}_report_new_${report.id}`,
-            type: 'report',
-            title: 'Report Creation Started',
-            description: `${report.title} is being generated`,
-            details: 'Processing...',
-            time: 'Just now',
-            action: 'View Progress',
-            color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
-            link: '/reports',
-            timestamp: new Date().toISOString(),
-            read: false,
-            icon: 'BarChart3',
-            reportId: report.id
-          });
-          newProcessedItems.add(reportKey);
-        });
+      } catch (error) {
+        console.error('Error checking reports:', error);
       }
 
-      // Update state if we have new notifications
-      if (newNotifications.length > 0) {
-        setNotifications(prev => [...newNotifications, ...prev]);
-        processedItemsRef.current = newProcessedItems;
-        
-        // Show a single toast for the most important notification
-        if (newNotifications.some(n => n.type === 'overdue' || n.type === 'report-failed')) {
-          const importantNotif = newNotifications.find(n => n.type === 'overdue' || n.type === 'report-failed');
-          addToast(importantNotif.description, 'error');
-        } else if (newNotifications.some(n => n.type === 'payment')) {
-          const paymentNotif = newNotifications.find(n => n.type === 'payment');
-          addToast(paymentNotif.description, 'success');
-        } else if (newNotifications.some(n => n.type === 'report-completed')) {
-          const reportNotif = newNotifications.find(n => n.type === 'report-completed');
-          addToast(reportNotif.description, 'success');
-        } else if (newNotifications.length === 1) {
-          addToast(newNotifications[0].description, 'info');
-        } else if (newNotifications.length > 1) {
-          // Show count for multiple notifications
-          const receiptCount = newNotifications.filter(n => n.type === 'receipt').length;
-          const invoiceCount = newNotifications.filter(n => n.type === 'new-invoice').length;
-          const customerCount = newNotifications.filter(n => n.type === 'new-customer').length;
-          const reportCount = newNotifications.filter(n => n.type.includes('report')).length;
-          
-          let message = '';
-          if (reportCount > 0) message += `${reportCount} new report${reportCount > 1 ? 's' : ''} `;
-          if (receiptCount > 0) message += `${receiptCount} new receipt${receiptCount > 1 ? 's' : ''} `;
-          if (invoiceCount > 0) message += `${invoiceCount} new invoice${invoiceCount > 1 ? 's' : ''} `;
-          if (customerCount > 0) message += `${customerCount} new customer${customerCount > 1 ? 's' : ''} `;
-          
-          if (message) {
-            addToast(`${message.trim()} created`, 'info');
-          }
-        }
-      }
-
-      // Update refs for next comparison
-      prevInvoicesRef.current = [...invoices];
-      prevCustomersRef.current = [...customers];
-      prevReportsRef.current = reports;
-
+      // Update processed items
+      processedItemsRef.current = newProcessedItems;
+      
+      return newNotifications;
     } catch (error) {
-      console.error('Error checking for notifications:', error);
+      console.error('Error checking external notifications:', error);
+      return [];
     }
-  }, [invoices, customers, notifications, addToast, loading, initialized]);
-
-  // Debounced notification check when data changes
-  useEffect(() => {
-    if (!initialized || loading) return;
-    
-    const timer = setTimeout(() => {
-      checkForNotifications();
-    }, 500); // Wait 500ms after data loads
-    
-    return () => clearTimeout(timer);
-  }, [invoices, customers, initialized, loading, checkForNotifications]);
-
-  // Also check periodically (every 5 minutes)
-  useEffect(() => {
-    if (!initialized) return;
-    
-    const interval = setInterval(() => {
-      checkForNotifications();
-    }, 5 * 60 * 1000);
-    
-    return () => clearInterval(interval);
-  }, [checkForNotifications, initialized]);
+  }, []);
 
   const addNotification = useCallback((notificationData) => {
     const newNotification = {
@@ -479,66 +315,32 @@ export const NotificationProvider = ({ children }) => {
       .slice(0, limit);
   }, [notifications]);
 
-  // Special function to add report notifications
-  const addReportNotification = useCallback((reportData, status = 'completed') => {
-    const iconMap = {
-      'completed': 'BarChart3',
-      'failed': 'AlertCircle',
-      'processing': 'BarChart3'
-    };
+  // Add multiple notifications at once
+  const addNotifications = useCallback((notificationList) => {
+    const newNotifications = notificationList.map(data => ({
+      id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      ...data,
+      timestamp: new Date().toISOString(),
+      read: false
+    }));
     
-    const typeMap = {
-      'completed': 'report-completed',
-      'failed': 'report-failed',
-      'processing': 'report'
-    };
+    setNotifications(prev => [...newNotifications, ...prev]);
     
-    const colorMap = {
-      'completed': 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
-      'failed': 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
-      'processing': 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-    };
+    if (newNotifications.length > 0) {
+      addToast(`Added ${newNotifications.length} new notification(s)`, 'info');
+    }
     
-    const actionMap = {
-      'completed': 'Download Report',
-      'failed': 'Retry',
-      'processing': 'View Progress'
-    };
-    
-    const titleMap = {
-      'completed': 'Report Generated',
-      'failed': 'Report Generation Failed',
-      'processing': 'Report in Progress'
-    };
-    
-    const descriptionMap = {
-      'completed': `${reportData.title} is ready`,
-      'failed': `Failed to generate ${reportData.title}`,
-      'processing': `${reportData.title} is being generated`
-    };
-    
-    const notification = addNotification({
-      type: typeMap[status],
-      title: titleMap[status],
-      description: descriptionMap[status],
-      details: status === 'completed' ? `Format: ${reportData.format?.toUpperCase()}` : 'Click for details',
-      time: 'Just now',
-      action: actionMap[status],
-      color: colorMap[status],
-      link: '/reports',
-      icon: iconMap[status],
-      reportId: reportData.id
-    });
-    
-    return notification;
-  }, [addNotification]);
+    return newNotifications;
+  }, [addToast]);
 
   const contextValue = {
     notifications,
     unreadCount,
     loading,
     addNotification,
-    addReportNotification, // New function for report notifications
+    addNotifications,
+    checkInvoiceNotifications,
+    checkExternalNotifications,
     markAsRead,
     markAllAsRead,
     deleteNotification,

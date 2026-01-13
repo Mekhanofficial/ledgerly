@@ -1,28 +1,37 @@
-// src/pages/receipts/Receipts.js
+// src/pages/receipts/Receipts.js - UPDATED VERSION
 import React, { useState, useEffect } from 'react';
-import { Receipt, Plus, ArrowLeft } from 'lucide-react';
+import { Receipt, Plus, ArrowLeft, CreditCard, User, Wallet, Smartphone } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import ProductGrid from '../../components/receipts/ProductGrid';
 import ReceiptHistory from '../../components/receipts/ReceiptHistory';
 import ReceiptPreview from '../../components/receipts/ReceiptPreview';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
-import { useNotifications } from '../../context/NotificationContext'; // Add this import
+import { useNotifications } from '../../context/NotificationContext';
+import { usePayments } from '../../context/PaymentContext';
+import { useInvoice } from '../../context/InvoiceContext';
 import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
 
 const Receipts = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
-  const { addNotification } = useNotifications(); // Add this
+  const { addNotification } = useNotifications();
+  const { recordTransaction, paymentMethods } = usePayments();
+  const { customers } = useInvoice();
   
   const [cartItems, setCartItems] = useState([]);
   const [customerEmail, setCustomerEmail] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState('');
   const [showMobileReceipt, setShowMobileReceipt] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [receipts, setReceipts] = useState([]);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
   // Load receipts on component mount
   useEffect(() => {
@@ -31,7 +40,7 @@ const Receipts = () => {
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
+      setIsMobile(window.innerWidth < 768); // Changed from 1024 to 768 for better mobile detection
     };
     
     checkMobile();
@@ -98,6 +107,11 @@ const Receipts = () => {
     
     if (window.confirm('Clear all items from cart?')) {
       setCartItems([]);
+      setCustomerEmail('');
+      setCustomerName('');
+      setSelectedCustomerId('');
+      setSelectedPaymentMethodId('');
+      setPaymentMethod('Cash');
       addToast('Cart cleared', 'success');
     }
   };
@@ -120,19 +134,38 @@ const Receipts = () => {
       };
       
       receipts.unshift(newReceipt);
-      const updatedReceipts = receipts.slice(0, 50); // Keep last 50 receipts
+      const updatedReceipts = receipts.slice(0, 50);
       localStorage.setItem('invoiceflow_receipts', JSON.stringify(updatedReceipts));
       
-      // Update state immediately
       setReceipts(updatedReceipts);
       
-      // Dispatch custom event for other components
       window.dispatchEvent(new CustomEvent('receiptsUpdated'));
       
       return true;
     } catch (error) {
       console.error('Error saving receipt:', error);
       return false;
+    }
+  };
+
+  const handleSelectCustomer = (customerId) => {
+    const customer = customers.find(c => c.id === customerId);
+    if (customer) {
+      setSelectedCustomerId(customerId);
+      setCustomerName(customer.name);
+      setCustomerEmail(customer.email || '');
+      setShowCustomerModal(false);
+      addToast(`Customer ${customer.name} selected`, 'success');
+    }
+  };
+
+  const handleSelectPaymentMethod = (methodId) => {
+    const method = paymentMethods.find(m => m.id === methodId);
+    if (method) {
+      setSelectedPaymentMethodId(methodId);
+      setPaymentMethod(method.name || method.type);
+      setShowPaymentMethodModal(false);
+      addToast(`Payment method ${method.name || method.type} selected`, 'success');
     }
   };
 
@@ -147,6 +180,9 @@ const Receipts = () => {
       const receiptId = `RCP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const { subtotal, tax, total } = calculateTotals();
       
+      const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+      const selectedPaymentMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
+      
       const receiptData = {
         id: receiptId,
         date: new Date().toLocaleString(),
@@ -154,9 +190,15 @@ const Receipts = () => {
         subtotal,
         tax,
         total,
-        customerEmail,
-        notes,
-        paymentMethod
+        customerName: customerName || (selectedCustomer?.name || 'Walk-in Customer'),
+        customerEmail: customerEmail || (selectedCustomer?.email || ''),
+        customerId: selectedCustomerId,
+        paymentMethod: paymentMethod,
+        paymentMethodId: selectedPaymentMethodId,
+        paymentMethodDetails: selectedPaymentMethod ? 
+          `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4 || 'N/A'}` : 
+          'Cash',
+        notes
       };
 
       // Save to receipt history
@@ -166,18 +208,43 @@ const Receipts = () => {
         throw new Error('Failed to save receipt');
       }
 
+      // Record transaction in PaymentContext
+      recordTransaction({
+        id: `txn_${receiptId}`,
+        invoiceId: receiptId,
+        invoiceNumber: receiptId,
+        customerId: selectedCustomerId || 'walk-in',
+        customerName: customerName || 'Walk-in Customer',
+        amount: total,
+        paymentMethod: paymentMethod.toLowerCase().replace(' ', '_'),
+        paymentMethodDetails: selectedPaymentMethod ? 
+          `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4}` : 
+          'Cash',
+        paymentMethodId: selectedPaymentMethodId,
+        status: 'completed',
+        type: 'receipt',
+        notes: notes || 'Point of Sale Receipt',
+        metadata: {
+          itemsCount: cartItems.length,
+          subtotal,
+          tax,
+          total,
+          receiptId
+        }
+      });
+
       // Generate PDF
       const pdfDoc = generateReceiptPDF(receiptData);
       
       // Save PDF locally
       pdfDoc.save(`${receiptData.id}.pdf`);
       
-      // ADD NOTIFICATION HERE
+      // Add notification
       addNotification({
         type: 'receipt',
         title: 'Receipt Generated',
-        description: `Receipt #${receiptId} for ${customerEmail || 'Walk-in Customer'}`,
-        details: `Total: $${total.toFixed(2)} | Items: ${cartItems.length}`,
+        description: `Receipt #${receiptId} for ${customerName || 'Walk-in Customer'}`,
+        details: `Total: $${total.toFixed(2)} | Payment: ${paymentMethod}`,
         time: 'Just now',
         action: 'View Receipt',
         color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
@@ -190,6 +257,10 @@ const Receipts = () => {
       // Clear cart after successful print
       setCartItems([]);
       setCustomerEmail('');
+      setCustomerName('');
+      setSelectedCustomerId('');
+      setSelectedPaymentMethodId('');
+      setPaymentMethod('Cash');
       setNotes('');
       
     } catch (error) {
@@ -205,8 +276,8 @@ const Receipts = () => {
       return;
     }
 
-    if (!customerEmail) {
-      addToast('Please enter customer email to send receipt', 'warning');
+    if (!customerEmail && !selectedCustomerId) {
+      addToast('Please select a customer or enter email to send receipt', 'warning');
       return;
     }
 
@@ -215,6 +286,9 @@ const Receipts = () => {
       const receiptId = `RCP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const { subtotal, tax, total } = calculateTotals();
       
+      const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+      const selectedPaymentMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
+      
       const receiptData = {
         id: receiptId,
         date: new Date().toLocaleString(),
@@ -222,9 +296,15 @@ const Receipts = () => {
         subtotal,
         tax,
         total,
-        customerEmail,
-        notes,
-        paymentMethod
+        customerName: customerName || (selectedCustomer?.name || 'Walk-in Customer'),
+        customerEmail: customerEmail || (selectedCustomer?.email || ''),
+        customerId: selectedCustomerId,
+        paymentMethod: paymentMethod,
+        paymentMethodId: selectedPaymentMethodId,
+        paymentMethodDetails: selectedPaymentMethod ? 
+          `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4 || 'N/A'}` : 
+          'Cash',
+        notes
       };
 
       // Save to receipt history
@@ -234,25 +314,50 @@ const Receipts = () => {
         throw new Error('Failed to save receipt');
       }
 
+      // Record transaction in PaymentContext
+      recordTransaction({
+        id: `txn_${receiptId}`,
+        invoiceId: receiptId,
+        invoiceNumber: receiptId,
+        customerId: selectedCustomerId || 'walk-in',
+        customerName: customerName || 'Walk-in Customer',
+        amount: total,
+        paymentMethod: paymentMethod.toLowerCase().replace(' ', '_'),
+        paymentMethodDetails: selectedPaymentMethod ? 
+          `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4}` : 
+          'Cash',
+        paymentMethodId: selectedPaymentMethodId,
+        status: 'completed',
+        type: 'receipt',
+        notes: notes || 'Point of Sale Receipt',
+        metadata: {
+          itemsCount: cartItems.length,
+          subtotal,
+          tax,
+          total,
+          receiptId
+        }
+      });
+
       // Generate PDF
       const pdfDoc = generateReceiptPDF(receiptData);
       
       // Save PDF locally
       pdfDoc.save(`${receiptData.id}.pdf`);
       
-      // ADD NOTIFICATION HERE
+      // Add notification
       addNotification({
         type: 'receipt',
         title: 'Receipt Sent',
-        description: `Receipt #${receiptId} sent to ${customerEmail}`,
-        details: `Total: $${total.toFixed(2)} | Items: ${cartItems.length}`,
+        description: `Receipt #${receiptId} sent to ${customerEmail || selectedCustomer?.email}`,
+        details: `Total: $${total.toFixed(2)} | Payment: ${paymentMethod}`,
         time: 'Just now',
         action: 'View Receipt',
         color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
         link: '#',
         icon: 'Receipt'
       });
-      
+
       // Create email body
       const emailBody = `
 Thank you for your purchase!
@@ -260,7 +365,9 @@ Thank you for your purchase!
 Receipt Details:
 Receipt #: ${receiptData.id}
 Date: ${receiptData.date}
-Payment Method: ${paymentMethod}
+Customer: ${receiptData.customerName}
+Payment Method: ${receiptData.paymentMethod}
+${receiptData.paymentMethodDetails ? `Payment Details: ${receiptData.paymentMethodDetails}` : ''}
 
 Items Purchased:
 ${cartItems.map(item => 
@@ -279,16 +386,21 @@ Thank you for shopping with us!
       // Create mailto link
       const subject = encodeURIComponent(`Your Receipt ${receiptData.id} from Legends`);
       const body = encodeURIComponent(emailBody);
-      const mailtoLink = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
+      const emailTo = customerEmail || selectedCustomer?.email;
+      const mailtoLink = `mailto:${emailTo}?subject=${subject}&body=${body}`;
       
       // Open email client
       window.open(mailtoLink, '_blank');
       
-      addToast(`Receipt sent to ${customerEmail} successfully!`, 'success');
+      addToast(`Receipt sent to ${emailTo} successfully!`, 'success');
       
       // Clear cart after successful send
       setCartItems([]);
       setCustomerEmail('');
+      setCustomerName('');
+      setSelectedCustomerId('');
+      setSelectedPaymentMethodId('');
+      setPaymentMethod('Cash');
       setNotes('');
       
     } catch (error) {
@@ -299,8 +411,8 @@ Thank you for shopping with us!
   };
 
   const handleEmailOnly = () => {
-    if (!customerEmail) {
-      addToast('Please enter customer email', 'warning');
+    if (!customerEmail && !selectedCustomerId) {
+      addToast('Please select a customer or enter email', 'warning');
       return;
     }
 
@@ -312,6 +424,9 @@ Thank you for shopping with us!
     const receiptId = `RCP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const { subtotal, tax, total } = calculateTotals();
     
+    const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+    const selectedPaymentMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
+    
     const receiptData = {
       id: receiptId,
       date: new Date().toLocaleString(),
@@ -319,9 +434,15 @@ Thank you for shopping with us!
       subtotal,
       tax,
       total,
-      customerEmail,
+      customerName: customerName || (selectedCustomer?.name || 'Walk-in Customer'),
+      customerEmail: customerEmail || (selectedCustomer?.email || ''),
+      customerId: selectedCustomerId,
+      paymentMethod: paymentMethod,
+      paymentMethodId: selectedPaymentMethodId,
+      paymentMethodDetails: selectedPaymentMethod ? 
+        `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4 || 'N/A'}` : 
+        'Cash',
       notes,
-      paymentMethod,
       savedAt: new Date().toISOString(),
       status: 'completed'
     };
@@ -329,12 +450,37 @@ Thank you for shopping with us!
     // Save receipt to history
     saveReceiptToHistory(receiptData);
 
-    // ADD NOTIFICATION HERE
+    // Record transaction in PaymentContext
+    recordTransaction({
+      id: `txn_${receiptId}`,
+      invoiceId: receiptId,
+      invoiceNumber: receiptId,
+      customerId: selectedCustomerId || 'walk-in',
+      customerName: customerName || 'Walk-in Customer',
+      amount: total,
+      paymentMethod: paymentMethod.toLowerCase().replace(' ', '_'),
+      paymentMethodDetails: selectedPaymentMethod ? 
+        `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4}` : 
+        'Cash',
+      paymentMethodId: selectedPaymentMethodId,
+      status: 'completed',
+      type: 'receipt',
+      notes: notes || 'Point of Sale Receipt',
+      metadata: {
+        itemsCount: cartItems.length,
+        subtotal,
+        tax,
+        total,
+        receiptId
+      }
+    });
+
+    // Add notification
     addNotification({
       type: 'receipt',
       title: 'Receipt Emailed',
-      description: `Receipt #${receiptId} emailed to ${customerEmail}`,
-      details: `Total: $${total.toFixed(2)} | Items: ${cartItems.length}`,
+      description: `Receipt #${receiptId} emailed to ${customerEmail || selectedCustomer?.email}`,
+      details: `Total: $${total.toFixed(2)} | Payment: ${paymentMethod}`,
       time: 'Just now',
       action: 'View Receipt',
       color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
@@ -348,7 +494,9 @@ Thank you for your purchase!
 Receipt Details:
 Receipt #: ${receiptData.id}
 Date: ${receiptData.date}
-Payment Method: ${paymentMethod}
+Customer: ${receiptData.customerName}
+Payment Method: ${receiptData.paymentMethod}
+${receiptData.paymentMethodDetails ? `Payment Details: ${receiptData.paymentMethodDetails}` : ''}
 
 Items Purchased:
 ${cartItems.map(item => 
@@ -366,7 +514,8 @@ Thank you for shopping with us!
 
     const subject = encodeURIComponent(`Your Receipt ${receiptData.id} from Legends`);
     const body = encodeURIComponent(emailBody);
-    const mailtoLink = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
+    const emailTo = customerEmail || selectedCustomer?.email;
+    const mailtoLink = `mailto:${emailTo}?subject=${subject}&body=${body}`;
     
     window.open(mailtoLink, '_blank');
     addToast('Email opened with receipt details', 'success');
@@ -382,13 +531,24 @@ Thank you for shopping with us!
       if (window.confirm('Clear current cart and start new receipt?')) {
         setCartItems([]);
         setCustomerEmail('');
-        setNotes('');
+        setCustomerName('');
+        setSelectedCustomerId('');
+        setSelectedPaymentMethodId('');
         setPaymentMethod('Cash');
+        setNotes('');
         addToast('New receipt started', 'info');
       }
     } else {
       addToast('New receipt started', 'info');
     }
+  };
+
+  const getSelectedPaymentMethod = () => {
+    return paymentMethods.find(m => m.id === selectedPaymentMethodId);
+  };
+
+  const getSelectedCustomer = () => {
+    return customers.find(c => c.id === selectedCustomerId);
   };
 
   return (
@@ -528,10 +688,20 @@ Thank you for shopping with us!
                   onEmailOnly={handleEmailOnly}
                   customerEmail={customerEmail}
                   setCustomerEmail={setCustomerEmail}
-                  notes={notes}
-                  setNotes={setNotes}
+                  customerName={customerName}
+                  setCustomerName={setCustomerName}
+                  selectedCustomerId={selectedCustomerId}
+                  onSelectCustomer={() => setShowCustomerModal(true)}
+                  selectedCustomer={getSelectedCustomer()}
+                  customers={customers}
                   paymentMethod={paymentMethod}
                   setPaymentMethod={setPaymentMethod}
+                  selectedPaymentMethodId={selectedPaymentMethodId}
+                  onSelectPaymentMethod={() => setShowPaymentMethodModal(true)}
+                  selectedPaymentMethod={getSelectedPaymentMethod()}
+                  paymentMethods={paymentMethods}
+                  notes={notes}
+                  setNotes={setNotes}
                   isProcessing={isProcessing}
                 />
               </div>
@@ -558,6 +728,198 @@ Thank you for shopping with us!
             </div>
           </div>
         </div>
+
+        {/* Customer Selection Modal */}
+        {showCustomerModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className={`rounded-xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto ${
+              isDarkMode ? 'bg-gray-800' : 'bg-white'
+            }`}>
+              <h3 className={`text-lg font-semibold mb-4 ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                Select Customer
+              </h3>
+              <div className="space-y-3 mb-4">
+                {customers.map(customer => (
+                  <button
+                    key={customer.id}
+                    onClick={() => handleSelectCustomer(customer.id)}
+                    className={`w-full text-left p-3 border rounded-lg transition-colors ${
+                      selectedCustomerId === customer.id
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                        : isDarkMode
+                          ? 'border-gray-700 hover:bg-gray-700'
+                          : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <User className={`w-5 h-5 mr-3 ${
+                        selectedCustomerId === customer.id
+                          ? 'text-primary-600 dark:text-primary-400'
+                          : isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`} />
+                      <div>
+                        <div className={`font-medium ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {customer.name}
+                        </div>
+                        <div className={`text-sm ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
+                          {customer.email}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowCustomerModal(false)}
+                  className={`px-4 py-2 rounded-lg ${
+                    isDarkMode
+                      ? 'text-gray-300 hover:bg-gray-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setCustomerEmail('');
+                    setCustomerName('');
+                    setSelectedCustomerId('');
+                    setShowCustomerModal(false);
+                  }}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Method Selection Modal */}
+        {showPaymentMethodModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className={`rounded-xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto ${
+              isDarkMode ? 'bg-gray-800' : 'bg-white'
+            }`}>
+              <h3 className={`text-lg font-semibold mb-4 ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                Select Payment Method
+              </h3>
+              <div className="space-y-3 mb-4">
+                <button
+                  onClick={() => {
+                    setSelectedPaymentMethodId('');
+                    setPaymentMethod('Cash');
+                    setShowPaymentMethodModal(false);
+                  }}
+                  className={`w-full text-left p-3 border rounded-lg transition-colors ${
+                    !selectedPaymentMethodId
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                      : isDarkMode
+                        ? 'border-gray-700 hover:bg-gray-700'
+                        : 'border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <Wallet className={`w-5 h-5 mr-3 ${
+                      !selectedPaymentMethodId
+                        ? 'text-primary-600 dark:text-primary-400'
+                        : isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`} />
+                    <div>
+                      <div className={`font-medium ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        Cash
+                      </div>
+                      <div className={`text-sm ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        Pay with cash
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {paymentMethods.map(method => (
+                  <button
+                    key={method.id}
+                    onClick={() => handleSelectPaymentMethod(method.id)}
+                    className={`w-full text-left p-3 border rounded-lg transition-colors ${
+                      selectedPaymentMethodId === method.id
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                        : isDarkMode
+                          ? 'border-gray-700 hover:bg-gray-700'
+                          : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      {method.type === 'credit_card' && <CreditCard className={`w-5 h-5 mr-3 ${
+                        selectedPaymentMethodId === method.id
+                          ? 'text-primary-600 dark:text-primary-400'
+                          : isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`} />}
+                      {method.type === 'paypal' && <Wallet className={`w-5 h-5 mr-3 ${
+                        selectedPaymentMethodId === method.id
+                          ? 'text-primary-600 dark:text-primary-400'
+                          : isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`} />}
+                      {method.type === 'mobile_money' && <Smartphone className={`w-5 h-5 mr-3 ${
+                        selectedPaymentMethodId === method.id
+                          ? 'text-primary-600 dark:text-primary-400'
+                          : isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`} />}
+                      <div>
+                        <div className={`font-medium ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {method.name}
+                        </div>
+                        <div className={`text-sm ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
+                          {method.type === 'credit_card' ? `•••• ${method.last4}` : 
+                           method.type === 'paypal' ? method.email :
+                           method.type}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowPaymentMethodModal(false)}
+                  className={`px-4 py-2 rounded-lg ${
+                    isDarkMode
+                      ? 'text-gray-300 hover:bg-gray-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedPaymentMethodId('');
+                    setPaymentMethod('Cash');
+                    setShowPaymentMethodModal(false);
+                  }}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Mobile Floating Cart Button */}
         {isMobile && !showMobileReceipt && cartItems.length > 0 && (

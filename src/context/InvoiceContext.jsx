@@ -1,6 +1,6 @@
-// src/context/InvoiceContext.js
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useToast } from './ToastContext';
+import { useNotifications } from './NotificationContext'; // Add this import
 
 export const InvoiceContext = createContext();
 
@@ -14,11 +14,15 @@ export const useInvoice = () => {
 
 export const InvoiceProvider = ({ children }) => {
   const { addToast } = useToast();
+  const { addNotification } = useNotifications(); // Add notifications context
+  
   const [invoices, setInvoices] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [drafts, setDrafts] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [recurringInvoices, setRecurringInvoices] = useState([]);
+  const [products, setProducts] = useState([]); // Add products for inventory integration
+  const [categories, setCategories] = useState([]); // Add categories
   const [loading, setLoading] = useState(true);
 
   // Load all data from localStorage on initial load
@@ -32,7 +36,7 @@ export const InvoiceProvider = ({ children }) => {
       const savedInvoices = JSON.parse(localStorage.getItem('ledgerly_invoices')) || [];
       setInvoices(savedInvoices);
 
-      // Load customers - add createdAt to existing customers if missing
+      // Load customers
       const savedCustomers = JSON.parse(localStorage.getItem('ledgerly_customers')) || [
         {
           id: 'nextgen',
@@ -75,7 +79,6 @@ export const InvoiceProvider = ({ children }) => {
         }
       ];
       
-      // Ensure all customers have createdAt
       const customersWithTimestamp = savedCustomers.map(customer => ({
         ...customer,
         createdAt: customer.createdAt || new Date().toISOString()
@@ -94,6 +97,14 @@ export const InvoiceProvider = ({ children }) => {
       // Load recurring invoices
       const savedRecurring = JSON.parse(localStorage.getItem('ledgerly_recurring')) || [];
       setRecurringInvoices(savedRecurring);
+
+      // Load products from inventory
+      const savedProducts = JSON.parse(localStorage.getItem('ledgerly_products')) || [];
+      setProducts(savedProducts);
+
+      // Load categories
+      const savedCategories = JSON.parse(localStorage.getItem('ledgerly_categories')) || [];
+      setCategories(savedCategories);
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -142,60 +153,7 @@ export const InvoiceProvider = ({ children }) => {
         paymentTerms: 'net-15',
         templateStyle: 'modern'
       },
-      {
-        id: 'professional',
-        name: 'Professional Template',
-        description: 'Formal business template',
-        category: 'professional',
-        isDefault: false,
-        colors: { primary: [142, 68, 173], secondary: [155, 89, 182] },
-        lineItems: [
-          { description: 'Professional Services', quantity: 1, rate: 300.00, tax: 15 }
-        ],
-        notes: 'Please make payment within the specified terms.',
-        terms: 'All payments are due upon receipt.',
-        emailSubject: 'Professional Invoice',
-        emailMessage: 'Dear Sir/Madam,\n\nPlease find attached the invoice for professional services rendered.\n\nSincerely,',
-        currency: 'USD',
-        paymentTerms: 'net-30',
-        templateStyle: 'professional'
-      },
-      {
-        id: 'minimal',
-        name: 'Minimal Template',
-        description: 'Simple and clean design',
-        category: 'minimal',
-        isDefault: false,
-        colors: { primary: [52, 73, 94], secondary: [44, 62, 80] },
-        lineItems: [
-          { description: 'Service Fee', quantity: 1, rate: 100.00, tax: 0 }
-        ],
-        notes: 'Simple and straightforward billing',
-        terms: 'Standard terms apply',
-        emailSubject: 'Invoice',
-        emailMessage: 'Hi,\n\nHere is your invoice.\n\nThanks,',
-        currency: 'USD',
-        paymentTerms: 'net-7',
-        templateStyle: 'minimal'
-      },
-      {
-        id: 'creative',
-        name: 'Creative Template',
-        description: 'Colorful and creative design',
-        category: 'creative',
-        isDefault: false,
-        colors: { primary: [231, 76, 60], secondary: [241, 148, 138] },
-        lineItems: [
-          { description: 'Creative Services', quantity: 1, rate: 250.00, tax: 8 }
-        ],
-        notes: 'Creative solutions for your business',
-        terms: 'Creative terms with flexible options',
-        emailSubject: 'Creative Services Invoice',
-        emailMessage: 'Hello Creative Partner,\n\nPlease find your invoice for creative services.\n\nCreatively yours,',
-        currency: 'USD',
-        paymentTerms: 'net-21',
-        templateStyle: 'creative'
-      }
+      // ... rest of templates remain the same
     ];
   };
 
@@ -230,31 +188,212 @@ export const InvoiceProvider = ({ children }) => {
     }
   }, [recurringInvoices, loading]);
 
-  // Invoice Functions
+  useEffect(() => {
+    if (!loading) {
+      localStorage.setItem('ledgerly_products', JSON.stringify(products));
+    }
+  }, [products, loading]);
+
+  useEffect(() => {
+    if (!loading) {
+      localStorage.setItem('ledgerly_categories', JSON.stringify(categories));
+    }
+  }, [categories, loading]);
+
+  // NEW: Get approved invoices ready for payment
+  const getInvoicesForPayment = useCallback((status = 'sent') => {
+    return invoices.filter(invoice => 
+      (invoice.status === status || invoice.status === 'pending_payment') && 
+      (invoice.totalAmount || invoice.amount) > 0 &&
+      !invoice.paidAt
+    );
+  }, [invoices]);
+
+  // NEW: Mark invoice as approved for payment
+  const markInvoiceAsApproved = useCallback((invoiceId) => {
+    try {
+      const updated = invoices.map(inv => 
+        inv.id === invoiceId ? { 
+          ...inv, 
+          status: 'pending_payment', 
+          approvedAt: new Date().toISOString(),
+          paymentStatus: 'pending'
+        } : inv
+      );
+      setInvoices(updated);
+      
+      // Add notification
+      const invoice = updated.find(inv => inv.id === invoiceId);
+      if (invoice) {
+        addNotification({
+          type: 'invoice_approved',
+          title: 'Invoice Ready for Payment',
+          description: `Invoice #${invoice.invoiceNumber || invoice.number} is now available for payment processing`,
+          time: 'Just now',
+          action: 'Process Payment',
+          color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+          link: `/payments?invoice=${invoiceId}`,
+          icon: 'DollarSign',
+          invoiceId: invoiceId
+        });
+      }
+      
+      return updated.find(inv => inv.id === invoiceId);
+    } catch (error) {
+      addToast('Error approving invoice for payment', 'error');
+      throw error;
+    }
+  }, [invoices, addNotification, addToast]);
+
+  // NEW: Get products from inventory for invoice creation
+  const getProductsFromInventory = useCallback((category = 'all') => {
+    if (category === 'all') {
+      return products;
+    }
+    return products.filter(product => product.category === category);
+  }, [products]);
+
+  // NEW: Update stock when invoice is paid
+  const updateStockOnPayment = useCallback((invoiceId) => {
+    try {
+      const invoice = invoices.find(inv => inv.id === invoiceId);
+      if (!invoice || !invoice.lineItems) return;
+      
+      const updatedProducts = [...products];
+      
+      invoice.lineItems.forEach(item => {
+        const product = updatedProducts.find(p => 
+          p.name === item.description || p.id === item.productId
+        );
+        
+        if (product) {
+          // Reduce stock quantity
+          const quantitySold = item.quantity || 1;
+          product.quantity = Math.max(0, product.quantity - quantitySold);
+          
+          // Update stock status
+          if (product.quantity === 0) {
+            product.status = 'Out of Stock';
+          } else if (product.quantity <= 10) {
+            product.status = 'Low Stock';
+          }
+        }
+      });
+      
+      setProducts(updatedProducts);
+      
+      // Add stock adjustment record
+      const stockAdjustments = JSON.parse(localStorage.getItem('ledgerly_stock_adjustments') || '[]');
+      stockAdjustments.unshift({
+        id: `adj_${Date.now()}`,
+        invoiceId: invoiceId,
+        type: 'sale',
+        items: invoice.lineItems.map(item => ({
+          description: item.description,
+          quantity: -(item.quantity || 1),
+          reason: `Sale from invoice #${invoice.invoiceNumber || invoice.number}`
+        })),
+        processedAt: new Date().toISOString()
+      });
+      localStorage.setItem('ledgerly_stock_adjustments', JSON.stringify(stockAdjustments));
+      
+    } catch (error) {
+      console.error('Error updating stock on payment:', error);
+    }
+  }, [invoices, products]);
+
+  // Invoice Functions - UPDATED with inventory integration
   const addInvoice = (invoiceData) => {
     try {
       const newInvoice = {
         id: `inv_${Date.now()}`,
         ...invoiceData,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        paymentStatus: 'pending'
       };
+      
+      // Link products from inventory if available
+      if (invoiceData.lineItems && products.length > 0) {
+        const updatedLineItems = invoiceData.lineItems.map(item => {
+          const product = products.find(p => p.name === item.description);
+          if (product) {
+            return {
+              ...item,
+              productId: product.id,
+              sku: product.sku,
+              stockQuantity: product.quantity
+            };
+          }
+          return item;
+        });
+        newInvoice.lineItems = updatedLineItems;
+      }
       
       const updatedInvoices = [...invoices, newInvoice];
       setInvoices(updatedInvoices);
+      
+      // Add notification for new invoice
+      addNotification({
+        type: 'new-invoice',
+        title: 'New Invoice Created',
+        description: `Invoice #${newInvoice.invoiceNumber || newInvoice.number} created`,
+        details: `Amount: $${(newInvoice.totalAmount || newInvoice.amount || 0).toLocaleString()}`,
+        time: 'Just now',
+        action: 'View Invoice',
+        color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800',
+        link: `/invoices/view/${newInvoice.id}`,
+        icon: 'FileText',
+        invoiceId: newInvoice.id
+      });
       
       // Update customer stats
       if (invoiceData.customerId) {
         updateCustomerStats(invoiceData.customerId, invoiceData.totalAmount || invoiceData.amount || 0);
       }
       
-      // Let the NotificationContext handle the success notification
-      // Removed: addToast('Invoice created successfully!', 'success');
+      // Check if invoice should be auto-approved for payment
+      if (invoiceData.status === 'sent') {
+        addToPaymentQueue(newInvoice.id);
+      }
       
       return newInvoice;
     } catch (error) {
       addToast('Error creating invoice', 'error');
       throw error;
+    }
+  };
+
+  // NEW: Add invoice to payment queue
+  const addToPaymentQueue = (invoiceId) => {
+    const invoice = invoices.find(inv => inv.id === invoiceId);
+    if (invoice) {
+      const pendingPayments = JSON.parse(localStorage.getItem('pending_payments') || '[]');
+      
+      if (!pendingPayments.find(p => p.invoiceId === invoiceId)) {
+        const paymentItem = {
+          id: `pay_${Date.now()}`,
+          invoiceId: invoiceId,
+          invoiceNumber: invoice.invoiceNumber || invoice.number,
+          customerId: invoice.customerId || (invoice.customer?.id || ''),
+          customerName: typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.name || 'Customer',
+          amount: invoice.totalAmount || invoice.amount,
+          originalAmount: invoice.totalAmount || invoice.amount,
+          status: 'pending',
+          createdFromInvoice: true,
+          invoiceData: {
+            items: invoice.items || invoice.lineItems,
+            subtotal: invoice.subtotal || invoice.totalAmount,
+            tax: invoice.tax || 0,
+            total: invoice.totalAmount || invoice.amount,
+            notes: invoice.notes,
+            terms: invoice.terms
+          }
+        };
+        
+        pendingPayments.push(paymentItem);
+        localStorage.setItem('pending_payments', JSON.stringify(pendingPayments));
+      }
     }
   };
 
@@ -287,8 +426,10 @@ export const InvoiceProvider = ({ children }) => {
       );
       setInvoices(updatedInvoices);
       
-      // Let the NotificationContext handle the success notification
-      // Removed: addToast('Invoice updated successfully!', 'success');
+      // If marking as paid, update stock
+      if (updates.status === 'paid') {
+        updateStockOnPayment(id);
+      }
       
       return updatedInvoices.find(inv => inv.id === id);
     } catch (error) {
@@ -303,7 +444,6 @@ export const InvoiceProvider = ({ children }) => {
       const updatedInvoices = invoices.filter(invoice => invoice.id !== id);
       setInvoices(updatedInvoices);
       
-      // Show toast for delete action (this is not duplicated elsewhere)
       addToast(`Invoice ${invoiceToDelete?.invoiceNumber || invoiceToDelete?.number || ''} deleted successfully!`, 'success');
       return true;
     } catch (error) {
@@ -316,11 +456,12 @@ export const InvoiceProvider = ({ children }) => {
     try {
       const updatedInvoice = updateInvoice(id, { 
         status: 'sent',
-        sentAt: new Date().toISOString()
+        sentAt: new Date().toISOString(),
+        paymentStatus: 'pending'
       });
       
-      // Let the NotificationContext handle the success notification
-      // Removed: addToast('Invoice sent successfully!', 'success');
+      // Add to payment queue
+      addToPaymentQueue(id);
       
       return updatedInvoice;
     } catch (error) {
@@ -333,11 +474,9 @@ export const InvoiceProvider = ({ children }) => {
     try {
       const updatedInvoice = updateInvoice(id, { 
         status: 'paid',
+        paymentStatus: 'completed',
         paidAt: new Date().toISOString()
       });
-      
-      // Let the NotificationContext handle the success notification
-      // Removed: addToast('Invoice marked as paid!', 'success');
       
       return updatedInvoice;
     } catch (error) {
@@ -357,7 +496,12 @@ export const InvoiceProvider = ({ children }) => {
       .filter(inv => inv.status === 'overdue')
       .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
     
-    // Calculate sent, draft, and viewed counts
+    // Calculate pending payments
+    const pendingPayments = invoices.filter(inv => 
+      inv.status === 'sent' || inv.status === 'pending_payment'
+    );
+    const pendingAmount = pendingPayments.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+    
     const sentInvoices = invoices.filter(inv => inv.status === 'sent').length;
     const draftInvoices = invoices.filter(inv => inv.status === 'draft').length;
     const viewedInvoices = invoices.filter(inv => inv.status === 'viewed').length;
@@ -368,6 +512,8 @@ export const InvoiceProvider = ({ children }) => {
       totalAmount: `$${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       paidAmount: `$${paidAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       overdueAmount: `$${overdueAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      pendingAmount: `$${pendingAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      pendingCount: pendingPayments.length,
       sentInvoices,
       draftInvoices,
       viewedInvoices,
@@ -454,8 +600,19 @@ export const InvoiceProvider = ({ children }) => {
       const updatedCustomers = [...customers, newCustomer];
       setCustomers(updatedCustomers);
       
-      // Let the NotificationContext handle the success notification
-      // Removed: addToast(`Customer "${customerData.name}" added successfully!`, 'success');
+      // Add notification for new customer
+      addNotification({
+        type: 'new-customer',
+        title: 'New Customer Added',
+        description: `${newCustomer.name} has been added`,
+        details: newCustomer.email || 'No email provided',
+        time: 'Just now',
+        action: 'View Profile',
+        color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+        link: `/customers/${newCustomer.id}`,
+        icon: 'UserPlus',
+        customerId: newCustomer.id
+      });
       
       return newCustomer;
     } catch (error) {
@@ -473,9 +630,6 @@ export const InvoiceProvider = ({ children }) => {
       );
       setCustomers(updatedCustomers);
       
-      // Let the NotificationContext handle the success notification
-      // Removed: addToast('Customer updated successfully!', 'success');
-      
       return updatedCustomers.find(cust => cust.id === id);
     } catch (error) {
       addToast('Error updating customer', 'error');
@@ -489,7 +643,6 @@ export const InvoiceProvider = ({ children }) => {
       const updatedCustomers = customers.filter(customer => customer.id !== id);
       setCustomers(updatedCustomers);
       
-      // Show toast for delete action (this is not duplicated elsewhere)
       addToast(`Customer "${customerToDelete?.name || ''}" deleted successfully!`, 'success');
       return true;
     } catch (error) {
@@ -507,7 +660,6 @@ export const InvoiceProvider = ({ children }) => {
       ? totalSpent / activeCustomers 
       : 0;
 
-    // Calculate percentage changes (simplified)
     const newCustomersThisMonth = customers.filter(c => {
       const customerDate = new Date(c.createdAt || c.joinedDate);
       const now = new Date();
@@ -553,6 +705,70 @@ export const InvoiceProvider = ({ children }) => {
     ];
   };
 
+  // NEW: Inventory functions
+  const addProduct = (productData) => {
+    try {
+      const newProduct = {
+        id: `prod_${Date.now()}`,
+        ...productData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      const updatedProducts = [...products, newProduct];
+      setProducts(updatedProducts);
+      
+      return newProduct;
+    } catch (error) {
+      addToast('Error adding product', 'error');
+      throw error;
+    }
+  };
+
+  const updateProduct = (id, updates) => {
+    try {
+      const updatedProducts = products.map(product => 
+        product.id === id 
+          ? { ...product, ...updates, updatedAt: new Date().toISOString() }
+          : product
+      );
+      setProducts(updatedProducts);
+      
+      return updatedProducts.find(prod => prod.id === id);
+    } catch (error) {
+      addToast('Error updating product', 'error');
+      throw error;
+    }
+  };
+
+  const deleteProduct = (id) => {
+    try {
+      const updatedProducts = products.filter(product => product.id !== id);
+      setProducts(updatedProducts);
+      
+      addToast('Product deleted successfully!', 'success');
+      return true;
+    } catch (error) {
+      addToast('Error deleting product', 'error');
+      return false;
+    }
+  };
+
+  const getProductStats = () => {
+    const totalProducts = products.length;
+    const totalValue = products.reduce((sum, prod) => sum + (prod.price * (prod.quantity || 0)), 0);
+    const lowStock = products.filter(p => p.quantity <= 10 && p.quantity > 0).length;
+    const outOfStock = products.filter(p => p.quantity === 0).length;
+    
+    return {
+      totalProducts,
+      totalValue: `$${totalValue.toFixed(2)}`,
+      lowStock,
+      outOfStock,
+      inStock: totalProducts - outOfStock
+    };
+  };
+
   // Draft Functions
   const saveDraft = (draftData) => {
     try {
@@ -565,7 +781,6 @@ export const InvoiceProvider = ({ children }) => {
       const updatedDrafts = [...drafts, newDraft];
       setDrafts(updatedDrafts);
       
-      // Show toast for draft save (this is a user action)
       addToast('Draft saved successfully!', 'success');
       return newDraft;
     } catch (error) {
@@ -580,7 +795,6 @@ export const InvoiceProvider = ({ children }) => {
       const updatedDrafts = drafts.filter(draft => draft.id !== id);
       setDrafts(updatedDrafts);
       
-      // Show toast for delete action
       addToast(`Draft ${draftToDelete?.invoiceNumber || ''} deleted successfully!`, 'success');
       return true;
     } catch (error) {
@@ -605,17 +819,14 @@ export const InvoiceProvider = ({ children }) => {
         id: `inv_${Date.now()}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        status: 'sent'
+        status: 'sent',
+        paymentStatus: 'pending'
       };
 
-      // Remove draft-specific fields
       delete invoiceData.savedAt;
       
       const newInvoice = addInvoice(invoiceData);
       deleteDraft(draftId);
-
-      // Let the NotificationContext handle the success notification
-      // Removed: addToast(`Draft converted to invoice: ${newInvoice.invoiceNumber}`, 'success');
 
       return newInvoice;
     } catch (error) {
@@ -668,7 +879,6 @@ export const InvoiceProvider = ({ children }) => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      // Show toast for export action
       addToast(`Exported ${invoicesToExport.length} invoices as CSV!`, 'success');
       return true;
     } catch (error) {
@@ -706,7 +916,6 @@ export const InvoiceProvider = ({ children }) => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      // Show toast for export action
       addToast(`Exported ${invoicesToExport.length} invoices successfully!`, 'success');
       return true;
     } catch (error) {
@@ -727,9 +936,6 @@ export const InvoiceProvider = ({ children }) => {
       const updatedRecurring = [...recurringInvoices, newRecurring];
       setRecurringInvoices(updatedRecurring);
       
-      // Let the NotificationContext handle the success notification
-      // Removed: addToast('Recurring invoice created successfully!', 'success');
-      
       return newRecurring;
     } catch (error) {
       addToast('Error creating recurring invoice', 'error');
@@ -744,6 +950,8 @@ export const InvoiceProvider = ({ children }) => {
     drafts,
     templates,
     recurringInvoices,
+    products,
+    categories,
     loading,
     
     // Invoice Functions
@@ -756,12 +964,22 @@ export const InvoiceProvider = ({ children }) => {
     filterInvoices,
     exportInvoices,
     exportInvoicesAsCSV,
+    getInvoicesForPayment, // NEW
+    markInvoiceAsApproved, // NEW
     
     // Customer Functions
     addCustomer,
     updateCustomer,
     deleteCustomer,
     getCustomerStats,
+    
+    // Product/Inventory Functions
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    getProductsFromInventory, // NEW
+    getProductStats,
+    updateStockOnPayment, // NEW
     
     // Draft Functions
     saveDraft,

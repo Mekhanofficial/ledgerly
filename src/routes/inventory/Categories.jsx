@@ -1,64 +1,76 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tag, Plus, Search, Package, DollarSign, Edit, ArrowRight, Folder, BarChart, TrendingUp } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { useInventory } from '../../context/InventoryContext';
 
 const Categories = () => {
   const { isDarkMode } = useTheme();
+  const { categories, products, getCategoryStats } = useInventory();
   const [searchTerm, setSearchTerm] = useState('');
+  const [categoryStats, setCategoryStats] = useState([]);
+  const [overallStats, setOverallStats] = useState({
+    totalCategories: 0,
+    totalProducts: 0,
+    totalValue: 0,
+    avgProductsPerCategory: 0
+  });
 
-  const categories = [
-    {
-      id: 1,
-      name: 'Electronics',
-      description: 'Computers, phones, and accessories',
-      productCount: 12,
-      totalValue: 15400.00,
-      color: 'bg-blue-500',
-      icon: '💻'
-    },
-    {
-      id: 2,
-      name: 'Stationery',
-      description: 'Office supplies and writing materials',
-      productCount: 8,
-      totalValue: 2850.00,
-      color: 'bg-emerald-500',
-      icon: '📝'
-    },
-    {
-      id: 3,
-      name: 'Furniture',
-      description: 'Office furniture and equipment',
-      productCount: 5,
-      totalValue: 4200.00,
-      color: 'bg-amber-500',
-      icon: '🪑'
-    },
-    {
-      id: 4,
-      name: 'Clothing',
-      description: 'Apparel and accessories',
-      productCount: 15,
-      totalValue: 8750.00,
-      color: 'bg-purple-500',
-      icon: '👕'
-    },
-    {
-      id: 5,
-      name: 'Accessories',
-      description: 'Miscellaneous accessories',
-      productCount: 10,
-      totalValue: 3150.00,
-      color: 'bg-pink-500',
-      icon: '🎒'
-    }
-  ];
+  useEffect(() => {
+    // Calculate category stats
+    const stats = categories.map(category => {
+      const categoryProducts = products.filter(p => p.categoryId === category.id);
+      const totalValue = categoryProducts.reduce((sum, product) => {
+        const productValue = (product.price || 0) * (product.stock || product.quantity || 0);
+        return sum + productValue;
+      }, 0);
+      
+      return {
+        ...category,
+        productCount: categoryProducts.length,
+        totalValue: totalValue,
+        color: category.color || getDefaultColor(category.id),
+        icon: category.icon || getDefaultIcon(category.id)
+      };
+    });
 
-  const filteredCategories = categories.filter(category =>
+    setCategoryStats(stats);
+
+    // Calculate overall stats
+    const totalProducts = products.length;
+    const totalValue = products.reduce((sum, product) => {
+      const productValue = (product.price || 0) * (product.stock || product.quantity || 0);
+      return sum + productValue;
+    }, 0);
+
+    setOverallStats({
+      totalCategories: categories.length,
+      totalProducts: totalProducts,
+      totalValue: totalValue,
+      avgProductsPerCategory: categories.length > 0 ? (totalProducts / categories.length).toFixed(1) : 0
+    });
+  }, [categories, products]);
+
+  const getDefaultColor = (id) => {
+    const colors = [
+      'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 
+      'bg-pink-500', 'bg-red-500', 'bg-indigo-500', 'bg-teal-500'
+    ];
+    return colors[id % colors.length];
+  };
+
+  const getDefaultIcon = (id) => {
+    const icons = [
+      '💻', '📝', '🪑', '👕', '🎒', '📱', '💡', '🔧', '🎨',
+      '📊', '💰', '🚚', '🏢', '🏭', '🔌', '💎', '🍎', '☕', '🎯'
+    ];
+    return icons[id % icons.length];
+  };
+
+  const filteredCategories = categoryStats.filter(category =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    category.description.toLowerCase().includes(searchTerm.toLowerCase())
+    (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -125,94 +137,137 @@ const Categories = () => {
         </div>
 
         {/* Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCategories.map((category) => (
-            <div key={category.id} className={`border rounded-xl overflow-hidden hover:shadow-lg transition-shadow ${
-              isDarkMode 
-                ? 'bg-gray-800 border-gray-700 hover:border-primary-500' 
-                : 'bg-white border-gray-200 hover:border-primary-300'
+        {filteredCategories.length === 0 ? (
+          <div className={`border rounded-xl p-8 text-center ${
+            isDarkMode 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-white border-gray-200'
+          }`}>
+            <Folder className={`w-12 h-12 mx-auto mb-4 ${
+              isDarkMode ? 'text-gray-600' : 'text-gray-400'
+            }`} />
+            <h3 className={`text-lg font-semibold mb-2 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              <div className={`h-2 ${category.color}`}></div>
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className={`w-10 h-10 ${category.color} rounded-lg flex items-center justify-center mr-3`}>
-                      <span className="text-lg">{category.icon}</span>
+              {categories.length === 0 ? 'No Categories Added' : 'No Categories Found'}
+            </h3>
+            <p className={`mb-4 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              {categories.length === 0 
+                ? 'Create categories to organize your products.' 
+                : 'Try a different search term.'}
+            </p>
+            {categories.length === 0 && (
+              <Link
+                to="/inventory/categories/new"
+                className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create First Category
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCategories.map((category) => (
+              <div key={category.id} className={`border rounded-xl overflow-hidden hover:shadow-lg transition-shadow ${
+                isDarkMode 
+                  ? 'bg-gray-800 border-gray-700 hover:border-primary-500' 
+                  : 'bg-white border-gray-200 hover:border-primary-300'
+              }`}>
+                <div className={`h-2 ${category.color}`}></div>
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center">
+                      <div 
+                        className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3`}
+                        style={{ 
+                          backgroundColor: category.color?.startsWith('#') ? category.color : undefined 
+                        }}
+                      >
+                        <span className="text-lg">{category.icon}</span>
+                      </div>
+                      <div>
+                        <h3 className={`font-semibold text-lg ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {category.name}
+                        </h3>
+                        {category.description && (
+                          <p className={`text-sm mt-1 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                          }`}>
+                            {category.description}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className={`font-semibold text-lg ${
+                    <Link
+                      to={`/inventory/categories/edit/${category.id}`}
+                      className={`p-1.5 rounded-lg ${
+                        isDarkMode 
+                          ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700' 
+                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Link>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center text-sm">
+                        <Package className={`w-4 h-4 mr-2 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`} />
+                        <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+                          Products
+                        </span>
+                      </div>
+                      <span className={`font-medium ${
                         isDarkMode ? 'text-white' : 'text-gray-900'
                       }`}>
-                        {category.name}
-                      </h3>
-                      <p className={`text-sm mt-1 ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        {category.productCount}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center text-sm">
+                        <DollarSign className={`w-4 h-4 mr-2 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`} />
+                        <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+                          Total Value
+                        </span>
+                      </div>
+                      <span className={`font-bold ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
                       }`}>
-                        {category.description}
-                      </p>
-                    </div>
-                  </div>
-                  <button className={`p-1.5 rounded-lg ${
-                    isDarkMode 
-                      ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700' 
-                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                  }`}>
-                    <Edit className="w-4 h-4" />
-                  </button>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-sm">
-                      <Package className={`w-4 h-4 mr-2 ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                      }`} />
-                      <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-                        Products
+                        ${category.totalValue.toFixed(2)}
                       </span>
                     </div>
-                    <span className={`font-medium ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {category.productCount}
-                    </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-sm">
-                      <DollarSign className={`w-4 h-4 mr-2 ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                      }`} />
-                      <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-                        Total Value
-                      </span>
-                    </div>
-                    <span className={`font-bold ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      ${category.totalValue.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
 
-                <div className={`mt-6 pt-6 border-t ${
-                  isDarkMode ? 'border-gray-700' : 'border-gray-100'
-                }`}>
-                  <Link
-                    to={`/inventory/products?category=${category.name.toLowerCase()}`}
-                    className={`flex items-center justify-center w-full py-2 font-medium rounded-lg transition-colors ${
-                      isDarkMode
-                        ? 'text-primary-400 hover:text-primary-300 hover:bg-primary-900/20'
-                        : 'text-primary-600 hover:text-primary-700 hover:bg-primary-50'
-                    }`}
-                  >
-                    View Products
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Link>
+                  <div className={`mt-6 pt-6 border-t ${
+                    isDarkMode ? 'border-gray-700' : 'border-gray-100'
+                  }`}>
+                    <Link
+                      to={`/inventory/products?category=${category.id}`}
+                      className={`flex items-center justify-center w-full py-2 font-medium rounded-lg transition-colors ${
+                        isDarkMode
+                          ? 'text-primary-400 hover:text-primary-300 hover:bg-primary-900/20'
+                          : 'text-primary-600 hover:text-primary-700 hover:bg-primary-50'
+                      }`}
+                    >
+                      View Products ({category.productCount})
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Link>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Quick Stats */}
         <div className={`border rounded-xl p-6 ${
@@ -232,7 +287,7 @@ const Categories = () => {
               <div className={`text-2xl font-bold ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                {categories.length}
+                {overallStats.totalCategories}
               </div>
               <div className={`text-sm mt-1 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
@@ -246,7 +301,7 @@ const Categories = () => {
               <div className={`text-2xl font-bold ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                {categories.reduce((sum, cat) => sum + cat.productCount, 0)}
+                {overallStats.totalProducts}
               </div>
               <div className={`text-sm mt-1 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
@@ -260,7 +315,7 @@ const Categories = () => {
               <div className={`text-2xl font-bold ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                ${categories.reduce((sum, cat) => sum + cat.totalValue, 0).toFixed(2)}
+                ${overallStats.totalValue.toFixed(2)}
               </div>
               <div className={`text-sm mt-1 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
@@ -274,7 +329,7 @@ const Categories = () => {
               <div className={`text-2xl font-bold ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                {(categories.reduce((sum, cat) => sum + cat.productCount, 0) / categories.length).toFixed(1)}
+                {overallStats.avgProductsPerCategory}
               </div>
               <div className={`text-sm mt-1 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'

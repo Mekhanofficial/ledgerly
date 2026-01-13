@@ -169,11 +169,6 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
               <h1 className="text-lg font-bold text-gray-900 dark:text-white">ledgerly</h1>
             </div>
           )}
-          {!isOpen && (
-            <div className="ml-3">
-              <h1 className="text-lg font-bold text-gray-900 dark:text-white">IF</h1>
-            </div>
-          )}
         </div>
 
         {/* Main Menu */}
@@ -225,7 +220,6 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
             </div>
             <div className="ml-3">
               <h1 className="text-lg font-bold text-gray-900 dark:text-white">ledgerly</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Professional Edition</p>
             </div>
           </div>
           <button

@@ -138,7 +138,7 @@ const RecentInvoices = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {invoice.customer || 'No customer'}
+                        {invoice.customer?.name || (typeof invoice.customer === 'string' ? invoice.customer : 'No customer')}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">
                         Due {formatDate(invoice.dueDate)}

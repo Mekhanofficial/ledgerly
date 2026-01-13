@@ -4,9 +4,9 @@ import Hero from '../../components/home/Hero';
 import Features from '../../components/home/Features';
 import Testimonials from '../../components/home/Testimonials';
 import Pricing from '../../components/home/Pricing';
+import FAQSection from '../../components/home/FAQ'; 
 import CTA from '../../components/home/CTA';
 import Footer from '../../components/home/layout/Footer';
-
 
 const HomePage = () => {
   return (
@@ -16,6 +16,7 @@ const HomePage = () => {
       <Features />
       <Testimonials />
       <Pricing />
+      <FAQSection /> 
       <CTA />
       <Footer />
     </div>

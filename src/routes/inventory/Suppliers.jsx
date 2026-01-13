@@ -1,88 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Truck, Plus, Search, Phone, Mail, CheckCircle, Clock, Edit, Star, Package, Users, Award } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { useInventory } from '../../context/InventoryContext';
 
 const Suppliers = () => {
   const { isDarkMode } = useTheme();
+  const { suppliers, products } = useInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const suppliers = [
-    {
-      id: 1,
-      name: 'Tech Distributors',
-      contact: 'John Smith',
-      email: 'john@techdist.com',
-      phone: '(555) 123-4567',
-      products: 45,
-      status: 'Active',
-      lastOrder: 'Dec 15, 2024',
-      totalOrders: 28,
-      rating: '4.8'
-    },
-    {
-      id: 2,
-      name: 'Audio Suppliers Inc',
-      contact: 'Lisa Brown',
-      email: 'lisa@audiosupply.com',
-      phone: '(555) 987-6543',
-      products: 28,
-      status: 'Active',
-      lastOrder: 'Dec 14, 2024',
-      totalOrders: 15,
-      rating: '4.5'
-    },
-    {
-      id: 3,
-      name: 'Office Supplies Co',
-      contact: 'Robert Davis',
-      email: 'robert@officesupply.com',
-      phone: '(555) 456-7890',
-      products: 32,
-      status: 'Active',
-      lastOrder: 'Dec 12, 2024',
-      totalOrders: 22,
-      rating: '4.2'
-    },
-    {
-      id: 4,
-      name: 'Furniture Express',
-      contact: 'Emily Wilson',
-      email: 'emily@furnitureexp.com',
-      phone: '(555) 321-0987',
-      products: 18,
-      status: 'Pending',
-      lastOrder: 'Dec 10, 2024',
-      totalOrders: 8,
-      rating: '4.0'
-    },
-    {
-      id: 5,
-      name: 'Writing Instruments Ltd',
-      contact: 'Michael Chen',
-      email: 'michael@writinginst.com',
-      phone: '(555) 654-3210',
-      products: 25,
-      status: 'Active',
-      lastOrder: 'Dec 8, 2024',
-      totalOrders: 12,
-      rating: '4.7'
-    },
-    {
-      id: 6,
-      name: 'Global Electronics',
-      contact: 'Sarah Johnson',
-      email: 'sarah@globalelec.com',
-      phone: '(555) 789-0123',
-      products: 38,
-      status: 'Inactive',
-      lastOrder: 'Nov 30, 2024',
-      totalOrders: 5,
-      rating: '3.8'
-    }
-  ];
+  const getSupplierProductsCount = (supplierId) => {
+    return products.filter(p => p.supplierId === supplierId).length;
+  };
+
+  const getSupplierStatus = (supplier) => {
+    // You can implement your own logic here based on supplier data
+    return supplier.status || 'Active';
+  };
 
   const getStatusBadge = (status) => {
     if (status === 'Active') {
@@ -117,18 +53,39 @@ const Suppliers = () => {
   };
 
   const filteredSuppliers = suppliers.filter(supplier => {
+    const status = getSupplierStatus(supplier);
     const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         supplier.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || supplier.status === statusFilter;
+                         (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (supplier.email && supplier.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = statusFilter === 'all' || status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const stats = [
-    { label: 'Total Suppliers', value: suppliers.length, icon: Users, color: 'bg-blue-500' },
-    { label: 'Active Suppliers', value: suppliers.filter(s => s.status === 'Active').length, icon: CheckCircle, color: 'bg-emerald-500' },
-    { label: 'Total Products', value: suppliers.reduce((sum, s) => sum + s.products, 0), icon: Package, color: 'bg-amber-500' },
-    { label: 'Avg. Rating', value: '4.5', icon: Star, color: 'bg-purple-500' }
+    { 
+      label: 'Total Suppliers', 
+      value: suppliers.length, 
+      icon: Users, 
+      color: 'bg-blue-500' 
+    },
+    { 
+      label: 'Active Suppliers', 
+      value: suppliers.filter(s => getSupplierStatus(s) === 'Active').length, 
+      icon: CheckCircle, 
+      color: 'bg-emerald-500' 
+    },
+    { 
+      label: 'Total Products', 
+      value: products.length, 
+      icon: Package, 
+      color: 'bg-amber-500' 
+    },
+    { 
+      label: 'Avg. Products/Supplier', 
+      value: suppliers.length > 0 ? Math.round(products.length / suppliers.length) : 0, 
+      icon: Star, 
+      color: 'bg-purple-500' 
+    }
   ];
 
   return (
@@ -248,130 +205,172 @@ const Suppliers = () => {
         </div>
 
         {/* Suppliers Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredSuppliers.map((supplier) => (
-            <div key={supplier.id} className={`border rounded-xl overflow-hidden hover:shadow-lg transition-shadow ${
-              isDarkMode 
-                ? 'bg-gray-800 border-gray-700 hover:border-primary-500' 
-                : 'bg-white border-gray-200 hover:border-primary-300'
-            }`}>
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center mr-4 ${
-                      isDarkMode ? 'bg-amber-900/30' : 'bg-amber-100'
-                    }`}>
-                      <Truck className={`w-6 h-6 ${
-                        isDarkMode ? 'text-amber-400' : 'text-amber-600'
-                      }`} />
-                    </div>
-                    <div>
-                      <h3 className={`font-semibold ${
-                        isDarkMode ? 'text-white' : 'text-gray-900'
-                      }`}>
-                        {supplier.name}
-                      </h3>
-                      <div className="flex items-center mt-1">
-                        {getStatusBadge(supplier.status)}
-                        <span className={`ml-2 text-sm ${
-                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+        {filteredSuppliers.length === 0 ? (
+          <div className={`border rounded-xl p-8 text-center ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+            <Truck className={`w-12 h-12 mx-auto mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+            <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {suppliers.length === 0 ? 'No Suppliers Added' : 'No Suppliers Found'}
+            </h3>
+            <p className={`mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              {suppliers.length === 0 
+                ? 'Add your first supplier to start managing vendor relationships.' 
+                : 'Try a different search term or filter.'}
+            </p>
+            {suppliers.length === 0 && (
+              <Link
+                to="/inventory/suppliers/new"
+                className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add First Supplier
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredSuppliers.map((supplier) => {
+              const status = getSupplierStatus(supplier);
+              const productsCount = getSupplierProductsCount(supplier.id);
+              
+              return (
+                <div key={supplier.id} className={`border rounded-xl overflow-hidden hover:shadow-lg transition-shadow ${
+                  isDarkMode 
+                    ? 'bg-gray-800 border-gray-700 hover:border-primary-500' 
+                    : 'bg-white border-gray-200 hover:border-primary-300'
+                }`}>
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center">
+                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center mr-4 ${
+                          isDarkMode ? 'bg-amber-900/30' : 'bg-amber-100'
                         }`}>
-                          Rating: {supplier.rating}/5
-                        </span>
+                          <Truck className={`w-6 h-6 ${
+                            isDarkMode ? 'text-amber-400' : 'text-amber-600'
+                          }`} />
+                        </div>
+                        <div>
+                          <h3 className={`font-semibold ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>
+                            {supplier.name}
+                          </h3>
+                          <div className="flex items-center mt-1">
+                            {getStatusBadge(status)}
+                            {supplier.rating && (
+                              <span className={`ml-2 text-sm ${
+                                isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                              }`}>
+                                Rating: {supplier.rating}/5
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <Link
+                        to={`/inventory/suppliers/edit/${supplier.id}`}
+                        className={`p-1.5 rounded-lg ${
+                          isDarkMode 
+                            ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700' 
+                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                      {supplier.contact && (
+                        <div className="flex items-center text-sm">
+                          <Users className={`w-4 h-4 mr-2 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-400'
+                          }`} />
+                          <span className={isDarkMode ? 'text-gray-300' : 'text-gray-900'}>
+                            {supplier.contact}
+                          </span>
+                        </div>
+                      )}
+                      {supplier.email && (
+                        <div className="flex items-center text-sm">
+                          <Mail className={`w-4 h-4 mr-2 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-400'
+                          }`} />
+                          <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
+                            {supplier.email}
+                          </span>
+                        </div>
+                      )}
+                      {supplier.phone && (
+                        <div className="flex items-center text-sm">
+                          <Phone className={`w-4 h-4 mr-2 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-400'
+                          }`} />
+                          <span className={isDarkMode ? 'text-gray-300' : 'text-gray-900'}>
+                            {supplier.phone}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-center">
+                        <div className={`text-lg font-bold ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {productsCount}
+                        </div>
+                        <div className={`text-xs ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
+                          Products
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className={`text-lg font-bold ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {supplier.orderCount || 0}
+                        </div>
+                        <div className={`text-xs ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
+                          Orders
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className={`text-lg font-bold ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {supplier.lastOrderDate ? new Date(supplier.lastOrderDate).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric'
+                          }) : 'N/A'}
+                        </div>
+                        <div className={`text-xs ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
+                          Last Order
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <button className={`p-1.5 rounded-lg ${
-                    isDarkMode 
-                      ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700' 
-                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                  }`}>
-                    <Edit className="w-4 h-4" />
-                  </button>
-                </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center text-sm">
-                    <Mail className={`w-4 h-4 mr-2 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-400'
-                    }`} />
-                    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-900'}>
-                      {supplier.contact}
-                    </span>
-                    <span className={`mx-2 ${
-                      isDarkMode ? 'text-gray-600' : 'text-gray-500'
-                    }`}>
-                      •
-                    </span>
-                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
-                      {supplier.email}
-                    </span>
-                  </div>
-                  <div className="flex items-center text-sm">
-                    <Phone className={`w-4 h-4 mr-2 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-400'
-                    }`} />
-                    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-900'}>
-                      {supplier.phone}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                  <div className="text-center">
-                    <div className={`text-lg font-bold ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {supplier.products}
-                    </div>
-                    <div className={`text-xs ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
-                      Products
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className={`text-lg font-bold ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {supplier.totalOrders}
-                    </div>
-                    <div className={`text-xs ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
-                      Orders
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className={`text-lg font-bold ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {supplier.lastOrder}
-                    </div>
-                    <div className={`text-xs ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
-                      Last Order
+                    <div className="mt-6">
+                      <Link
+                        to={`/inventory/products?supplier=${supplier.id}`}
+                        className={`block text-center w-full py-2 border rounded-lg font-medium transition-colors ${
+                          isDarkMode
+                            ? 'border-primary-500 text-primary-400 hover:bg-primary-900/20'
+                            : 'border-primary-600 text-primary-600 hover:bg-primary-50'
+                        }`}
+                      >
+                        View Products ({productsCount})
+                      </Link>
                     </div>
                   </div>
                 </div>
-
-                <div className="mt-6">
-                  <Link
-                    to={`/inventory/products?supplier=${supplier.name}`}
-                    className={`block text-center w-full py-2 border rounded-lg font-medium transition-colors ${
-                      isDarkMode
-                        ? 'border-primary-500 text-primary-400 hover:bg-primary-900/20'
-                        : 'border-primary-600 text-primary-600 hover:bg-primary-50'
-                    }`}
-                  >
-                    View Products
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

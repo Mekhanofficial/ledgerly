@@ -1,18 +1,22 @@
 // src/components/dashboard/AlertsNotifications.js
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { AlertCircle, Package, DollarSign, UserPlus, Clock, ChevronRight, FileText, Receipt, BarChart3 } from 'lucide-react';
+import { AlertCircle, Package, DollarSign, UserPlus, Clock, ChevronRight, FileText, Receipt, BarChart3, CreditCard, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { usePayments } from '../../context/PaymentContext'; // Added import
 import { Link } from 'react-router-dom';
 
 const AlertsNotifications = () => {
   const { invoices, customers } = useInvoice();
   const { notifications, getRecentNotifications } = useNotifications();
+  const { transactions, getPaymentStats } = usePayments(); // Added payment context
   
   const [alerts, setAlerts] = useState([]);
   const [previousInvoiceCount, setPreviousInvoiceCount] = useState(invoices.length);
   const [previousCustomerCount, setPreviousCustomerCount] = useState(customers.length);
+  const [previousTransactionCount, setPreviousTransactionCount] = useState(transactions.length); // Added
   const [reports, setReports] = useState([]);
+  const [paymentStats, setPaymentStats] = useState(null);
   
   // Load reports from localStorage
   useEffect(() => {
@@ -23,6 +27,12 @@ const AlertsNotifications = () => {
       console.error('Error loading reports:', error);
     }
   }, []);
+
+  // Load payment stats
+  useEffect(() => {
+    const stats = getPaymentStats();
+    setPaymentStats(stats);
+  }, [transactions, getPaymentStats]);
 
   // Listen for report updates
   useEffect(() => {
@@ -56,7 +66,15 @@ const AlertsNotifications = () => {
       'receipt': Receipt,
       'report': BarChart3,
       'report-completed': BarChart3,
-      'report-failed': AlertCircle
+      'report-failed': AlertCircle,
+      'payment-method': CreditCard,
+      'refund': RefreshCw,
+      'sync': RefreshCw,
+      'payment-due': Clock,
+      'payment-reminder': Clock,
+      'revenue-trend': TrendingUp,
+      'low-revenue': TrendingDown,
+      'failed-payment': AlertCircle
     };
     
     const colorMap = {
@@ -69,20 +87,36 @@ const AlertsNotifications = () => {
       'receipt': 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
       'report': 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
       'report-completed': 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
-      'report-failed': 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+      'report-failed': 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+      'payment-method': 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800',
+      'refund': 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
+      'sync': 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+      'payment-due': 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800',
+      'payment-reminder': 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800',
+      'revenue-trend': 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+      'low-revenue': 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+      'failed-payment': 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
     };
     
     const priorityMap = {
       'overdue': 0,
       'report-failed': 0,
+      'failed-payment': 0,
       'payment': 1,
       'new-invoice': 1,
       'new-customer': 1,
+      'payment-due': 1,
       'report-completed': 2,
       'receipt': 2,
       'report': 2,
+      'payment-method': 2,
+      'refund': 2,
+      'sync': 3,
       'draft': 3,
-      'pending': 4
+      'pending': 4,
+      'payment-reminder': 4,
+      'revenue-trend': 5,
+      'low-revenue': 5
     };
     
     return {
@@ -97,11 +131,14 @@ const AlertsNotifications = () => {
       link: notification.link || '#',
       timestamp: new Date(notification.timestamp).getTime(),
       sortPriority: priorityMap[notification.type] || 5,
-      reportId: notification.reportId
+      reportId: notification.reportId,
+      invoiceId: notification.invoiceId,
+      customerId: notification.customerId,
+      transactionId: notification.transactionId
     };
   }, []);
 
-  // Calculate ongoing alerts from invoices, customers, and reports
+  // Calculate ongoing alerts from invoices, customers, payments, and reports
   const calculateOngoingAlerts = useCallback(() => {
     const ongoingAlerts = [];
     
@@ -167,6 +204,34 @@ const AlertsNotifications = () => {
         link: '/invoices?status=sent',
         timestamp: Date.now(),
         sortPriority: 4
+      });
+    }
+
+    // Check for pending payments due within 7 days
+    const today = new Date();
+    const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const dueSoonInvoices = invoices.filter(inv => 
+      (inv.status === 'sent' || inv.status === 'viewed') &&
+      inv.dueDate &&
+      new Date(inv.dueDate) <= nextWeek &&
+      new Date(inv.dueDate) >= today
+    );
+    
+    if (dueSoonInvoices.length > 0) {
+      const dueSoonAmount = dueSoonInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+      
+      ongoingAlerts.push({
+        type: 'payment-due',
+        icon: Clock,
+        title: 'Payments Due Soon',
+        description: `${dueSoonInvoices.length} invoice${dueSoonInvoices.length > 1 ? 's' : ''} due within 7 days`,
+        details: `Total: $${dueSoonAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        time: 'Upcoming',
+        action: 'View Pending',
+        color: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800',
+        link: '/invoices?status=sent',
+        timestamp: Date.now(),
+        sortPriority: 2
       });
     }
 
@@ -294,8 +359,144 @@ const AlertsNotifications = () => {
       }
     }
 
+    // Payment-related alerts
+    if (paymentStats) {
+      // High pending payments alert
+      if (paymentStats.pendingPayments > 10000) {
+        ongoingAlerts.push({
+          type: 'payment-reminder',
+          icon: Clock,
+          title: 'High Pending Payments',
+          description: `$${paymentStats.pendingPayments.toLocaleString('en-US', { minimumFractionDigits: 2 })} awaiting payment`,
+          details: `${paymentStats.pendingCount} invoices pending`,
+          time: 'Attention needed',
+          action: 'Process Payments',
+          color: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800',
+          link: '/payments',
+          timestamp: Date.now(),
+          sortPriority: 1
+        });
+      }
+
+      // Failed payments alert
+      if (paymentStats.failedCount > 0) {
+        ongoingAlerts.push({
+          type: 'failed-payment',
+          icon: AlertCircle,
+          title: 'Failed Payments',
+          description: `${paymentStats.failedCount} payment${paymentStats.failedCount > 1 ? 's' : ''} failed`,
+          details: `Total: $${paymentStats.failedPayments.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          time: 'Needs review',
+          action: 'View Failed',
+          color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+          link: '/payments?status=failed',
+          timestamp: Date.now(),
+          sortPriority: 0
+        });
+      }
+
+      // Revenue trend alerts
+      const today = new Date();
+      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
+      // Calculate last week's revenue
+      const lastWeekTransactions = transactions.filter(t => {
+        const tDate = new Date(t.processedAt);
+        return tDate >= lastWeek && tDate < today && t.amount > 0;
+      });
+      const lastWeekRevenue = lastWeekTransactions.reduce((sum, t) => sum + t.amount, 0);
+      
+      // Calculate this week's revenue
+      const thisWeekTransactions = transactions.filter(t => {
+        const tDate = new Date(t.processedAt);
+        return tDate >= today && t.amount > 0;
+      });
+      const thisWeekRevenue = thisWeekTransactions.reduce((sum, t) => sum + t.amount, 0);
+      
+      if (lastWeekRevenue > 0 && thisWeekRevenue > 0) {
+        const changePercentage = ((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100;
+        
+        if (changePercentage >= 20) {
+          ongoingAlerts.push({
+            type: 'revenue-trend',
+            icon: TrendingUp,
+            title: 'Revenue Growth',
+            description: `Revenue increased by ${Math.abs(changePercentage).toFixed(1)}% this week`,
+            details: `This week: $${thisWeekRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+            time: 'Positive trend',
+            action: 'View Analytics',
+            color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+            link: '/payments',
+            timestamp: Date.now(),
+            sortPriority: 3
+          });
+        } else if (changePercentage <= -20) {
+          ongoingAlerts.push({
+            type: 'low-revenue',
+            icon: TrendingDown,
+            title: 'Revenue Decline',
+            description: `Revenue decreased by ${Math.abs(changePercentage).toFixed(1)}% this week`,
+            details: `This week: $${thisWeekRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+            time: 'Needs attention',
+            action: 'View Analytics',
+            color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+            link: '/payments',
+            timestamp: Date.now(),
+            sortPriority: 1
+          });
+        }
+      }
+    }
+
+    // Check for recent transactions (last 2 hours)
+    const recentTransactions = transactions.filter(t => {
+      const tDate = new Date(t.processedAt);
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      return tDate > twoHoursAgo;
+    }).slice(0, 3); // Show max 3 recent transactions
+
+    if (recentTransactions.length > 0) {
+      const totalAmount = recentTransactions.reduce((sum, t) => sum + (t.amount > 0 ? t.amount : 0), 0);
+      
+      if (recentTransactions.length === 1) {
+        const transaction = recentTransactions[0];
+        ongoingAlerts.push({
+          type: transaction.amount > 0 ? 'payment' : 'refund',
+          icon: transaction.amount > 0 ? DollarSign : RefreshCw,
+          title: transaction.amount > 0 ? 'Recent Payment' : 'Recent Refund',
+          description: transaction.amount > 0 
+            ? `$${transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} received`
+            : `$${Math.abs(transaction.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} refunded`,
+          details: `From ${transaction.customerName}`,
+          time: 'Recent',
+          action: 'View Transaction',
+          color: transaction.amount > 0 
+            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+            : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
+          link: '/payments',
+          timestamp: new Date(transaction.processedAt).getTime(),
+          sortPriority: 1,
+          transactionId: transaction.id
+        });
+      } else {
+        ongoingAlerts.push({
+          type: 'payment',
+          icon: DollarSign,
+          title: 'Recent Transactions',
+          description: `${recentTransactions.length} recent ${recentTransactions.length > 1 ? 'transactions' : 'transaction'}`,
+          details: `Total: $${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          time: 'Today',
+          action: 'View Payments',
+          color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+          link: '/payments',
+          timestamp: Date.now(),
+          sortPriority: 2
+        });
+      }
+    }
+
     return ongoingAlerts;
-  }, [invoices, reports]);
+  }, [invoices, reports, transactions, paymentStats]);
 
   // Combine notifications and ongoing alerts
   useEffect(() => {
@@ -330,8 +531,9 @@ const AlertsNotifications = () => {
     // Update previous counts
     setPreviousInvoiceCount(invoices.length);
     setPreviousCustomerCount(customers.length);
+    setPreviousTransactionCount(transactions.length);
     
-  }, [notifications, invoices, customers, reports, getRecentNotifications, convertNotificationToAlert, calculateOngoingAlerts]);
+  }, [notifications, invoices, customers, transactions, reports, getRecentNotifications, convertNotificationToAlert, calculateOngoingAlerts]);
 
   // Sort alerts by priority and time (newest first)
   const sortedAlerts = useMemo(() => {
@@ -358,6 +560,14 @@ const AlertsNotifications = () => {
       case 'report': return 'text-blue-500 dark:text-blue-400';
       case 'report-completed': return 'text-emerald-500 dark:text-emerald-400';
       case 'report-failed': return 'text-red-500 dark:text-red-400';
+      case 'payment-method': return 'text-violet-500 dark:text-violet-400';
+      case 'refund': return 'text-amber-500 dark:text-amber-400';
+      case 'sync': return 'text-blue-500 dark:text-blue-400';
+      case 'payment-due': return 'text-orange-500 dark:text-orange-400';
+      case 'payment-reminder': return 'text-cyan-500 dark:text-cyan-400';
+      case 'revenue-trend': return 'text-emerald-500 dark:text-emerald-400';
+      case 'low-revenue': return 'text-red-500 dark:text-red-400';
+      case 'failed-payment': return 'text-red-500 dark:text-red-400';
       default: return 'text-gray-500 dark:text-gray-400';
     }
   };
@@ -366,6 +576,7 @@ const AlertsNotifications = () => {
     setAlerts([]);
     setPreviousInvoiceCount(invoices.length);
     setPreviousCustomerCount(customers.length);
+    setPreviousTransactionCount(transactions.length);
   };
 
   const handleAlertClick = (alert) => {
@@ -373,7 +584,24 @@ const AlertsNotifications = () => {
       // Store which report to show when navigating
       localStorage.setItem('ledgerly_focus_report', alert.reportId);
     }
+    if (alert.transactionId) {
+      // Store transaction to focus
+      localStorage.setItem('ledgerly_focus_transaction', alert.transactionId);
+    }
+    if (alert.invoiceId) {
+      // Store invoice to focus
+      localStorage.setItem('ledgerly_focus_invoice', alert.invoiceId);
+    }
   };
+
+  // Calculate alert summary
+  const alertSummary = useMemo(() => {
+    const urgent = alerts.filter(a => a.sortPriority <= 1).length;
+    const important = alerts.filter(a => a.sortPriority <= 2).length;
+    const informational = alerts.filter(a => a.sortPriority >= 3).length;
+    
+    return { urgent, important, informational, total: alerts.length };
+  }, [alerts]);
 
   return (
     <div className="card h-full flex flex-col">
@@ -382,6 +610,7 @@ const AlertsNotifications = () => {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Alerts & Notifications</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {sortedAlerts.length} active alert{sortedAlerts.length !== 1 ? 's' : ''}
+            {alertSummary.urgent > 0 && ` • ${alertSummary.urgent} urgent`}
           </p>
         </div>
         {sortedAlerts.length > 0 && (
@@ -394,6 +623,27 @@ const AlertsNotifications = () => {
         )}
       </div>
       
+      {/* Alert Summary Badges */}
+      {alertSummary.total > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {alertSummary.urgent > 0 && (
+            <span className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full text-xs font-medium">
+              {alertSummary.urgent} Urgent
+            </span>
+          )}
+          {alertSummary.important > alertSummary.urgent && (
+            <span className="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-full text-xs font-medium">
+              {alertSummary.important - alertSummary.urgent} Important
+            </span>
+          )}
+          {alertSummary.informational > 0 && (
+            <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-xs font-medium">
+              {alertSummary.informational} Info
+            </span>
+          )}
+        </div>
+      )}
+      
       {sortedAlerts.length === 0 ? (
         <div className="text-center py-8 flex-1 flex flex-col justify-center">
           <FileText className="w-12 h-12 mx-auto text-gray-400 mb-4" />
@@ -403,6 +653,20 @@ const AlertsNotifications = () => {
           <p className="text-gray-600 dark:text-gray-300 mb-4">
             Everything is running smoothly!
           </p>
+          <div className="flex justify-center space-x-3">
+            <Link
+              to="/invoices/create"
+              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+            >
+              Create Invoice
+            </Link>
+            <Link
+              to="/payments"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
+            >
+              View Payments
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="space-y-4 flex-1 overflow-y-auto pr-2 max-h-[500px] custom-scrollbar">
@@ -422,9 +686,16 @@ const AlertsNotifications = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 mr-2">
-                        <h3 className="font-medium text-gray-900 dark:text-white truncate">{alert.title}</h3>
+                        <div className="flex items-center">
+                          <h3 className="font-medium text-gray-900 dark:text-white truncate">{alert.title}</h3>
+                          {alert.sortPriority <= 1 && (
+                            <span className="ml-2 inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 truncate">{alert.description}</p>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mt-1 truncate">{alert.details}</p>
+                        {alert.details && (
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mt-1 truncate">{alert.details}</p>
+                        )}
                       </div>
                       <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap flex-shrink-0">
                         <Clock className="w-3 h-3 mr-1 flex-shrink-0" />
@@ -442,6 +713,24 @@ const AlertsNotifications = () => {
           })}
         </div>
       )}
+      
+      {/* Quick Stats Footer */}
+      <div className={`mt-4 pt-4 border-t ${sortedAlerts.length > 0 ? 'border-gray-200 dark:border-gray-700' : ''}`}>
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Invoices</div>
+            <div className="text-lg font-semibold text-gray-900 dark:text-white">{invoices.length}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Customers</div>
+            <div className="text-lg font-semibold text-gray-900 dark:text-white">{customers.length}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Transactions</div>
+            <div className="text-lg font-semibold text-gray-900 dark:text-white">{transactions.length}</div>
+          </div>
+        </div>
+      </div>
       
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {

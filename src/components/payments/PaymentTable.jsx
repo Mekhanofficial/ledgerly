@@ -81,22 +81,7 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund }) => {
                 Bulk Process ({selectedPayments.length})
               </button>
             )}
-            <button className={`flex items-center px-3 py-2 border rounded-lg text-sm ${
-              isDarkMode 
-                ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}>
-              <Filter className="w-4 h-4 mr-2" />
-              Filter
-            </button>
-            <button className={`flex items-center px-3 py-2 border rounded-lg text-sm ${
-              isDarkMode 
-                ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}>
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </button>
+
           </div>
         </div>
       </div>

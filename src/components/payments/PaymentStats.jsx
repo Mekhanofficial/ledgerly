@@ -1,14 +1,28 @@
+// src/components/payments/PaymentStats.js - UPDATED
 import React from 'react';
 import { DollarSign, CreditCard, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-const PaymentStats = () => {
+const PaymentStats = ({ stats }) => {
   const { isDarkMode } = useTheme();
   
-  const stats = [
+  // Default stats if none provided
+  const defaultStats = {
+    totalRevenue: 0,
+    pendingPayments: 0,
+    pendingCount: 0,
+    processedToday: 0,
+    todayCount: 0,
+    failedPayments: 0,
+    failedCount: 0
+  };
+  
+  const actualStats = stats || defaultStats;
+  
+  const statsData = [
     {
       label: 'Total Revenue',
-      value: '$89,240',
+      value: `$${actualStats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
       description: 'This month',
       icon: DollarSign,
       color: 'bg-emerald-500',
@@ -16,24 +30,24 @@ const PaymentStats = () => {
     },
     {
       label: 'Pending Payments',
-      value: '$12,580',
-      description: '15 transactions',
+      value: `$${actualStats.pendingPayments.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      description: `${actualStats.pendingCount} transactions`,
       icon: Clock,
       color: 'bg-amber-500',
       darkColor: 'bg-amber-600'
     },
     {
       label: 'Processed Today',
-      value: '$8,420',
-      description: '24 transactions',
+      value: `$${actualStats.processedToday.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      description: `${actualStats.todayCount} transactions`,
       icon: CheckCircle,
       color: 'bg-blue-500',
       darkColor: 'bg-blue-600'
     },
     {
       label: 'Failed Payments',
-      value: '$1,240',
-      description: '3 transactions',
+      value: `$${actualStats.failedPayments.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      description: `${actualStats.failedCount} transactions`,
       icon: AlertTriangle,
       color: 'bg-red-500',
       darkColor: 'bg-red-600'
@@ -42,7 +56,7 @@ const PaymentStats = () => {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {stats.map((stat, index) => {
+      {statsData.map((stat, index) => {
         const Icon = stat.icon;
         return (
           <div key={index} className={`

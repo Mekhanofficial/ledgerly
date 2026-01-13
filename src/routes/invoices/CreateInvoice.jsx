@@ -1,7 +1,7 @@
 // src/routes/invoices/CreateInvoice.js
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Eye, Mail, Download, Repeat, Save, Printer, Palette } from 'lucide-react';
+import { Eye, Mail, Download, Repeat, Save, Printer, Palette, Package, Search, Plus } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import InvoicePreviewModal from '../../components/invoices/InvoicePreviewModal';
 import EmailTemplateModal from '../../components/invoices/EmailTemplateModal';
@@ -13,13 +13,14 @@ import InvoiceSummary from '../../components/invoices/create/InvoiceSummary';
 import AttachmentsSection from '../../components/invoices/create/AttachmentsSection';
 import EmailTemplateSection from '../../components/invoices/create/EmailTemplateSection';
 import QuickActions from '../../components/invoices/create/QuickActions';
-import { useToast } from '../../context/ToastContext'; // Already imported
+import { useToast } from '../../context/ToastContext';
 import { useInvoice } from '../../context/InvoiceContext';
+import { useInventory } from '../../context/InventoryContext';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 const CreateInvoice = () => {
-  const { addToast } = useToast(); // Toast context already available
+  const { addToast } = useToast();
   const { 
     addInvoice, 
     addCustomer, 
@@ -28,6 +29,8 @@ const CreateInvoice = () => {
     saveRecurringInvoice,
     getAvailableTemplates 
   } = useInvoice();
+  
+  const { getProductsForInvoice } = useInventory();
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -71,6 +74,11 @@ const CreateInvoice = () => {
     { id: 1, description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }
   ]);
   
+  // Inventory products state
+  const [availableProducts, setAvailableProducts] = useState([]);
+  const [showProductSelector, setShowProductSelector] = useState(false);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  
   // Modal states
   const [showPreview, setShowPreview] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -99,6 +107,12 @@ const CreateInvoice = () => {
       setPaymentTerms(defaultTemplate.paymentTerms || 'net-30');
     }
   }, [getAvailableTemplates]);
+
+  // Load products from inventory
+  useEffect(() => {
+    const products = getProductsForInvoice();
+    setAvailableProducts(products);
+  }, [getProductsForInvoice]);
 
   // Load specific template if provided in URL
   useEffect(() => {
@@ -141,7 +155,7 @@ const CreateInvoice = () => {
     }
   };
 
-  // Handler functions for line items - FIXED INPUT ISSUE
+  // Handler functions for line items
   const updateLineItem = (id, field, value) => {
     setLineItems(lineItems.map(item => {
       if (item.id === id) {
@@ -180,6 +194,35 @@ const CreateInvoice = () => {
     }
   };
 
+  // Add product from inventory
+  const addProductFromInventory = (product) => {
+    const newId = lineItems.length > 0 ? Math.max(...lineItems.map(item => item.id)) + 1 : 1;
+    
+    const newItem = {
+      id: newId,
+      description: product.name,
+      quantity: 1,
+      rate: product.price,
+      tax: 0,
+      amount: product.price,
+      productId: product.id,
+      sku: product.sku,
+      stock: product.stock
+    };
+    
+    setLineItems([...lineItems, newItem]);
+    setShowProductSelector(false);
+    setProductSearchTerm('');
+    addToast(`Product "${product.name}" added to invoice`, 'success');
+  };
+
+  // Filter products for selector
+  const filteredProducts = availableProducts.filter(product =>
+    product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    product.sku.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    product.description?.toLowerCase().includes(productSearchTerm.toLowerCase())
+  );
+
   const handleAddCustomer = () => {
     if (!newCustomer.name || !newCustomer.email) {
       addToast('Please enter customer name and email', 'error');
@@ -190,7 +233,7 @@ const CreateInvoice = () => {
       const addedCustomer = addCustomer(newCustomer);
       setSelectedCustomer(addedCustomer.id);
       setNewCustomer({ name: '', email: '', phone: '', address: '' });
-      addToast(`Customer "${addedCustomer.name}" added successfully!`, 'success'); // Notification added
+      addToast(`Customer "${addedCustomer.name}" added successfully!`, 'success');
     } catch (error) {
       addToast('Error adding customer', 'error');
     }
@@ -216,7 +259,9 @@ const CreateInvoice = () => {
           quantity: item.quantity,
           rate: item.rate,
           tax: item.tax,
-          amount: item.amount
+          amount: item.amount,
+          productId: item.productId,
+          sku: item.sku
         })),
         subtotal,
         totalTax,
@@ -233,7 +278,7 @@ const CreateInvoice = () => {
           name: att.name,
           type: att.type,
           size: att.size,
-          url: URL.createObjectURL(att) // Store as data URL for preview
+          url: URL.createObjectURL(att)
         })),
         status: 'draft',
         savedAt: new Date().toISOString()
@@ -367,7 +412,10 @@ const CreateInvoice = () => {
             <tbody>
               ${lineItems.map((item, index) => `
                 <tr style="${index % 2 === 0 ? 'background: #f8f9fa;' : ''} border-bottom: 1px solid #e9ecef;">
-                  <td style="padding: 15px; font-size: 14px; color: #495057;">${item.description || 'Item'}</td>
+                  <td style="padding: 15px; font-size: 14px; color: #495057;">
+                    ${item.description || 'Item'}
+                    ${item.sku ? `<div style="font-size: 12px; color: #6c757d;">SKU: ${item.sku}</div>` : ''}
+                  </td>
                   <td style="padding: 15px; font-size: 14px; color: #495057;">${item.quantity}</td>
                   <td style="padding: 15px; font-size: 14px; color: #495057;">${currency} ${item.rate.toFixed(2)}</td>
                   <td style="padding: 15px; font-size: 14px; color: #495057;">${item.tax}%</td>
@@ -470,104 +518,99 @@ const CreateInvoice = () => {
     }
   };
 
- // In handleSendInvoice function of CreateInvoice.js - FIXED VERSION
-
-const handleSendInvoice = async () => {
-  try {
-    if (!selectedCustomer && !newCustomer.name) {
-      addToast('Please select a customer or add new customer details', 'error');
-      return;
-    }
-    
-    setIsSending(true);
-    
-    let customer = getSelectedCustomer();
-    
-    // If no existing customer selected but new customer data exists, add them
-    if (!customer && newCustomer.name && newCustomer.email) {
-      customer = await addCustomer(newCustomer);
-      // REMOVED: addToast(`Customer "${customer.name}" added and invoice sent!`, 'success');
-    }
-    // REMOVED: else if (customer) {
-    //   addToast(`Invoice sent to ${customer.name}!`, 'success');
-    // }
-    
-    if (!customer) {
-      throw new Error('Customer information is required');
-    }
-    
-    // Generate PDF first
-    const pdf = await generatePDF(false);
-    
-    // Convert PDF to Blob for email attachment
-    const pdfBlob = pdf.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    
-    const invoiceData = {
-      id: `inv_${Date.now()}`,
-      number: invoiceNumber,
-      invoiceNumber,
-      issueDate,
-      dueDate,
-      paymentTerms,
-      customer: customer.name,
-      customerEmail: customer.email,
-      customerId: customer.id,
-      lineItems: lineItems.map(item => ({
-        description: item.description,
-        quantity: item.quantity,
-        rate: item.rate,
-        tax: item.tax,
-        amount: item.amount
-      })),
-      items: lineItems.length,
-      amount: totalAmount,
-      totalAmount,
-      subtotal,
-      totalTax,
-      notes,
-      terms,
-      currency,
-      status: 'sent',
-      sentAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      templateStyle: selectedTemplate
-    };
-
-    // Add to invoices
-    const createdInvoice = addInvoice(invoiceData);
-
-    // If recurring, save recurring profile
-    if (isRecurring) {
-      const recurringData = {
-        id: `rec_${Date.now()}`,
-        invoiceNumber: createdInvoice.invoiceNumber,
-        invoiceId: createdInvoice.id,
-        customer,
-        amount: totalAmount,
-        frequency: recurringSettings.frequency,
-        startDate: recurringSettings.startDate,
-        endDate: recurringSettings.endDate,
-        nextRun: recurringSettings.startDate,
-        totalCycles: recurringSettings.totalCycles,
-        cyclesCompleted: 1,
-        status: 'active',
+  const handleSendInvoice = async () => {
+    try {
+      if (!selectedCustomer && !newCustomer.name) {
+        addToast('Please select a customer or add new customer details', 'error');
+        return;
+      }
+      
+      setIsSending(true);
+      
+      let customer = getSelectedCustomer();
+      
+      // If no existing customer selected but new customer data exists, add them
+      if (!customer && newCustomer.name && newCustomer.email) {
+        customer = await addCustomer(newCustomer);
+      }
+      
+      if (!customer) {
+        throw new Error('Customer information is required');
+      }
+      
+      // Generate PDF first
+      const pdf = await generatePDF(false);
+      
+      // Convert PDF to Blob for email attachment
+      const pdfBlob = pdf.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      const invoiceData = {
+        id: `inv_${Date.now()}`,
+        number: invoiceNumber,
+        invoiceNumber,
+        issueDate,
+        dueDate,
+        paymentTerms,
+        customer: customer.name,
+        customerEmail: customer.email,
+        customerId: customer.id,
         lineItems: lineItems.map(item => ({
           description: item.description,
           quantity: item.quantity,
           rate: item.rate,
           tax: item.tax,
-          amount: item.amount
+          amount: item.amount,
+          productId: item.productId,
+          sku: item.sku
         })),
+        items: lineItems.length,
+        amount: totalAmount,
+        totalAmount,
+        subtotal,
+        totalTax,
+        notes,
+        terms,
+        currency,
+        status: 'sent',
+        sentAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         templateStyle: selectedTemplate
       };
-      
-      saveRecurringInvoice(recurringData);
-      // REMOVED: addToast('Recurring invoice profile created', 'success');
-    }
 
-    // Create email body with invoice details
-    const emailBody = `
+      // Add to invoices
+      const createdInvoice = addInvoice(invoiceData);
+
+      // If recurring, save recurring profile
+      if (isRecurring) {
+        const recurringData = {
+          id: `rec_${Date.now()}`,
+          invoiceNumber: createdInvoice.invoiceNumber,
+          invoiceId: createdInvoice.id,
+          customer,
+          amount: totalAmount,
+          frequency: recurringSettings.frequency,
+          startDate: recurringSettings.startDate,
+          endDate: recurringSettings.endDate,
+          nextRun: recurringSettings.startDate,
+          totalCycles: recurringSettings.totalCycles,
+          cyclesCompleted: 1,
+          status: 'active',
+          lineItems: lineItems.map(item => ({
+            description: item.description,
+            quantity: item.quantity,
+            rate: item.rate,
+            tax: item.tax,
+            amount: item.amount
+          })),
+          templateStyle: selectedTemplate
+        };
+        
+        saveRecurringInvoice(recurringData);
+      }
+
+      // Create email body with invoice details
+      const emailBody = `
 ${emailMessage}
 
 INVOICE DETAILS
@@ -584,40 +627,39 @@ Thank you for your business!
 
 --
 This email was sent from Ledgerly Invoice System
-    `;
-    
-    // Create download link for the PDF
-    const downloadLink = document.createElement('a');
-    downloadLink.href = pdfUrl;
-    downloadLink.download = `${invoiceNumber}.pdf`;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-    URL.revokeObjectURL(pdfUrl);
-    
-    // Create mailto link with subject and body
-    const subject = encodeURIComponent(emailSubject);
-    const body = encodeURIComponent(emailBody);
-    const mailtoLink = `mailto:${customer.email}?subject=${subject}&body=${body}`;
-    
-    // Open email client
-    window.open(mailtoLink, '_blank');
-    
-    // SINGLE TOAST - ADDED
-    addToast(`Invoice sent to ${customer.email} successfully!`, 'success');
-    
-    // Reset form after successful send
-    setTimeout(() => {
-      resetForm();
-      navigate('/invoices');
-    }, 2000);
-    
-  } catch (error) {
-    addToast('Error sending invoice: ' + error.message, 'error');
-  } finally {
-    setIsSending(false);
-  }
-};
+      `;
+      
+      // Create download link for the PDF
+      const downloadLink = document.createElement('a');
+      downloadLink.href = pdfUrl;
+      downloadLink.download = `${invoiceNumber}.pdf`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(pdfUrl);
+      
+      // Create mailto link with subject and body
+      const subject = encodeURIComponent(emailSubject);
+      const body = encodeURIComponent(emailBody);
+      const mailtoLink = `mailto:${customer.email}?subject=${subject}&body=${body}`;
+      
+      // Open email client
+      window.open(mailtoLink, '_blank');
+      
+      addToast(`Invoice sent to ${customer.email} successfully!`, 'success');
+      
+      // Reset form after successful send
+      setTimeout(() => {
+        resetForm();
+        navigate('/invoices');
+      }, 2000);
+      
+    } catch (error) {
+      addToast('Error sending invoice: ' + error.message, 'error');
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   const handlePreview = () => {
     setShowPreview(true);
@@ -645,7 +687,6 @@ This email was sent from Ledgerly Invoice System
         </head>
         <body>
           <div style="max-width: 800px; margin: 0 auto; padding: 30px; border: 1px solid #ddd; background: white;">
-            <!-- Same HTML as in generatePDF function but simplified for printing -->
             <div style="border-bottom: 3px solid #2980b9; padding-bottom: 30px; margin-bottom: 30px;">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
@@ -694,7 +735,10 @@ This email was sent from Ledgerly Invoice System
               <tbody>
                 ${lineItems.map((item, index) => `
                   <tr style="${index % 2 === 0 ? 'background: #f8f9fa;' : ''} border-bottom: 1px solid #e9ecef;">
-                    <td style="padding: 15px; font-size: 14px; color: #495057;">${item.description || 'Item'}</td>
+                    <td style="padding: 15px; font-size: 14px; color: #495057;">
+                      ${item.description || 'Item'}
+                      ${item.sku ? `<div style="font-size: 12px; color: #6c757d;">SKU: ${item.sku}</div>` : ''}
+                    </td>
                     <td style="padding: 15px; font-size: 14px; color: #495057;">${item.quantity}</td>
                     <td style="padding: 15px; font-size: 14px; color: #495057;">${currency} ${item.rate.toFixed(2)}</td>
                     <td style="padding: 15px; font-size: 14px; color: #495057;">${item.tax}%</td>
@@ -914,6 +958,91 @@ This email was sent from Ledgerly Invoice System
               setPaymentTerms={setPaymentTerms}
             />
             
+            {/* Products from Inventory */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Products from Inventory
+                </h2>
+                <button
+                  onClick={() => setShowProductSelector(true)}
+                  className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  Add from Inventory
+                </button>
+              </div>
+              
+              {availableProducts.length === 0 ? (
+                <div className="text-center py-8 border border-dashed rounded-lg">
+                  <Package className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    No products available in inventory
+                  </p>
+                  <button
+                    onClick={() => navigate('/inventory/products/new')}
+                    className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add First Product
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {availableProducts.slice(0, 4).map(product => (
+                    <div
+                      key={product.id}
+                      className={`border rounded-lg p-4 cursor-pointer hover:border-primary-500 transition-colors ${
+                        product.stock === 0 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : 'hover:shadow-md'
+                      }`}
+                      onClick={() => product.stock > 0 && addProductFromInventory(product)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-white">{product.name}</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{product.sku}</p>
+                        </div>
+                        <span className="font-bold text-gray-900 dark:text-white">
+                          ${product.price.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          product.stock === 0 
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                            : product.stock <= 10
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                        }`}>
+                          {product.stock === 0 ? 'Out of Stock' : `${product.stock} in stock`}
+                        </span>
+                        {product.stock > 0 && (
+                          <button className="text-primary-600 hover:text-primary-700">
+                            Add to Invoice
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {availableProducts.length > 4 && (
+                    <div
+                      className="border border-dashed rounded-lg p-4 flex items-center justify-center cursor-pointer hover:border-primary-500"
+                      onClick={() => setShowProductSelector(true)}
+                    >
+                      <div className="text-center">
+                        <Plus className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          View all {availableProducts.length} products
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
             <LineItemsTable
               lineItems={lineItems}
               updateLineItem={updateLineItem}
@@ -1015,6 +1144,114 @@ This email was sent from Ledgerly Invoice System
           </div>
         </div>
       </div>
+      
+      {/* Product Selector Modal */}
+      {showProductSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Select Products from Inventory
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowProductSelector(false);
+                    setProductSearchTerm('');
+                  }}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="mt-4 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={productSearchTerm}
+                  onChange={(e) => setProductSearchTerm(e.target.value)}
+                  placeholder="Search products by name, SKU, or description..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {filteredProducts.length === 0 ? (
+                <div className="text-center py-8">
+                  <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                  <p className="text-gray-600 dark:text-gray-400">
+                    No products found matching "{productSearchTerm}"
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredProducts.map(product => (
+                    <div
+                      key={product.id}
+                      className={`border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
+                        product.stock === 0 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : 'hover:border-primary-500'
+                      }`}
+                      onClick={() => product.stock > 0 && addProductFromInventory(product)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-white">{product.name}</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{product.sku}</p>
+                          {product.description && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
+                              {product.description}
+                            </p>
+                          )}
+                        </div>
+                        <span className="font-bold text-gray-900 dark:text-white">
+                          ${product.price.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex items-center justify-between">
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          product.stock === 0 
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                            : product.stock <= 10
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                        }`}>
+                          {product.stock === 0 ? 'Out of Stock' : `${product.stock} in stock`}
+                        </span>
+                        {product.stock > 0 && (
+                          <button className="text-primary-600 hover:text-primary-700">
+                            Add
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {filteredProducts.length} products found
+                </span>
+                <button
+                  onClick={() => {
+                    setShowProductSelector(false);
+                    setProductSearchTerm('');
+                  }}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Modals */}
       {showPreview && (

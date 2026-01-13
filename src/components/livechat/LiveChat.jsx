@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useContext } from 'react';
 import { 
   MessageSquare, X, Send, User, Bot, Paperclip, 
   Smile, Maximize2, Minimize2, FileText, Receipt,
-  Package, CreditCard, AlertCircle, CheckCircle 
+  Package, CreditCard, AlertCircle, CheckCircle, 
+  ChevronDown, ChevronUp, Smartphone, Monitor
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { InvoiceContext } from '../../context/InvoiceContext';
@@ -12,6 +13,7 @@ const LiveChat = () => {
   const { invoices, customers, products } = useContext(InvoiceContext) || {};
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [messages, setMessages] = useState([
     { 
       id: 1, 
@@ -35,6 +37,7 @@ const LiveChat = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [showInvoiceSelector, setShowInvoiceSelector] = useState(false);
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,6 +46,43 @@ const LiveChat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Responsive dimensions
+  const getChatDimensions = () => {
+    if (isFullscreen) {
+      return 'fixed inset-0 w-screen h-screen z-[100] rounded-none';
+    }
+    
+    if (isMinimized) {
+      return `fixed ${isMobile ? 'bottom-4 right-4 w-[calc(100vw-2rem)]' : 'bottom-6 right-6 w-80'} h-16 z-50`;
+    }
+    
+    if (isMobile) {
+      return `fixed ${isFullscreen ? 'inset-0' : 'bottom-0 left-0 right-0'} z-50 h-[calc(100vh-4rem)] max-h-[600px] rounded-t-2xl`;
+    }
+    
+    return 'fixed bottom-6 right-6 z-50 w-96 h-[550px]';
+  };
+
+  // Check if mobile
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Auto-focus input on open
+  useEffect(() => {
+    if (isOpen && !isMinimized && inputRef.current) {
+      setTimeout(() => inputRef.current.focus(), 300);
+    }
+  }, [isOpen, isMinimized]);
 
   // Get real invoice data
   const getOverdueInvoices = () => {
@@ -57,7 +97,7 @@ const LiveChat = () => {
 
   const getRecentInvoices = () => {
     if (!invoices) return [];
-    return invoices.slice(0, 5); // Get last 5 invoices
+    return invoices.slice(0, 5);
   };
 
   const handleSendMessage = () => {
@@ -165,7 +205,6 @@ const LiveChat = () => {
     
     switch(action) {
       case 'Send reminders':
-        // Send reminders logic
         response = 'I have sent payment reminders for all overdue invoices.';
         break;
       case 'View overdue invoices':
@@ -228,7 +267,6 @@ const LiveChat = () => {
 
     setMessages([...messages, userMessage]);
     
-    // Simulate bot response
     setIsTyping(true);
     setTimeout(() => {
       const botResponse = analyzeMessageAndRespond(text);
@@ -238,7 +276,6 @@ const LiveChat = () => {
   };
 
   const handleAttachment = () => {
-    // In a real app, this would open file picker
     const fileMessage = {
       id: messages.length + 1,
       text: 'invoice_attachment.pdf',
@@ -250,7 +287,6 @@ const LiveChat = () => {
 
     setMessages([...messages, fileMessage]);
     
-    // Bot acknowledges file
     setTimeout(() => {
       const botResponse = {
         id: messages.length + 2,
@@ -295,6 +331,7 @@ const LiveChat = () => {
     setIsOpen(!isOpen);
     if (isOpen) {
       setIsMinimized(false);
+      setIsFullscreen(false);
       setShowInvoiceSelector(false);
     }
   };
@@ -306,6 +343,13 @@ const LiveChat = () => {
     }
   };
 
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+    if (!isFullscreen) {
+      setIsMinimized(false);
+    }
+  };
+
   // Render message with different types
   const renderMessage = (message) => {
     switch(message.type) {
@@ -313,7 +357,7 @@ const LiveChat = () => {
         return (
           <div className={`flex items-center p-2 rounded-lg ${isDarkMode ? 'bg-primary-900/30' : 'bg-primary-50'}`}>
             <FileText className="w-5 h-5 mr-2" />
-            <span className="text-sm">{message.text}</span>
+            <span className="text-sm truncate">{message.text}</span>
             <span className="ml-2 text-xs opacity-70">({message.fileType})</span>
           </div>
         );
@@ -323,23 +367,30 @@ const LiveChat = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <Receipt className="w-4 h-4 mr-2" />
-                <span className="font-medium">{message.data.invoiceNumber}</span>
+                <span className="font-medium truncate">{message.data.invoiceNumber}</span>
               </div>
-              <span className={`text-sm px-2 py-1 rounded ${message.data.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+              <span className={`text-xs px-2 py-1 rounded whitespace-nowrap ${message.data.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
                 {message.data.status}
               </span>
             </div>
-            <div className="mt-2 text-sm">
-              <div>Customer: {message.data.customer}</div>
-              <div>Amount: ${message.data.amount}</div>
-              <div>Due: {message.data.dueDate}</div>
+            <div className="mt-2 text-xs sm:text-sm">
+              <div className="truncate">Customer: {message.data.customer}</div>
+              <div className="flex justify-between">
+                <span>Amount: ${message.data.amount}</span>
+                <span>Due: {message.data.dueDate}</span>
+              </div>
             </div>
           </div>
         );
       default:
-        return message.text;
+        return <div className="whitespace-pre-wrap break-words">{message.text}</div>;
     }
   };
+
+  // Responsive quick replies for mobile
+  const responsiveQuickReplies = isMobile 
+    ? quickReplies.slice(0, 3)
+    : quickReplies;
 
   return (
     <>
@@ -347,12 +398,19 @@ const LiveChat = () => {
       {!isOpen && (
         <button
           onClick={toggleChat}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-gradient-to-br from-primary-600 to-primary-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center hover:scale-105"
+          className={`fixed z-50 bg-gradient-to-br from-primary-600 to-primary-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center hover:scale-105
+            ${isMobile 
+              ? 'bottom-4 right-4 w-12 h-12 rounded-full text-sm' 
+              : 'bottom-6 right-6 w-14 h-14 rounded-full'
+            }`}
           aria-label="Open live chat"
         >
-          <MessageSquare className="w-6 h-6" />
+          <MessageSquare className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'}`} />
           {getOverdueInvoices().length > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full border-2 border-white flex items-center justify-center">
+            <span className={`absolute -top-1 -right-1 text-white text-xs rounded-full border-2 border-white flex items-center justify-center
+              ${isMobile ? 'w-4 h-4 text-[10px]' : 'w-5 h-5 text-xs'}`}
+              style={{ backgroundColor: '#ef4444' }}
+            >
               {getOverdueInvoices().length}
             </span>
           )}
@@ -361,13 +419,23 @@ const LiveChat = () => {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className={`fixed bottom-6 right-6 z-50 rounded-xl shadow-2xl transition-all duration-300 ${isMinimized ? 'w-80 h-16' : 'w-96 h-[550px]'} ${
+        <div className={`${getChatDimensions()} ${
+          isFullscreen 
+            ? 'rounded-none' 
+            : isMobile && !isMinimized 
+              ? 'rounded-t-2xl shadow-2xl' 
+              : 'rounded-xl shadow-2xl'
+        } transition-all duration-300 ${
           isDarkMode 
             ? 'bg-gray-800 text-gray-100' 
             : 'bg-white text-gray-900'
         }`}>
           {/* Header */}
-          <div className={`rounded-t-xl p-4 ${
+          <div className={`${
+            isFullscreen || (isMobile && !isMinimized)
+              ? 'rounded-t-2xl' 
+              : 'rounded-t-xl'
+          } p-3 sm:p-4 ${
             isDarkMode 
               ? 'bg-gradient-to-r from-primary-800 to-primary-900 text-white' 
               : 'bg-gradient-to-r from-primary-600 to-primary-800 text-white'
@@ -375,43 +443,65 @@ const LiveChat = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="relative">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  <div className={`rounded-full flex items-center justify-center ${
                     isDarkMode ? 'bg-white/20' : 'bg-white/20'
-                  }`}>
-                    <MessageSquare className="w-5 h-5" />
+                  } ${isMobile ? 'w-7 h-7' : 'w-8 h-8'}`}>
+                    <MessageSquare className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
                   </div>
-                  <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${
+                  <span className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 ${
                     isDarkMode ? 'border-primary-800' : 'border-white'
                   } ${agentOnline ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
                 </div>
-                <div className="ml-3">
-                  <h3 className="font-semibold">Invoice Assistant</h3>
-                  <p className="text-xs opacity-90">
+                <div className="ml-2 sm:ml-3">
+                  <h3 className={`font-semibold ${isMobile ? 'text-sm' : ''}`}>Invoice Assistant</h3>
+                  <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} opacity-90`}>
                     {getOverdueInvoices().length > 0 
-                      ? `${getOverdueInvoices().length} overdue invoices • ` 
+                      ? `${getOverdueInvoices().length} overdue • ` 
                       : ''}
-                    {agentOnline ? 'Available' : 'Away'}
+                    {agentOnline ? 'Online' : 'Away'}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                {!isMobile && (
+                  <button
+                    onClick={toggleFullscreen}
+                    className={`p-1 sm:p-1.5 rounded ${
+                      isDarkMode ? 'hover:bg-white/20' : 'hover:bg-white/20'
+                    }`}
+                    aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                    title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                  >
+                    {isFullscreen ? (
+                      <Monitor className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                    ) : (
+                      <Maximize2 className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={toggleMinimize}
-                  className={`p-1 rounded ${
+                  className={`p-1 sm:p-1.5 rounded ${
                     isDarkMode ? 'hover:bg-white/20' : 'hover:bg-white/20'
                   }`}
                   aria-label={isMinimized ? 'Maximize chat' : 'Minimize chat'}
+                  title={isMinimized ? 'Expand' : 'Minimize'}
                 >
-                  {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+                  {isMinimized ? (
+                    <ChevronUp className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                  ) : (
+                    <ChevronDown className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                  )}
                 </button>
                 <button
                   onClick={toggleChat}
-                  className={`p-1 rounded ${
+                  className={`p-1 sm:p-1.5 rounded ${
                     isDarkMode ? 'hover:bg-white/20' : 'hover:bg-white/20'
                   }`}
                   aria-label="Close chat"
+                  title="Close"
                 >
-                  <X className="w-4 h-4" />
+                  <X className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`} />
                 </button>
               </div>
             </div>
@@ -421,35 +511,45 @@ const LiveChat = () => {
           {!isMinimized && (
             <>
               {/* Messages Container */}
-              <div className={`h-[calc(550px-200px)] overflow-y-auto p-4 ${
+              <div className={`overflow-y-auto ${
+                isFullscreen 
+                  ? 'h-[calc(100vh-200px)]' 
+                  : isMobile 
+                    ? 'h-[calc(100vh-280px)] max-h-[400px]' 
+                    : 'h-[calc(550px-200px)]'
+              } p-3 sm:p-4 ${
                 isDarkMode ? 'bg-gray-800' : 'bg-gray-50'
               }`}>
                 {messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} mb-4`}
+                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} mb-3 sm:mb-4`}
                   >
-                    <div className={`flex max-w-[85%] ${message.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    <div className={`flex max-w-[90%] sm:max-w-[85%] ${message.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                      <div className={`rounded-full flex items-center justify-center ${
                         message.sender === 'user' 
                           ? isDarkMode 
-                            ? 'bg-primary-900/50 text-primary-300 ml-3' 
-                            : 'bg-primary-100 text-primary-600 ml-3'
+                            ? 'bg-primary-900/50 text-primary-300 ml-2 sm:ml-3' 
+                            : 'bg-primary-100 text-primary-600 ml-2 sm:ml-3'
                           : isDarkMode
-                            ? 'bg-gray-700 text-gray-300 mr-3'
-                            : 'bg-gray-200 text-gray-600 mr-3'
-                      }`}>
-                        {message.sender === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                            ? 'bg-gray-700 text-gray-300 mr-2 sm:mr-3'
+                            : 'bg-gray-200 text-gray-600 mr-2 sm:mr-3'
+                      } ${isMobile ? 'w-7 h-7 min-w-[28px]' : 'w-8 h-8 min-w-[32px]'}`}>
+                        {message.sender === 'user' ? 
+                          <User className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} /> : 
+                          <Bot className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
+                        }
                       </div>
-                      <div>
-                        <div className={`rounded-xl px-4 py-2 ${message.sender === 'user' 
-                          ? isDarkMode
-                            ? 'bg-primary-700 text-white rounded-tr-none'
-                            : 'bg-primary-600 text-white rounded-tr-none'
-                          : isDarkMode
-                            ? 'bg-gray-700 border-gray-600 text-gray-100 rounded-tl-none'
-                            : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
-                        }`}>
+                      <div className="flex-1 min-w-0">
+                        <div className={`rounded-xl px-3 sm:px-4 py-2 ${
+                          message.sender === 'user' 
+                            ? isDarkMode
+                              ? 'bg-primary-700 text-white rounded-tr-none'
+                              : 'bg-primary-600 text-white rounded-tr-none'
+                            : isDarkMode
+                              ? 'bg-gray-700 border-gray-600 text-gray-100 rounded-tl-none'
+                              : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
+                        } ${isMobile ? 'text-sm' : ''}`}>
                           {renderMessage(message)}
                         </div>
                         <div className={`text-xs mt-1 ${message.sender === 'user' ? 'text-right' : ''} ${
@@ -465,13 +565,13 @@ const LiveChat = () => {
                               <button
                                 key={index}
                                 onClick={() => handleQuickAction(action)}
-                                className={`px-2 py-1 text-xs rounded ${
+                                className={`px-2 py-1 rounded ${
                                   isDarkMode
                                     ? 'bg-gray-600 hover:bg-gray-500 text-gray-200'
                                     : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                                }`}
+                                } ${isMobile ? 'text-[10px]' : 'text-xs'}`}
                               >
-                                {action}
+                                {isMobile ? action.split(' ')[0] : action}
                               </button>
                             ))}
                           </div>
@@ -484,8 +584,8 @@ const LiveChat = () => {
                 {/* Invoice Selector */}
                 {showInvoiceSelector && invoices && invoices.length > 0 && (
                   <div className={`mb-4 p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
-                    <div className="text-sm font-medium mb-2">Select an invoice:</div>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                    <div className={`font-medium mb-2 ${isMobile ? 'text-sm' : ''}`}>Select an invoice:</div>
+                    <div className="space-y-2 max-h-32 sm:max-h-40 overflow-y-auto">
                       {invoices.slice(0, 5).map((invoice) => (
                         <button
                           key={invoice.id}
@@ -496,19 +596,25 @@ const LiveChat = () => {
                               : 'hover:bg-gray-50'
                           }`}
                         >
-                          <div>
-                            <div className="font-medium">{invoice.invoiceNumber}</div>
-                            <div className="text-xs opacity-70">{invoice.customer}</div>
+                          <div className="min-w-0">
+                            <div className={`font-medium truncate ${isMobile ? 'text-sm' : ''}`}>
+                              {invoice.invoiceNumber}
+                            </div>
+                            <div className={`truncate ${isMobile ? 'text-xs' : 'text-sm'} opacity-70`}>
+                              {invoice.customer}
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-medium">${invoice.amount}</div>
-                            <div className={`text-xs px-2 py-1 rounded ${
+                          <div className="text-right pl-2">
+                            <div className={`font-medium whitespace-nowrap ${isMobile ? 'text-sm' : ''}`}>
+                              ${invoice.amount}
+                            </div>
+                            <div className={`px-2 py-1 rounded ${
                               invoice.status === 'paid' 
                                 ? 'bg-green-100 text-green-800' 
                                 : invoice.status === 'overdue'
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-amber-100 text-amber-800'
-                            }`}>
+                            } ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
                               {invoice.status}
                             </div>
                           </div>
@@ -522,10 +628,10 @@ const LiveChat = () => {
                 {isTyping && (
                   <div className="flex justify-start mb-4">
                     <div className="flex">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                      <div className={`rounded-full flex items-center justify-center mr-3 ${
                         isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'
-                      }`}>
-                        <Bot className="w-4 h-4" />
+                      } ${isMobile ? 'w-7 h-7' : 'w-8 h-8'}`}>
+                        <Bot className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
                       </div>
                       <div className={`rounded-xl rounded-tl-none px-4 py-3 ${
                         isDarkMode 
@@ -552,33 +658,33 @@ const LiveChat = () => {
               </div>
 
               {/* Quick Replies */}
-              <div className={`px-4 py-2 border-t ${
+              <div className={`px-3 sm:px-4 py-2 border-t ${
                 isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
               }`}>
-                <div className={`text-xs mb-2 ${
+                <div className={`mb-1 sm:mb-2 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                }`}>
+                } ${isMobile ? 'text-xs' : 'text-xs'}`}>
                   Quick actions:
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {quickReplies.map((reply, index) => (
+                <div className="flex flex-wrap gap-1 sm:gap-2">
+                  {responsiveQuickReplies.map((reply, index) => (
                     <button
                       key={index}
                       onClick={() => handleQuickReply(reply)}
-                      className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
+                      className={`px-2 sm:px-3 py-1 rounded-full transition-colors ${
                         isDarkMode
                           ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      }`}
+                      } ${isMobile ? 'text-[10px] py-1' : 'text-xs py-1.5'}`}
                     >
-                      {reply}
+                      {isMobile ? reply.split(' ')[0] : reply}
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Input Area */}
-              <div className={`border-t p-4 ${
+              <div className={`border-t p-3 sm:p-4 ${
                 isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
               }`}>
                 <div className="flex items-end space-x-2">
@@ -588,21 +694,23 @@ const LiveChat = () => {
                       : 'border-gray-300 bg-white'
                   }`}>
                     <textarea
+                      ref={inputRef}
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       onKeyPress={handleKeyPress}
                       placeholder="Ask about invoices, payments, customers..."
-                      className={`w-full px-3 py-2 border-0 focus:ring-0 resize-none max-h-24 ${
-                        isDarkMode 
-                          ? 'bg-gray-700 text-gray-100 placeholder-gray-400' 
-                          : 'bg-white text-gray-900 placeholder-gray-500'
+                      className={`w-full px-3 py-2 border-0 focus:ring-0 resize-none ${
+                        isMobile ? 'text-sm max-h-20' : 'max-h-24'
+                      } ${isDarkMode 
+                        ? 'bg-gray-700 text-gray-100 placeholder-gray-400' 
+                        : 'bg-white text-gray-900 placeholder-gray-500'
                       }`}
-                      rows="2"
+                      rows={isMobile ? "1" : "2"}
                     />
                     <div className={`flex items-center justify-between px-3 py-2 border-t ${
                       isDarkMode ? 'border-gray-600' : 'border-gray-100'
                     }`}>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1 sm:space-x-2">
                         <button
                           onClick={handleAttachment}
                           className={`p-1 hover:text-gray-700 ${
@@ -611,7 +719,7 @@ const LiveChat = () => {
                           aria-label="Attach invoice"
                           title="Attach invoice file"
                         >
-                          <Paperclip className="w-4 h-4" />
+                          <Paperclip className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
                         </button>
                         <button
                           onClick={() => setShowInvoiceSelector(!showInvoiceSelector)}
@@ -621,36 +729,37 @@ const LiveChat = () => {
                           aria-label="Select invoice"
                           title="Select existing invoice"
                         >
-                          <FileText className="w-4 h-4" />
+                          <FileText className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
                         </button>
+                        {getOverdueInvoices().length > 0 && (
+                          <span className={`${
+                            isDarkMode ? 'text-red-400' : 'text-red-600'
+                          } ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                            {getOverdueInvoices().length} overdue
+                          </span>
+                        )}
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <span className={`text-xs ${
-                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                        }`}>
-                          {getOverdueInvoices().length} overdue
-                        </span>
-                        <button
-                          onClick={handleSendMessage}
-                          disabled={!inputText.trim()}
-                          className={`flex items-center px-4 py-1.5 rounded-lg ${
-                            inputText.trim() 
-                              ? 'bg-primary-600 text-white hover:bg-primary-700' 
-                              : isDarkMode
-                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                          }`}
-                        >
-                          <Send className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!inputText.trim()}
+                        className={`flex items-center rounded-lg transition-colors ${
+                          inputText.trim() 
+                            ? 'bg-primary-600 text-white hover:bg-primary-700' 
+                            : isDarkMode
+                              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        } ${isMobile ? 'px-3 py-1.5' : 'px-4 py-1.5'}`}
+                      >
+                        <Send className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
+                        {!isMobile && <span className="ml-1 text-sm">Send</span>}
+                      </button>
                     </div>
                   </div>
                 </div>
-                <div className={`text-xs mt-2 text-center ${
+                <div className={`mt-2 text-center ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                }`}>
-                  Ask about: Invoices • Payments • Customers • Reports
+                } ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                  {isMobile ? 'Ask about invoices, payments...' : 'Ask about: Invoices • Payments • Customers • Reports'}
                 </div>
               </div>
             </>

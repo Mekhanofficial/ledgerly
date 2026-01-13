@@ -1,53 +1,149 @@
-import React from 'react';
-import { Package, ArrowRight, TrendingUp, TrendingDown, BarChart, AlertCircle, Layers, Users } from 'lucide-react';
+// src/routes/inventory/Inventory.js
+import React, { useState, useEffect } from 'react';
+import { Package, ArrowRight, TrendingUp, TrendingDown, BarChart, AlertCircle, Layers, Users, RefreshCw } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { useInventory } from '../../context/InventoryContext';
+import { useToast } from '../../context/ToastContext';
 
 const Inventory = () => {
   const { isDarkMode } = useTheme();
+  const { getInventoryStats, products, stockAdjustments, suppliers, categories } = useInventory();
+  const { addToast } = useToast();
   
+  const [stats, setStats] = useState(null);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load real-time data
+  useEffect(() => {
+    loadData();
+  }, [products, stockAdjustments, suppliers, categories]);
+
+  const loadData = () => {
+    try {
+      // Get real stats from inventory context
+      const inventoryStats = getInventoryStats();
+      setStats(inventoryStats);
+
+      // Format recent activity from stock adjustments
+      const sortedAdjustments = [...stockAdjustments]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 5); // Get only 5 most recent
+
+      const activity = sortedAdjustments.map(adj => {
+        const timeAgo = calculateTimeAgo(adj.date);
+        const product = products.find(p => p.id === adj.productId);
+        return {
+          id: adj.id,
+          action: getActionText(adj, product),
+          quantity: adj.quantity > 0 ? `+${adj.quantity}` : adj.quantity.toString(),
+          time: timeAgo,
+          user: adj.user || 'System',
+          details: adj.reason || adj.type,
+          productName: product?.name || 'Unknown Product'
+        };
+      });
+
+      setRecentActivity(activity);
+    } catch (error) {
+      console.error('Error loading inventory data:', error);
+      addToast('Error loading inventory data', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const calculateTimeAgo = (dateString) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 60) {
+      return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+    } else if (diffDays < 7) {
+      return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  const getActionText = (adjustment, product) => {
+    const productName = product?.name || 'Product';
+    switch (adjustment.type) {
+      case 'Restock':
+        return `Restocked ${productName}`;
+      case 'Sale':
+        return `Sold ${productName}`;
+      case 'Return':
+        return `Returned ${productName}`;
+      case 'Damage':
+        return `Damaged ${productName}`;
+      case 'Adjustment':
+        return `Adjusted ${productName} stock`;
+      default:
+        return `${adjustment.type}: ${productName}`;
+    }
+  };
+
   const quickStats = [
     {
       label: 'Total Products',
-      value: '42',
-      change: '+12%',
+      value: stats?.totalProducts || 0,
+      change: '+0%', // You can calculate this from historical data
       icon: Package,
       color: 'bg-blue-500',
       to: '/inventory/products'
     },
     {
       label: 'Total Value',
-      value: '$89,240',
-      change: '+32%',
+      value: `$${stats?.totalValue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
+      change: '+0%',
       icon: TrendingUp,
       color: 'bg-emerald-500',
       to: '/inventory'
     },
     {
       label: 'Low Stock Items',
-      value: '5',
-      change: '-2',
+      value: stats?.lowStockCount || 0,
+      change: stats?.lowStockCount > 0 ? 'Needs attention' : 'All good',
       icon: AlertCircle,
       color: 'bg-amber-500',
       to: '/inventory/products?filter=low-stock'
     },
     {
       label: 'Categories',
-      value: '8',
-      change: '+1',
+      value: categories.length || 0,
+      change: '+0',
       icon: Layers,
       color: 'bg-violet-500',
       to: '/inventory/categories'
     }
   ];
 
-  const recentActivity = [
-    { id: 1, action: 'Restocked Wireless Headphones', quantity: '+25', time: '2 hours ago', user: 'John D.' },
-    { id: 2, action: 'Low stock alert: Laptop Computers', quantity: '8 left', time: '5 hours ago', user: 'System' },
-    { id: 3, action: 'New supplier added', details: 'Tech Distributors', time: '1 day ago', user: 'Sarah W.' },
-    { id: 4, action: 'Stock adjustment', details: 'Office Chair returned', time: '2 days ago', user: 'Mike J.' }
-  ];
+  const handleRefresh = () => {
+    setIsLoading(true);
+    setTimeout(() => {
+      loadData();
+      addToast('Inventory data refreshed', 'success');
+    }, 500);
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -67,6 +163,17 @@ const Inventory = () => {
             </p>
           </div>
           <div className="flex items-center space-x-3 mt-4 md:mt-0">
+            <button
+              onClick={handleRefresh}
+              className={`flex items-center px-4 py-2 border rounded-lg ${
+                isDarkMode
+                  ? 'border-gray-600 text-gray-300 hover:bg-gray-800'
+                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </button>
             <Link
               to="/inventory/products"
               className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
@@ -104,11 +211,11 @@ const Inventory = () => {
                       {stat.value}
                     </p>
                     <p className={`text-sm mt-2 ${
-                      stat.change.startsWith('+') 
+                      stat.change.includes('+') || stat.change === 'All good'
                         ? isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
                         : isDarkMode ? 'text-amber-400' : 'text-amber-600'
                     }`}>
-                      {stat.change} vs last month
+                      {stat.change}
                     </p>
                   </div>
                   <div className={`${stat.color} w-12 h-12 rounded-xl flex items-center justify-center`}>
@@ -147,7 +254,7 @@ const Inventory = () => {
                 <p className={`text-sm mt-1 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Manage all products
+                  {products.length} products
                 </p>
               </div>
             </div>
@@ -178,7 +285,7 @@ const Inventory = () => {
                 <p className={`text-sm mt-1 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Organize by category
+                  {categories.length} categories
                 </p>
               </div>
             </div>
@@ -209,7 +316,7 @@ const Inventory = () => {
                 <p className={`text-sm mt-1 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Track inventory changes
+                  {stockAdjustments.length} adjustments
                 </p>
               </div>
             </div>
@@ -240,7 +347,7 @@ const Inventory = () => {
                 <p className={`text-sm mt-1 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Manage suppliers
+                  {suppliers.length} suppliers
                 </p>
               </div>
             </div>
@@ -253,49 +360,166 @@ const Inventory = () => {
             ? 'bg-gray-800 border-gray-700' 
             : 'bg-white border-gray-200'
         }`}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className={`text-lg font-semibold ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Recent Inventory Activity
+            </h3>
+            <Link
+              to="/inventory/stock-adjustments"
+              className={`text-sm ${
+                isDarkMode ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'
+              }`}
+            >
+              View All
+            </Link>
+          </div>
+          
+          {recentActivity.length === 0 ? (
+            <div className="text-center py-8">
+              <BarChart className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                No recent inventory activity
+              </p>
+              <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                Add products or make stock adjustments to see activity here
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {recentActivity.map((activity) => (
+                <div key={activity.id} className={`flex items-center justify-between py-3 border-b last:border-0 ${
+                  isDarkMode ? 'border-gray-700' : 'border-gray-100'
+                }`}>
+                  <div className="flex-1">
+                    <p className={`font-medium ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      {activity.action}
+                    </p>
+                    <p className={`text-sm mt-1 ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
+                      {activity.details && <span className="mr-2">{activity.details}</span>}
+                      {activity.quantity && (
+                        <span className={`font-medium ${
+                          activity.quantity.startsWith('+') 
+                            ? isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                            : isDarkMode ? 'text-red-400' : 'text-red-600'
+                        }`}>
+                          {activity.quantity}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      {activity.time}
+                    </p>
+                    <p className={`text-xs mt-1 ${
+                      isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                    }`}>
+                      by {activity.user}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Inventory Summary */}
+        <div className={`border rounded-xl p-6 ${
+          isDarkMode 
+            ? 'bg-gray-800 border-gray-700' 
+            : 'bg-white border-gray-200'
+        }`}>
           <h3 className={`text-lg font-semibold mb-4 ${
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
-            Recent Inventory Activity
+            Inventory Summary
           </h3>
-          <div className="space-y-4">
-            {recentActivity.map((activity) => (
-              <div key={activity.id} className={`flex items-center justify-between py-3 border-b last:border-0 ${
-                isDarkMode ? 'border-gray-700' : 'border-gray-100'
-              }`}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className={`p-4 rounded-lg ${
+              isDarkMode ? 'bg-blue-900/20' : 'bg-blue-50'
+            }`}>
+              <div className="flex items-center">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                  isDarkMode ? 'bg-blue-900/30' : 'bg-blue-100'
+                }`}>
+                  <Package className={`w-5 h-5 ${
+                    isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                  }`} />
+                </div>
                 <div>
-                  <p className={`font-medium ${
+                  <div className={`text-lg font-bold ${
                     isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    {activity.action}
-                  </p>
-                  <p className={`text-sm mt-1 ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                    {stats?.inStockCount || 0}
+                  </div>
+                  <div className={`text-sm ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
                   }`}>
-                    {activity.details && <span className="mr-2">{activity.details}</span>}
-                    {activity.quantity && <span className={`font-medium ${
-                      activity.quantity.startsWith('+') 
-                        ? isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-                        : isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                    }`}>
-                      {activity.quantity}
-                    </span>}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className={`text-sm ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`}>
-                    {activity.time}
-                  </p>
-                  <p className={`text-xs mt-1 ${
-                    isDarkMode ? 'text-gray-500' : 'text-gray-400'
-                  }`}>
-                    by {activity.user}
-                  </p>
+                    In Stock Products
+                  </div>
                 </div>
               </div>
-            ))}
+            </div>
+            
+            <div className={`p-4 rounded-lg ${
+              isDarkMode ? 'bg-amber-900/20' : 'bg-amber-50'
+            }`}>
+              <div className="flex items-center">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                  isDarkMode ? 'bg-amber-900/30' : 'bg-amber-100'
+                }`}>
+                  <AlertCircle className={`w-5 h-5 ${
+                    isDarkMode ? 'text-amber-400' : 'text-amber-600'
+                  }`} />
+                </div>
+                <div>
+                  <div className={`text-lg font-bold ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    {stats?.lowStockCount || 0}
+                  </div>
+                  <div className={`text-sm ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
+                    Low Stock Items
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className={`p-4 rounded-lg ${
+              isDarkMode ? 'bg-red-900/20' : 'bg-red-50'
+            }`}>
+              <div className="flex items-center">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                  isDarkMode ? 'bg-red-900/30' : 'bg-red-100'
+                }`}>
+                  <Package className={`w-5 h-5 ${
+                    isDarkMode ? 'text-red-400' : 'text-red-600'
+                  }`} />
+                </div>
+                <div>
+                  <div className={`text-lg font-bold ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    {stats?.outOfStockCount || 0}
+                  </div>
+                  <div className={`text-sm ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
+                    Out of Stock
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

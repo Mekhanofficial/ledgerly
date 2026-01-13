@@ -7,49 +7,49 @@ const Features = () => {
       icon: <FileText className="w-8 h-8" />,
       title: 'Professional Invoicing',
       description: 'Create branded invoices in seconds, send automatic reminders, and track payment status',
-      color: 'from-blue-500 to-cyan-500'
+      color: 'from-blue-500 to-cyan-500 dark:from-blue-400 dark:to-cyan-400'
     },
     {
       icon: <Receipt className="w-8 h-8" />,
       title: 'Instant Receipts',
       description: 'Generate receipts for walk-in customers with quick POS interface and instant email/print',
-      color: 'from-emerald-500 to-green-500'
+      color: 'from-emerald-500 to-green-500 dark:from-emerald-400 dark:to-green-400'
     },
     {
       icon: <Package className="w-8 h-8" />,
       title: 'Smart Inventory',
       description: 'Track stock levels, receive low-stock alerts, and never run out of products',
-      color: 'from-violet-500 to-purple-500'
+      color: 'from-violet-500 to-purple-500 dark:from-violet-400 dark:to-purple-400'
     },
     {
       icon: <Users className="w-8 h-8" />,
       title: 'Customer Database',
       description: 'Maintain customer records, track payment history, and manage relationships',
-      color: 'from-orange-500 to-amber-500'
+      color: 'from-orange-500 to-amber-500 dark:from-orange-400 dark:to-amber-400'
     },
     {
       icon: <BarChart className="w-8 h-8" />,
       title: 'Financial Insights',
       description: 'View real-time dashboards, generate tax-ready reports, and make data-driven decisions',
-      color: 'from-pink-500 to-rose-500'
+      color: 'from-pink-500 to-rose-500 dark:from-pink-400 dark:to-rose-400'
     },
     {
       icon: <UserPlus className="w-8 h-8" />,
       title: 'Team Access',
       description: 'Invite staff with role-based permissions and maintain full audit trails',
-      color: 'from-gray-700 to-gray-900'
+      color: 'from-gray-700 to-gray-900 dark:from-gray-600 dark:to-gray-800'
     }
   ];
 
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-gray-50" id="features">
+    <section className="py-20 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800" id="features">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Everything You Need to
-            <span className="text-primary-600"> Run Your Business</span>
+            <span className="text-primary-600 dark:text-primary-400"> Run Your Business</span>
           </h2>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+          <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             Comprehensive tools that work seamlessly together to streamline your operations
             and help your business grow efficiently.
           </p>
@@ -59,17 +59,17 @@ const Features = () => {
           {features.map((feature, idx) => (
             <div 
               key={idx} 
-              className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/5 hover:border-primary-300 hover:-translate-y-1"
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:hover:shadow-primary-400/10 hover:border-primary-300 dark:hover:border-primary-500 hover:-translate-y-1"
             >
               <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
                 <div className="text-white">
                   {feature.icon}
                 </div>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">{feature.title}</h3>
-              <p className="text-gray-600 leading-relaxed">{feature.description}</p>
-              <div className="mt-6 pt-6 border-t border-gray-100">
-                <div className="text-primary-600 font-medium inline-flex items-center group/link">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">{feature.title}</h3>
+              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{feature.description}</p>
+              <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+                <div className="text-primary-600 dark:text-primary-400 font-medium inline-flex items-center group/link">
                   Learn more
                   <svg className="w-4 h-4 ml-2 group-hover/link:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -81,23 +81,23 @@ const Features = () => {
         </div>
         
         {/* Stats Banner */}
-        <div className="mt-20 bg-gradient-to-r from-primary-900 via-primary-800 to-primary-700 rounded-2xl p-8 md:p-12 text-white">
+        <div className="mt-20 bg-gradient-to-r from-primary-900 via-primary-800 to-primary-700 dark:from-primary-950 dark:via-primary-900 dark:to-primary-800 rounded-2xl p-8 md:p-12 text-white">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="text-center">
               <div className="text-3xl md:text-4xl font-bold mb-2">94%</div>
-              <div className="text-primary-200">Faster invoicing</div>
+              <div className="text-primary-200 dark:text-primary-300">Faster invoicing</div>
             </div>
             <div className="text-center">
               <div className="text-3xl md:text-4xl font-bold mb-2">75%</div>
-              <div className="text-primary-200">Reduced admin work</div>
+              <div className="text-primary-200 dark:text-primary-300">Reduced admin work</div>
             </div>
             <div className="text-center">
               <div className="text-3xl md:text-4xl font-bold mb-2">99.9%</div>
-              <div className="text-primary-200">Uptime guarantee</div>
+              <div className="text-primary-200 dark:text-primary-300">Uptime guarantee</div>
             </div>
             <div className="text-center">
               <div className="text-3xl md:text-4xl font-bold mb-2">24/7</div>
-              <div className="text-primary-200">Support available</div>
+              <div className="text-primary-200 dark:text-primary-300">Support available</div>
             </div>
           </div>
         </div>
