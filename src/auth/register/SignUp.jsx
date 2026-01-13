@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"; 
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
-import countryData from "../../data/countryData.json";
+import countryData from "../../data/CountryData.json";
 import { FileText, ArrowRight, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 
 const SignUpPage = () => {
