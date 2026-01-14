@@ -152,7 +152,7 @@ const SignUpPage = () => {
             </h2>
             
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Your InvoiceFlow account has been created. You'll be redirected to the login page in a few seconds.
+              Your Ledgerly account has been created. You'll be redirected to the login page in a few seconds.
             </p>
             
             <div className="space-y-4">
@@ -190,7 +190,7 @@ const SignUpPage = () => {
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm">
               <FileText className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold">InvoiceFlow</h1>
+            <h1 className="text-4xl font-bold">Ledgerly</h1>
             <p className="mt-2 text-primary-100">
               Streamline your invoicing and billing process
             </p>
@@ -226,7 +226,7 @@ const SignUpPage = () => {
           </div>
 
           <div className="mt-8 border-t border-primary-400 pt-4">
-            <p className="text-sm text-primary-200">Already using InvoiceFlow?</p>
+            <p className="text-sm text-primary-200">Already using Ledgerly?</p>
             <Link
               to="/login"
               className="mt-2 inline-block bg-white text-primary-700 px-4 py-2 rounded-lg font-medium hover:bg-primary-50 transition"
@@ -272,7 +272,7 @@ const SignUpPage = () => {
               Create Your Account
             </h1>
             <p className="mt-2 text-gray-600 dark:text-gray-300">
-              Join thousands of businesses using InvoiceFlow
+              Join thousands of businesses using Ledgerly
             </p>
           </div>
 

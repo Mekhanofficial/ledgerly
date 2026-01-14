@@ -21,7 +21,7 @@ const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted }) => {
 
   useEffect(() => {
     const handleStorageChange = (e) => {
-      if (e.key === 'invoiceflow_receipts' || e.type === 'receiptsUpdated') {
+      if (e.key === 'Ledgerly_receipts' || e.type === 'receiptsUpdated') {
         if (onRefresh) {
           onRefresh();
         }
@@ -99,9 +99,9 @@ Thank you for shopping with us!
   const handleDeleteReceipt = (receiptId) => {
     if (window.confirm('Are you sure you want to delete this receipt?')) {
       try {
-        const currentReceipts = JSON.parse(localStorage.getItem('invoiceflow_receipts') || '[]');
+        const currentReceipts = JSON.parse(localStorage.getItem('Ledgerly_receipts') || '[]');
         const updatedReceipts = currentReceipts.filter(receipt => receipt.id !== receiptId);
-        localStorage.setItem('invoiceflow_receipts', JSON.stringify(updatedReceipts));
+        localStorage.setItem('Ledgerly_receipts', JSON.stringify(updatedReceipts));
         
         window.dispatchEvent(new CustomEvent('receiptsUpdated'));
         

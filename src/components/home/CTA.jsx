@@ -24,7 +24,7 @@ const CTA = () => {
                 </h2>
                 
                 <p className="text-base md:text-lg text-gray-600 dark:text-gray-300 mb-6 max-w-2xl mx-auto">
-                  Join thousands of businesses that trust InvoiceFlow for their daily operations.
+                  Join thousands of businesses that trust Ledgerly for their daily operations.
                 </p>
                 
                 <div className="flex justify-center mb-8">

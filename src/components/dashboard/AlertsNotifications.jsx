@@ -237,7 +237,7 @@ const AlertsNotifications = () => {
 
     // Check for recent receipts from localStorage
     try {
-      const savedReceipts = JSON.parse(localStorage.getItem('invoiceflow_receipts') || '[]');
+      const savedReceipts = JSON.parse(localStorage.getItem('Ledgerly_receipts') || '[]');
       const recentReceipts = savedReceipts.filter(receipt => {
         const savedAt = new Date(receipt.savedAt || receipt.date || Date.now());
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);

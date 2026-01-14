@@ -7,7 +7,7 @@ const FAQSection = () => {
   const faqs = [
     {
       id: 1,
-      question: "How do I get started with InvoiceFlow?",
+      question: "How do I get started with Ledgerly?",
       answer: "Sign up for a free account, complete your business profile, and start creating invoices immediately. No credit card required for the free plan.",
       icon: <Zap className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
@@ -31,7 +31,7 @@ const FAQSection = () => {
     },
     {
       id: 5,
-      question: "Can I use InvoiceFlow internationally?",
+      question: "Can I use Ledgerly internationally?",
       answer: "Absolutely! We support multiple currencies, languages, and tax systems. Create invoices in over 50 currencies and send them anywhere in the world.",
       icon: <Globe className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
@@ -71,7 +71,7 @@ const FAQSection = () => {
             Frequently Asked Questions
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Find answers to common questions about InvoiceFlow
+            Find answers to common questions about Ledgerly
           </p>
         </div>
 

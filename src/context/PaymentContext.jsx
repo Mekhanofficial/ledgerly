@@ -40,7 +40,7 @@ export const PaymentProvider = ({ children }) => {
       setTransactions(savedTransactions);
       
       // Load receipts
-      const savedReceipts = JSON.parse(localStorage.getItem('invoiceflow_receipts')) || [];
+      const savedReceipts = JSON.parse(localStorage.getItem('Ledgerly_receipts')) || [];
       setReceipts(savedReceipts);
       
       // Load pending payments
@@ -127,7 +127,7 @@ export const PaymentProvider = ({ children }) => {
   // Save receipts to localStorage
   useEffect(() => {
     if (!loading) {
-      localStorage.setItem('invoiceflow_receipts', JSON.stringify(receipts));
+      localStorage.setItem('Ledgerly_receipts', JSON.stringify(receipts));
     }
   }, [receipts, loading]);
 
@@ -582,7 +582,7 @@ export const PaymentProvider = ({ children }) => {
         
         // Clear localStorage
         localStorage.removeItem('ledgerly_transactions');
-        localStorage.removeItem('invoiceflow_receipts');
+        localStorage.removeItem('Ledgerly_receipts');
         localStorage.removeItem('pending_payments');
         
         // Update related invoice statuses
@@ -638,7 +638,7 @@ export const PaymentProvider = ({ children }) => {
       
       // Save to localStorage
       localStorage.setItem('ledgerly_transactions', JSON.stringify(backup.transactions || []));
-      localStorage.setItem('invoiceflow_receipts', JSON.stringify(backup.receipts || []));
+      localStorage.setItem('Ledgerly_receipts', JSON.stringify(backup.receipts || []));
       localStorage.setItem('pending_payments', JSON.stringify(backup.pendingPayments || []));
       
       addToast('Payment history restored from backup!', 'success');

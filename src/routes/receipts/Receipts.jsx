@@ -50,7 +50,7 @@ const Receipts = () => {
 
   const loadReceipts = () => {
     try {
-      const savedReceipts = JSON.parse(localStorage.getItem('invoiceflow_receipts') || '[]');
+      const savedReceipts = JSON.parse(localStorage.getItem('Ledgerly_receipts') || '[]');
       setReceipts(savedReceipts);
     } catch (error) {
       console.error('Error loading receipts:', error);
@@ -126,7 +126,7 @@ const Receipts = () => {
 
   const saveReceiptToHistory = (receiptData) => {
     try {
-      const receipts = JSON.parse(localStorage.getItem('invoiceflow_receipts') || '[]');
+      const receipts = JSON.parse(localStorage.getItem('Ledgerly_receipts') || '[]');
       const newReceipt = {
         ...receiptData,
         savedAt: new Date().toISOString(),
@@ -135,7 +135,7 @@ const Receipts = () => {
       
       receipts.unshift(newReceipt);
       const updatedReceipts = receipts.slice(0, 50);
-      localStorage.setItem('invoiceflow_receipts', JSON.stringify(updatedReceipts));
+      localStorage.setItem('Ledgerly_receipts', JSON.stringify(updatedReceipts));
       
       setReceipts(updatedReceipts);
       

@@ -113,7 +113,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       return user.email.split('@')[0];
     }
     
-    return 'InvoiceFlow User';
+    return 'Ledgerly User';
   };
 
   // Get user email
@@ -144,7 +144,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       return user.firstName;
     }
     
-    return 'InvoiceFlow';
+    return 'Ledgerly';
   };
 
   // Get user stats function

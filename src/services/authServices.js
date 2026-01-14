@@ -1,21 +1,21 @@
 // src/services/authServices.js
 
 // Keys for localStorage
-const USERS_KEY = "invoiceflow_users";
-const LOGGEDIN_KEY = "invoiceflow_loggedInUser";
-const INVOICES_KEY = "invoiceflow_invoices";
+const USERS_KEY = "Ledgerly_users";
+const LOGGEDIN_KEY = "Ledgerly_loggedInUser";
+const INVOICES_KEY = "Ledgerly_invoices";
 
 // Initialize admin user if not exists
 function initAdmin() {
   const users = JSON.parse(localStorage.getItem(USERS_KEY)) || [];
-  const adminExists = users.find(u => u.email === "admin@invoiceflow.com");
+  const adminExists = users.find(u => u.email === "admin@Ledgerly.com");
   
   if (!adminExists) {
     const adminUser = {
       id: "admin_001",
       firstName: "Admin",
       lastName: "User",
-      email: "admin@invoiceflow.com",
+      email: "admin@Ledgerly.com",
       password: "admin123",
       phoneNumber: "+1 (555) 123-4567",
       sex: "Male",

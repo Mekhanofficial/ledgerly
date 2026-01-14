@@ -6,7 +6,7 @@ const Testimonials = () => {
     {
       name: 'Sarah Chen',
       role: 'Freelance Designer',
-      content: 'InvoiceFlow cut my admin time by 70%. The automatic reminders alone are worth the price! I can now focus on my creative work instead of chasing payments.',
+      content: 'Ledgerly cut my admin time by 70%. The automatic reminders alone are worth the price! I can now focus on my creative work instead of chasing payments.',
       avatar: 'SC',
       rating: 5
     },
@@ -35,7 +35,7 @@ const Testimonials = () => {
             <span className="text-primary-300"> Worldwide</span>
           </h2>
           <p className="text-lg text-gray-300 max-w-2xl mx-auto">
-            Join thousands of businesses that transformed their operations with InvoiceFlow
+            Join thousands of businesses that transformed their operations with Ledgerly
           </p>
         </div>
         

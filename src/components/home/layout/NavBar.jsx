@@ -22,7 +22,7 @@ const NavBar = () => {
               <div className="absolute inset-0 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl blur opacity-70 group-hover:opacity-100 transition-opacity"></div>
               <img 
                 src="/images/logo.svg" 
-                alt="InvoiceFlow"
+                alt="Ledgerly"
                 className="relative w-10 h-10 rounded-xl transform group-hover:scale-105 transition-transform duration-300"
                 onError={(e) => {
                   e.target.style.display = 'none';
@@ -35,7 +35,7 @@ const NavBar = () => {
               />
             </div>
             <span className="text-xl font-semibold text-gray-900 dark:text-white group-hover:text-primary-700 dark:group-hover:text-primary-400 transition-colors">
-              InvoiceFlow
+              Ledgerly
             </span>
           </Link>
 

@@ -167,7 +167,7 @@ export const NotificationProvider = ({ children }) => {
 
       // Check for new receipts
       try {
-        const savedReceipts = JSON.parse(localStorage.getItem('invoiceflow_receipts') || '[]');
+        const savedReceipts = JSON.parse(localStorage.getItem('Ledgerly_receipts') || '[]');
         const recentReceipts = savedReceipts.filter(receipt => {
           const receiptKey = `receipt_${receipt.id}`;
           if (currentProcessedItems.has(receiptKey)) return false;

@@ -9,7 +9,7 @@ const Footer = () => {
   };
 
   const contactInfo = [
-    { icon: <Mail className="w-4 h-4" />, text: 'hello@invoiceflow.com' },
+    { icon: <Mail className="w-4 h-4" />, text: 'hello@Ledgerly.com' },
     { icon: <Phone className="w-4 h-4" />, text: '+1 (555) 123-4567' },
     { icon: <MapPin className="w-4 h-4" />, text: 'San Francisco, CA' },
   ];
@@ -25,7 +25,7 @@ const Footer = () => {
                 Streamline your business operations today
               </h3>
               <p className="text-primary-100 dark:text-primary-300 text-base md:text-lg">
-                Join thousands of businesses that trust InvoiceFlow for their billing and inventory management.
+                Join thousands of businesses that trust Ledgerly for their billing and inventory management.
               </p>
             </div>
             <div className="lg:w-1/2 xl:w-2/5 w-full">
@@ -59,7 +59,7 @@ const Footer = () => {
                 </div>
               </div>
               <div>
-                <span className="text-2xl font-bold text-gray-900 dark:text-white">InvoiceFlow</span>
+                <span className="text-2xl font-bold text-gray-900 dark:text-white">Ledgerly</span>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   Professional Billing & Inventory Platform
                 </p>
@@ -115,7 +115,7 @@ const Footer = () => {
         <div className="pt-8 border-t border-gray-200 dark:border-gray-800">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="text-gray-600 dark:text-gray-400 text-sm text-center md:text-left">
-              © {new Date().getFullYear()} InvoiceFlow, Inc. All rights reserved.
+              © {new Date().getFullYear()} Ledgerly, Inc. All rights reserved.
             </div>
             
             <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6">
