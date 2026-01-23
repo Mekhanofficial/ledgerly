@@ -2,7 +2,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { useToast } from './ToastContext';
 
-const NotificationContext = createContext();
+export const NotificationContext = createContext();
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);

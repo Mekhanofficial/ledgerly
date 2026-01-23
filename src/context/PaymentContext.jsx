@@ -3,7 +3,7 @@ import { useToast } from './ToastContext';
 import { useInvoice } from './InvoiceContext';
 import { useNotifications } from './NotificationContext';
 
-const PaymentContext = createContext();
+export const PaymentContext = createContext();
 
 export const usePayments = () => {
   const context = useContext(PaymentContext);

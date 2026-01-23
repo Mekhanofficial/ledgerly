@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import * as authServices from '../services/authServices';
 
 // Create context
-const UserContext = createContext();
+export const UserContext = createContext();
 
 // Custom hook to use the UserContext
 export const useUser = () => {

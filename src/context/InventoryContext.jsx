@@ -3,7 +3,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useToast } from './ToastContext';
 import { useNotifications } from './NotificationContext';
 
-const InventoryContext = createContext();
+export const InventoryContext = createContext();
 
 export const useInventory = () => {
   const context = useContext(InventoryContext);

@@ -61,7 +61,7 @@ const NavBar = () => {
               Sign In
             </Link>
             <Link 
-              to="/dashboard" 
+              to="/signup" 
               className="bg-primary-600 dark:bg-primary-700 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-primary-700 dark:hover:bg-primary-600 transition-colors shadow-sm"
             >
               Get Started
@@ -100,7 +100,7 @@ const NavBar = () => {
                   Sign In
                 </Link>
                 <Link 
-                  to="/dashboard" 
+                  to="/signup" 
                   className="block bg-primary-600 dark:bg-primary-700 text-white px-4 py-3 rounded-lg font-medium text-center hover:bg-primary-700 dark:hover:bg-primary-600"
                   onClick={() => setIsMenuOpen(false)}
                 >
