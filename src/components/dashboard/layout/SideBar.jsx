@@ -20,12 +20,47 @@ import {
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNotifications } from '../../../context/NotificationContext'; // Add this import
+import { useUser } from '../../../context/UserContext';
 
 const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const { unreadCount } = useNotifications(); // Get unread notification count
+  const { user } = useUser();
   
   useTheme();
+
+  const getUserDisplayName = () => {
+    if (!user) return 'Guest User';
+    if (user.firstName && user.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    if (user.firstName) {
+      return user.firstName;
+    }
+    if (user.email) {
+      return user.email.split('@')[0];
+    }
+    return 'Ledgerly User';
+  };
+
+  const getUserRoleLabel = () => {
+    if (!user) return 'Guest';
+    return user.role === 'admin' ? 'Admin' : 'User';
+  };
+
+  const getUserInitials = () => {
+    if (!user) return 'GU';
+    if (user.firstName && user.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    if (user.firstName) {
+      return user.firstName.slice(0, 2).toUpperCase();
+    }
+    if (user.email) {
+      return user.email.slice(0, 2).toUpperCase();
+    }
+    return 'LU';
+  };
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', badge: null },
@@ -192,12 +227,12 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
             <div className="flex items-center">
               <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold">
-                JS
+                {getUserInitials()}
               </div>
               {isOpen && (
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">John Smith</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Admin</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{getUserDisplayName()}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{getUserRoleLabel()}</p>
                 </div>
               )}
             </div>
@@ -241,11 +276,11 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
             <div className="flex items-center">
               <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold">
-                JS
+                {getUserInitials()}
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">John Smith</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Admin</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{getUserDisplayName()}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{getUserRoleLabel()}</p>
               </div>
             </div>
             <button className="mt-4 w-full flex items-center justify-center p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">

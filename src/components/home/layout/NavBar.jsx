@@ -28,7 +28,7 @@ const NavBar = () => {
                   e.target.style.display = 'none';
                   e.target.parentElement.innerHTML = `
                     <div class="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center">
-                      <span class="text-white font-bold">IF</span>
+                      <span class="text-white font-bold">LY</span>
                     </div>
                   `;
                 }}
