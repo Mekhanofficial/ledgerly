@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useToast } from './ToastContext';
 import { useNotifications } from './NotificationContext'; // Add this import
+import { useInventory } from './InventoryContext';
 import templateStorage from '../utils/templateStorage';
 
 export const InvoiceContext = createContext();
@@ -16,6 +17,7 @@ export const useInvoice = () => {
 export const InvoiceProvider = ({ children }) => {
   const { addToast } = useToast();
   const { addNotification } = useNotifications(); // Add notifications context
+  const { updateStockOnPayment: inventoryStockUpdate } = useInventory();
   
   const [invoices, setInvoices] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -254,54 +256,26 @@ export const InvoiceProvider = ({ children }) => {
     return products.filter(product => product.category === category);
   }, [products]);
 
-  // NEW: Update stock when invoice is paid
-  const updateStockOnPayment = useCallback((invoiceId) => {
+  // NEW: Update stock when invoice is sent or paid
+  const updateStockOnPayment = useCallback((invoiceId, invoiceOverride = null) => {
     try {
-      const invoice = invoices.find(inv => inv.id === invoiceId);
-      if (!invoice || !invoice.lineItems) return;
-      
-      const updatedProducts = [...products];
-      
-      invoice.lineItems.forEach(item => {
-        const product = updatedProducts.find(p => 
-          p.name === item.description || p.id === item.productId
-        );
-        
-        if (product) {
-          // Reduce stock quantity
-          const quantitySold = item.quantity || 1;
-          product.quantity = Math.max(0, product.quantity - quantitySold);
-          
-          // Update stock status
-          if (product.quantity === 0) {
-            product.status = 'Out of Stock';
-          } else if (product.quantity <= 10) {
-            product.status = 'Low Stock';
-          }
-        }
-      });
-      
-      setProducts(updatedProducts);
-      
-      // Add stock adjustment record
-      const stockAdjustments = JSON.parse(localStorage.getItem('ledgerly_stock_adjustments') || '[]');
-      stockAdjustments.unshift({
-        id: `adj_${Date.now()}`,
-        invoiceId: invoiceId,
-        type: 'sale',
-        items: invoice.lineItems.map(item => ({
-          description: item.description,
-          quantity: -(item.quantity || 1),
-          reason: `Sale from invoice #${invoice.invoiceNumber || invoice.number}`
-        })),
-        processedAt: new Date().toISOString()
-      });
-      localStorage.setItem('ledgerly_stock_adjustments', JSON.stringify(stockAdjustments));
-      
+      const targetInvoice = invoiceOverride || invoices.find(inv => inv.id === invoiceId);
+      if (!targetInvoice || !targetInvoice.lineItems) return;
+      if (targetInvoice.inventoryAdjusted) return;
+
+      if (typeof inventoryStockUpdate === 'function') {
+        inventoryStockUpdate(targetInvoice);
+      }
+
+      setInvoices(prev => prev.map(inv => 
+        inv.id === invoiceId 
+          ? { ...inv, inventoryAdjusted: true } 
+          : inv
+      ));
     } catch (error) {
       console.error('Error updating stock on payment:', error);
     }
-  }, [invoices, products]);
+  }, [invoices, inventoryStockUpdate]);
 
   // Invoice Functions - UPDATED with inventory integration
   const addInvoice = (invoiceData) => {
@@ -311,7 +285,8 @@ export const InvoiceProvider = ({ children }) => {
         ...invoiceData,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        paymentStatus: 'pending'
+        paymentStatus: 'pending',
+        inventoryAdjusted: false
       };
       
       // Link products from inventory if available
@@ -333,6 +308,10 @@ export const InvoiceProvider = ({ children }) => {
       
       const updatedInvoices = [...invoices, newInvoice];
       setInvoices(updatedInvoices);
+
+      if (newInvoice.status === 'sent') {
+        updateStockOnPayment(newInvoice.id, newInvoice);
+      }
       
       // Add notification for new invoice
       addNotification({
@@ -420,6 +399,7 @@ export const InvoiceProvider = ({ children }) => {
 
   const updateInvoice = (id, updates) => {
     try {
+      const existingInvoice = invoices.find(inv => inv.id === id);
       const updatedInvoices = invoices.map(invoice => 
         invoice.id === id 
           ? { ...invoice, ...updates, updatedAt: new Date().toISOString() }
@@ -427,8 +407,8 @@ export const InvoiceProvider = ({ children }) => {
       );
       setInvoices(updatedInvoices);
       
-      // If marking as paid, update stock
-      if (updates.status === 'paid') {
+      const shouldAdjustStock = updates.status === 'sent' && existingInvoice?.status !== 'sent';
+      if (shouldAdjustStock) {
         updateStockOnPayment(id);
       }
       

@@ -53,15 +53,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <ThemeProvider>
         <ToastProvider>
           <NotificationProvider>
-            <AccountProvider>
-              <UserProvider> {/* Only add UserProvider, no route protection */}
-                <InvoiceProvider>
-                  <PaymentProvider>
-                    <InventoryProvider>
-                      {/* Live Chat Component - Positioned globally */}
-                      <LiveChatWrapper />
-                      
-                      <Routes>
+              <AccountProvider>
+                <UserProvider> {/* Only add UserProvider, no route protection */}
+                  <InventoryProvider>
+                    <InvoiceProvider>
+                      <PaymentProvider>
+                        {/* Live Chat Component - Positioned globally */}
+                        <LiveChatWrapper />
+
+                        <Routes>
                         {/* Public Routes */}
                         <Route path="/" element={<HomePage />} />
                         <Route path="/login" element={<LoginPage />} />
@@ -112,12 +112,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
                         {/* 404 Page (optional) */}
                         {/* <Route path="*" element={<NotFound />} /> */}
-                      </Routes>
-                    </InventoryProvider>
-                  </PaymentProvider>
-                </InvoiceProvider>
-              </UserProvider>
-            </AccountProvider>
+                        </Routes>
+                      </PaymentProvider>
+                    </InvoiceProvider>
+                  </InventoryProvider>
+                </UserProvider>
+              </AccountProvider>
           </NotificationProvider>
         </ToastProvider>
       </ThemeProvider>
