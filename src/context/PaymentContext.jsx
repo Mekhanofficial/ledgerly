@@ -166,7 +166,7 @@ export const PaymentProvider = ({ children }) => {
         color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
         link: '/payments',
         icon: 'CreditCard'
-      });
+      }, { showToast: false });
       
       return newMethod;
     } catch (error) {
@@ -349,7 +349,7 @@ export const PaymentProvider = ({ children }) => {
         invoiceId,
         customerId,
         receiptId: receipt?.id
-      });
+      }, { showToast: false });
 
       addToast(`Payment of $${amount} processed successfully!`, 'success');
       
@@ -454,7 +454,7 @@ export const PaymentProvider = ({ children }) => {
           link: '/receipts',
           icon: 'Receipt',
           transactionId: newTransaction.id
-        });
+        }, { showToast: false });
       } else {
         addNotification({
           type: 'payment',
@@ -467,7 +467,7 @@ export const PaymentProvider = ({ children }) => {
           link: '/payments',
           icon: 'DollarSign',
           transactionId: newTransaction.id
-        });
+        }, { showToast: false });
       }
       
       addToast('Transaction recorded successfully!', 'success');
@@ -547,7 +547,7 @@ export const PaymentProvider = ({ children }) => {
         link: '/payments',
         icon: 'RefreshCw',
         transactionId: refundId
-      });
+      }, { showToast: false });
 
       addToast(`Refund of $${amount} processed successfully!`, 'success');
       
@@ -613,7 +613,7 @@ export const PaymentProvider = ({ children }) => {
           link: '#',
           icon: 'Trash2',
           backupId: backup.deletedAt
-        });
+        }, { showToast: false });
         
         resolve(backup);
       } catch (error) {
@@ -652,7 +652,7 @@ export const PaymentProvider = ({ children }) => {
         color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
         link: '/payments',
         icon: 'RotateCcw'
-      });
+      }, { showToast: false });
       
       return backup;
     } catch (error) {
@@ -816,7 +816,7 @@ export const PaymentProvider = ({ children }) => {
         color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
         link: '/payments',
         icon: 'RefreshCw'
-      });
+      }, { showToast: false });
       
       addToast('Payments synced successfully!', 'success');
       

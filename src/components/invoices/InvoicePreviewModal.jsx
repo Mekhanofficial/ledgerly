@@ -1,8 +1,15 @@
 // src/components/invoices/InvoicePreviewModal.js
 import React from 'react';
 import { X, Mail, Download, Printer } from 'lucide-react';
+import { useAccount } from '../../context/AccountContext';
 
 const InvoicePreviewModal = ({ invoiceData, onClose, onSend }) => {
+  const { accountInfo } = useAccount();
+  const locationParts = [
+    accountInfo?.city,
+    accountInfo?.state,
+    accountInfo?.zipCode
+  ].filter(Boolean).join(', ');
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -40,11 +47,18 @@ const InvoicePreviewModal = ({ invoiceData, onClose, onSend }) => {
                 </p>
               </div>
               <div className="text-right">
-                <div className="text-lg font-bold text-gray-900 dark:text-white">ledgerly</div>
-                <div className="text-gray-600 dark:text-gray-300">
-                  123 Business Street<br />
-                  City, State 12345<br />
-                  contact@ledgerly.com
+                <div className="text-lg font-bold text-gray-900 dark:text-white">
+                  {accountInfo?.companyName || 'Ledgerly'}
+                </div>
+                <div className="text-gray-600 dark:text-gray-300 text-sm">
+                  {accountInfo?.contactName && <div>{accountInfo.contactName}</div>}
+                  {accountInfo?.address && <div>{accountInfo.address}</div>}
+                  {locationParts && <div>{locationParts}</div>}
+                  {accountInfo?.country && !locationParts.includes(accountInfo.country) && (
+                    <div>{accountInfo.country}</div>
+                  )}
+                  {accountInfo?.email && <div>{accountInfo.email}</div>}
+                  {accountInfo?.phone && <div>{accountInfo.phone}</div>}
                 </div>
               </div>
             </div>

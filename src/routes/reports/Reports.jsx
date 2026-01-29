@@ -1051,6 +1051,7 @@ ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
           reports={reports}
           onDeleteReport={handleDeleteReport}
           onViewReport={handleViewReport}
+          onExport={handleExport}
           isDarkMode={isDarkMode}
         />
 

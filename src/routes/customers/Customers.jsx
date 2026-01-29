@@ -1,5 +1,5 @@
 // Update Customers.js
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Users, Plus, Download, Mail, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'; // Added import
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
@@ -22,9 +22,16 @@ const Customers = () => {
     phone: '',
     address: ''
   });
+  const addCustomerNameRef = useRef(null);
 
   // Get stats from context
   const stats = getCustomerStats();
+
+  useEffect(() => {
+    if (showAddCustomerModal && addCustomerNameRef.current) {
+      addCustomerNameRef.current.focus();
+    }
+  }, [showAddCustomerModal]);
 
   // Filter customers based on search
   const filteredCustomers = customers.filter(customer => 
@@ -41,7 +48,7 @@ const Customers = () => {
     }
     
     try {
-      addCustomer(newCustomer);
+      addCustomer(newCustomer, { showNotificationToast: false });
       addToast(`Customer "${newCustomer.name}" added successfully!`, 'success');
       setNewCustomer({ name: '', email: '', phone: '', address: '' });
       setShowAddCustomerModal(false);
@@ -184,6 +191,7 @@ const Customers = () => {
                     type="text"
                     value={newCustomer.name}
                     onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
+                    ref={addCustomerNameRef}
                     className={`w-full px-3 py-2 rounded-lg border ${
                       isDarkMode 
                         ? 'bg-gray-700 border-gray-600 text-white' 

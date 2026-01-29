@@ -244,7 +244,7 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
-  const addNotification = useCallback((notificationData) => {
+  const addNotification = useCallback((notificationData, options = {}) => {
     const newNotification = {
       id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       ...notificationData,
@@ -255,7 +255,9 @@ export const NotificationProvider = ({ children }) => {
     setNotifications(prev => [newNotification, ...prev]);
     
     // Also show a toast for immediate feedback
-    addToast(notificationData.description || 'New notification', 'info');
+    if (options.showToast !== false) {
+      addToast(notificationData.description || 'New notification', 'info');
+    }
     
     return newNotification;
   }, [addToast]);
@@ -333,12 +335,35 @@ export const NotificationProvider = ({ children }) => {
     return newNotifications;
   }, [addToast]);
 
+  const addReportNotification = useCallback((report, status = 'completed') => {
+    if (!report) return null;
+
+    const title = report.title || 'Report';
+    const notification = {
+      type: 'report',
+      title: status === 'completed' ? `${title} ready` : `${title} ${status}`,
+      description: report.description || `Report ${status === 'completed' ? 'completed' : status}`,
+      details: status === 'completed'
+        ? `Download now from the generated reports list`
+        : `Status: ${status}`,
+      time: 'Just now',
+      action: 'View Report',
+      color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+      link: '/reports',
+      icon: 'ReportChart',
+      reportId: report.id
+    };
+
+    return addNotification(notification, { showToast: false });
+  }, [addNotification]);
+
   const contextValue = {
     notifications,
     unreadCount,
     loading,
     addNotification,
     addNotifications,
+    addReportNotification,
     checkInvoiceNotifications,
     checkExternalNotifications,
     markAsRead,

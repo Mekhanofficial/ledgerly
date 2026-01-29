@@ -241,7 +241,7 @@ const ReportCharts = () => {
     }
 
     return (
-      <div className="h-[320px] md:h-[400px] w-full">
+      <div className="h-[340px] md:h-[440px] w-full">
         <div className="flex flex-col lg:flex-row h-full gap-4 lg:gap-6">
           {/* Pie Chart - Larger and properly centered */}
           <div className="lg:w-2/3 h-2/3 lg:h-full">
@@ -331,7 +331,7 @@ const ReportCharts = () => {
               </h4>
               
               {/* Compact scrollable list */}
-              <div className="flex-1 overflow-y-auto pr-1 min-h-0">
+              <div className="flex-1 overflow-y-auto pr-1 md:pr-2 min-h-0">
                 <div className="space-y-1 md:space-y-2">
                   {topCustomers.map((customer, index) => (
                     <div 

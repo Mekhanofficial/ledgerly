@@ -11,6 +11,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import { usePayments } from '../../context/PaymentContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
+import { useAccount } from '../../context/AccountContext';
 
 const Receipts = () => {
   const { isDarkMode } = useTheme();
@@ -18,6 +19,7 @@ const Receipts = () => {
   const { addNotification } = useNotifications();
   const { recordTransaction, paymentMethods } = usePayments();
   const { customers } = useInvoice();
+  const { accountInfo } = useAccount();
   
   const [cartItems, setCartItems] = useState([]);
   const [customerEmail, setCustomerEmail] = useState('');
@@ -234,7 +236,7 @@ const Receipts = () => {
       });
 
       // Generate PDF
-      const pdfDoc = generateReceiptPDF(receiptData);
+      const pdfDoc = generateReceiptPDF(receiptData, accountInfo);
       
       // Save PDF locally
       pdfDoc.save(`${receiptData.id}.pdf`);
@@ -250,7 +252,7 @@ const Receipts = () => {
         color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
         link: '#',
         icon: 'Receipt'
-      });
+      }, { showToast: false });
       
       addToast(`Receipt printed successfully (${receiptData.id})`, 'success');
       
@@ -340,7 +342,7 @@ const Receipts = () => {
       });
 
       // Generate PDF
-      const pdfDoc = generateReceiptPDF(receiptData);
+      const pdfDoc = generateReceiptPDF(receiptData, accountInfo);
       
       // Save PDF locally
       pdfDoc.save(`${receiptData.id}.pdf`);
@@ -486,7 +488,7 @@ Thank you for shopping with us!
       color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
       link: '#',
       icon: 'Receipt'
-    });
+    }, { showToast: false });
 
     const emailBody = `
 Thank you for your purchase!

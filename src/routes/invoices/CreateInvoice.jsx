@@ -16,8 +16,35 @@ import QuickActions from '../../components/invoices/create/QuickActions';
 import { useToast } from '../../context/ToastContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useInventory } from '../../context/InventoryContext';
+import { useAccount } from '../../context/AccountContext';
+import templateStorage from '../../utils/templateStorage';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+
+const TEMPLATE_COLOR_FALLBACK = {
+  primary: '#2980b9',
+  secondary: '#3498db',
+  accent: '#f8f9fa',
+  text: '#2c3e50'
+};
+
+const toCssColor = (colorValue, fallback) => {
+  if (Array.isArray(colorValue)) {
+    return `rgb(${colorValue.join(',')})`;
+  }
+  return colorValue || fallback;
+};
+
+const resolveTemplateColors = (templateId) => {
+  const template = templateStorage.getTemplate(templateId) || templateStorage.getTemplate('standard');
+  const palette = template?.colors || {};
+  return {
+    primary: toCssColor(palette.primary, TEMPLATE_COLOR_FALLBACK.primary),
+    secondary: toCssColor(palette.secondary, TEMPLATE_COLOR_FALLBACK.secondary),
+    accent: toCssColor(palette.accent, TEMPLATE_COLOR_FALLBACK.accent),
+    text: toCssColor(palette.text, TEMPLATE_COLOR_FALLBACK.text)
+  };
+};
 
 const CreateInvoice = () => {
   const { addToast } = useToast();
@@ -31,6 +58,7 @@ const CreateInvoice = () => {
   } = useInvoice();
   
   const { getProductsForInvoice } = useInventory();
+  const { accountInfo } = useAccount();
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -230,7 +258,7 @@ const CreateInvoice = () => {
     }
     
     try {
-      const addedCustomer = addCustomer(newCustomer);
+      const addedCustomer = addCustomer(newCustomer, { showNotificationToast: false });
       setSelectedCustomer(addedCustomer.id);
       setNewCustomer({ name: '', email: '', phone: '', address: '' });
       addToast(`Customer "${addedCustomer.name}" added successfully!`, 'success');
@@ -306,21 +334,34 @@ const CreateInvoice = () => {
       pdfContainer.style.padding = '40px';
       pdfContainer.style.fontFamily = 'Arial, sans-serif';
       
-      const templateColors = {
-        standard: { primary: '#2980b9', secondary: '#3498db', bg: '#f8f9fa' },
-        modern: { primary: '#2ecc71', secondary: '#27ae60', bg: '#ffffff' },
-        minimal: { primary: '#34495e', secondary: '#2c3e50', bg: '#ffffff' },
-        professional: { primary: '#8e44ad', secondary: '#9b59b6', bg: '#f5f5f5' },
-        creative: { primary: '#e74c3c', secondary: '#f1948a', bg: '#fef9e7' }
-      };
+      const colors = resolveTemplateColors(selectedTemplate);
       
-      const colors = templateColors[selectedTemplate] || templateColors.standard;
+      const companyName = accountInfo?.companyName || 'Ledgerly';
+      const contactTitle = accountInfo?.contactName ? `Attn: ${accountInfo.contactName}` : '';
+      const locationPieces = [
+        accountInfo?.city,
+        accountInfo?.state,
+        accountInfo?.zipCode
+      ].filter(Boolean);
+      const cityLine = locationPieces.length > 0 ? locationPieces.join(', ') : '';
+      const companyLines = [
+        accountInfo?.address,
+        cityLine,
+        accountInfo?.country
+      ].filter(Boolean);
+      const companyLinesHtml = companyLines.map(line => `<div>${line}</div>`).join('');
+      const contactDetailsList = [
+        accountInfo?.email,
+        accountInfo?.phone,
+        accountInfo?.website
+      ].filter(Boolean);
+      const contactDetailsHtml = contactDetailsList.map(line => `<div>${line}</div>`).join('');
       
       // Prepare attachments HTML
       let attachmentsHtml = '';
       if (attachments.length > 0) {
         attachmentsHtml = `
-          <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${colors.primary};">
+          <div style="margin-top: 30px; padding: 20px; background: ${colors.accent}; border-radius: 8px; border-left: 4px solid ${colors.primary};">
             <div style="color: ${colors.primary}; font-weight: bold; margin-bottom: 15px; font-size: 14px;">
               <span style="margin-right: 8px;">📎</span>Attachments
             </div>
@@ -375,11 +416,13 @@ const CreateInvoice = () => {
                 </div>
               </div>
               <div style="text-align: right;">
-                <div style="font-size: 18px; font-weight: bold; color: ${colors.primary}; margin-bottom: 10px;">LEDGERLY</div>
-                <div style="color: #6c757d; font-size: 14px;">
-                  123 Business Street<br>
-                  City, State 12345<br>
-                  contact@ledgerly.com
+                <div style="font-size: 18px; font-weight: bold; color: ${colors.primary}; margin-bottom: 10px;">
+                  ${companyName}
+                </div>
+                <div style="color: #6c757d; font-size: 13px; line-height: 1.4;">
+                  ${contactTitle ? `<div>${contactTitle}</div>` : ''}
+                  ${companyLinesHtml}
+                  ${contactDetailsHtml}
                 </div>
               </div>
             </div>
@@ -387,7 +430,7 @@ const CreateInvoice = () => {
           
           <!-- Customer Info -->
           ${customer ? `
-            <div style="background: #f8f9fa; padding: 25px; margin: 20px 0 30px 0; border-radius: 8px; border-left: 4px solid ${colors.primary};">
+            <div style="background: ${colors.accent}; padding: 25px; margin: 20px 0 30px 0; border-radius: 8px; border-left: 4px solid ${colors.primary};">
               <div style="font-weight: bold; margin-bottom: 15px; color: ${colors.primary}; font-size: 16px;">Bill To:</div>
               <div style="color: #495057;">
                 <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">${customer.name}</div>
@@ -411,7 +454,7 @@ const CreateInvoice = () => {
             </thead>
             <tbody>
               ${lineItems.map((item, index) => `
-                <tr style="${index % 2 === 0 ? 'background: #f8f9fa;' : ''} border-bottom: 1px solid #e9ecef;">
+                <tr style="${index % 2 === 0 ? `background: ${colors.accent};` : ''} border-bottom: 1px solid #e9ecef;">
                   <td style="padding: 15px; font-size: 14px; color: #495057;">
                     ${item.description || 'Item'}
                     ${item.sku ? `<div style="font-size: 12px; color: #6c757d;">SKU: ${item.sku}</div>` : ''}
@@ -446,7 +489,7 @@ const CreateInvoice = () => {
           
           <!-- Notes -->
           ${notes ? `
-            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+            <div style="margin-top: 30px; padding: 20px; background: ${colors.accent}; border-radius: 8px;">
               <div style="color: ${colors.primary}; font-weight: bold; margin-bottom: 15px; font-size: 14px;">
                 <span style="margin-right: 8px;">📝</span>Notes
               </div>
@@ -456,7 +499,7 @@ const CreateInvoice = () => {
           
           <!-- Terms -->
           ${terms ? `
-            <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+            <div style="margin-top: 20px; padding: 20px; background: ${colors.accent}; border-radius: 8px;">
               <div style="color: ${colors.primary}; font-weight: bold; margin-bottom: 15px; font-size: 14px;">
                 <span style="margin-right: 8px;">⚖️</span>Terms & Conditions
               </div>
@@ -531,7 +574,7 @@ const CreateInvoice = () => {
       
       // If no existing customer selected but new customer data exists, add them
       if (!customer && newCustomer.name && newCustomer.email) {
-        customer = await addCustomer(newCustomer);
+        customer = await addCustomer(newCustomer, { showNotificationToast: false });
       }
       
       if (!customer) {
@@ -668,6 +711,7 @@ This email was sent from Ledgerly Invoice System
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
     const customer = getSelectedCustomer() || newCustomer;
+    const printColors = resolveTemplateColors(selectedTemplate);
     
     const printContent = `
       <html>
@@ -687,10 +731,10 @@ This email was sent from Ledgerly Invoice System
         </head>
         <body>
           <div style="max-width: 800px; margin: 0 auto; padding: 30px; border: 1px solid #ddd; background: white;">
-            <div style="border-bottom: 3px solid #2980b9; padding-bottom: 30px; margin-bottom: 30px;">
+            <div style="border-bottom: 3px solid ${printColors.primary}; padding-bottom: 30px; margin-bottom: 30px;">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                  <h1 style="font-size: 32px; font-weight: bold; color: #2980b9; margin: 0 0 10px 0;">INVOICE</h1>
+                  <h1 style="font-size: 32px; font-weight: bold; color: ${printColors.primary}; margin: 0 0 10px 0;">INVOICE</h1>
                   <div style="color: #6c757d; font-size: 14px; margin-top: 15px;">
                     <div><strong>Invoice #:</strong> ${invoiceNumber}</div>
                     <div><strong>Issue Date:</strong> ${new Date(issueDate).toLocaleDateString()}</div>
@@ -699,7 +743,7 @@ This email was sent from Ledgerly Invoice System
                   </div>
                 </div>
                 <div style="text-align: right;">
-                  <div style="font-size: 18px; font-weight: bold; color: #2980b9; margin-bottom: 10px;">LEDGERLY</div>
+                  <div style="font-size: 18px; font-weight: bold; color: ${printColors.primary}; margin-bottom: 10px;">LEDGERLY</div>
                   <div style="color: #6c757d; font-size: 14px;">
                     123 Business Street<br>
                     City, State 12345<br>
@@ -710,8 +754,8 @@ This email was sent from Ledgerly Invoice System
             </div>
             
             ${customer ? `
-              <div style="background: #f8f9fa; padding: 25px; margin: 20px 0 30px 0; border-radius: 8px; border-left: 4px solid #2980b9;">
-                <div style="font-weight: bold; margin-bottom: 15px; color: #2980b9; font-size: 16px;">Bill To:</div>
+              <div style="background: ${printColors.accent}; padding: 25px; margin: 20px 0 30px 0; border-radius: 8px; border-left: 4px solid ${printColors.primary};">
+                <div style="font-weight: bold; margin-bottom: 15px; color: ${printColors.primary}; font-size: 16px;">Bill To:</div>
                 <div style="color: #495057;">
                   <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">${customer.name}</div>
                   ${customer.address ? `<div style="margin-bottom: 5px;">${customer.address}</div>` : ''}
@@ -724,7 +768,7 @@ This email was sent from Ledgerly Invoice System
             <!-- Items Table -->
             <table style="width: 100%; border-collapse: collapse; margin: 20px 0 30px 0;">
               <thead>
-                <tr style="background: #2980b9; color: white;">
+                <tr style="background: ${printColors.primary}; color: white;">
                   <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Description</th>
                   <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Qty</th>
                   <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Rate</th>
@@ -734,7 +778,7 @@ This email was sent from Ledgerly Invoice System
               </thead>
               <tbody>
                 ${lineItems.map((item, index) => `
-                  <tr style="${index % 2 === 0 ? 'background: #f8f9fa;' : ''} border-bottom: 1px solid #e9ecef;">
+                <tr style="${index % 2 === 0 ? `background: ${printColors.accent};` : ''} border-bottom: 1px solid #e9ecef;">
                     <td style="padding: 15px; font-size: 14px; color: #495057;">
                       ${item.description || 'Item'}
                       ${item.sku ? `<div style="font-size: 12px; color: #6c757d;">SKU: ${item.sku}</div>` : ''}
@@ -749,7 +793,7 @@ This email was sent from Ledgerly Invoice System
             </table>
             
             <!-- Totals -->
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #2980b9; text-align: right;">
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid ${printColors.primary}; text-align: right;">
               <div style="margin-bottom: 20px;">
                 <span style="color: #6c757d; font-size: 14px;">Subtotal:</span>
                 <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${subtotal.toFixed(2)}</span>
@@ -759,28 +803,28 @@ This email was sent from Ledgerly Invoice System
                 <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${totalTax.toFixed(2)}</span>
               </div>
               <div>
-                <span style="color: #2980b9; font-weight: bold; font-size: 20px;">Total:</span>
-                <span style="color: #2980b9; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${totalAmount.toFixed(2)}</span>
+              <span style="color: ${printColors.primary}; font-weight: bold; font-size: 20px;">Total:</span>
+              <span style="color: ${printColors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${totalAmount.toFixed(2)}</span>
               </div>
             </div>
             
             <!-- Notes & Terms -->
             ${notes ? `
-              <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
-                <div style="color: #2980b9; font-weight: bold; margin-bottom: 15px; font-size: 14px;">Notes</div>
+              <div style="margin-top: 30px; padding: 20px; background: ${printColors.accent}; border-radius: 8px;">
+                <div style="color: ${printColors.primary}; font-weight: bold; margin-bottom: 15px; font-size: 14px;">Notes</div>
                 <div style="color: #495057; line-height: 1.6; font-size: 14px; white-space:pre-line;">${notes}</div>
               </div>
             ` : ''}
             
             ${terms ? `
-              <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
-                <div style="color: #2980b9; font-weight: bold; margin-bottom: 15px; font-size: 14px;">Terms & Conditions</div>
+              <div style="margin-top: 20px; padding: 20px; background: ${printColors.accent}; border-radius: 8px;">
+                <div style="color: ${printColors.primary}; font-weight: bold; margin-bottom: 15px; font-size: 14px;">Terms & Conditions</div>
                 <div style="color: #495057; line-height: 1.6; font-size: 13px; white-space: pre-line;">${terms}</div>
               </div>
             ` : ''}
             
             <div class="no-print" style="margin-top: 50px; text-align: center; padding-top: 20px; border-top: 1px solid #ddd;">
-              <button onclick="window.print()" style="padding: 12px 24px; background: #2980b9; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+              <button onclick="window.print()" style="padding: 12px 24px; background: ${printColors.primary}; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
                 Print Invoice
               </button>
               <button onclick="window.close()" style="padding: 12px 24px; background: #666; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">

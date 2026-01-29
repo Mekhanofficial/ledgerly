@@ -3,7 +3,7 @@ import React from 'react';
 import { BarChart3, PieChart, TrendingUp, Download, Calendar, Trash2, Eye } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewReport }) => {
+const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewReport, onExport }) => {
   const { isDarkMode } = useTheme();
   
   const reportTemplates = [
@@ -282,9 +282,9 @@ const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewRep
                   
                   <div className="flex items-center space-x-1">
                     {/* Download Button */}
-                    {generatedReport && (
+                    {generatedReport && onExport && (
                       <button
-                        onClick={() => onGenerateReport && onGenerateReport(`download-${template.id}`)}
+                        onClick={() => onExport('pdf', generatedReport.id)}
                         className={`p-1.5 rounded-lg ${
                           isDarkMode
                             ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/20'

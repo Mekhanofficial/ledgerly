@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useToast } from './ToastContext';
 import { useNotifications } from './NotificationContext'; // Add this import
+import templateStorage from '../utils/templateStorage';
 
 export const InvoiceContext = createContext();
 
@@ -585,7 +586,7 @@ export const InvoiceProvider = ({ children }) => {
   };
 
   // Customer Functions
-  const addCustomer = (customerData) => {
+  const addCustomer = (customerData, options = {}) => {
     try {
       const newCustomer = {
         id: `cust_${Date.now()}`,
@@ -601,6 +602,7 @@ export const InvoiceProvider = ({ children }) => {
       setCustomers(updatedCustomers);
       
       // Add notification for new customer
+      const showNotificationToast = options.showNotificationToast ?? true;
       addNotification({
         type: 'new-customer',
         title: 'New Customer Added',
@@ -612,7 +614,7 @@ export const InvoiceProvider = ({ children }) => {
         link: `/customers/${newCustomer.id}`,
         icon: 'UserPlus',
         customerId: newCustomer.id
-      });
+      }, { showToast: showNotificationToast });
       
       return newCustomer;
     } catch (error) {
@@ -836,9 +838,9 @@ export const InvoiceProvider = ({ children }) => {
   };
 
   // Template Functions
-  const getAvailableTemplates = () => {
-    return templates;
-  };
+  const getAvailableTemplates = useCallback(() => {
+    return templateStorage.getAllTemplates();
+  }, []);
 
   // Export functions
   const exportInvoicesAsCSV = (invoiceIds = []) => {

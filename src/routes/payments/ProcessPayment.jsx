@@ -20,12 +20,14 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { usePayments } from '../../context/PaymentContext';
+import { useAccount } from '../../context/AccountContext';
 import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
 
 const ProcessPayment = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
   const { invoices, customers, products, getInvoicesForPayment } = useInvoice();
+  const { accountInfo } = useAccount();
   const { processPayment, paymentMethods, addPendingPayment, removePendingPayment } = usePayments();
   
   const location = useLocation();
@@ -122,7 +124,7 @@ const ProcessPayment = () => {
 
       // Generate receipt PDF
       if (paymentResult.receipt) {
-        const pdfDoc = generateReceiptPDF(paymentResult.receipt);
+        const pdfDoc = generateReceiptPDF(paymentResult.receipt, accountInfo);
         pdfDoc.save(`${paymentResult.receipt.id}.pdf`);
       }
 

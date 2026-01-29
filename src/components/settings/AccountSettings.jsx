@@ -1,23 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Mail, Building, MapPin, Save } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAccount } from '../../context/AccountContext';
+import { useToast } from '../../context/ToastContext';
 
 const AccountSettings = () => {
   const { isDarkMode } = useTheme();
-  const [formData, setFormData] = useState({
-    companyName: 'Ledgerly Inc.',
-    contactName: 'John Smith',
-    email: 'john@ledgerly.com',
-    phone: '+1 (555) 123-4567',
-    address: '123 Business Street',
-    city: 'San Francisco',
-    state: 'CA',
-    zipCode: '94107',
-    country: 'United States',
-    website: 'www.ledgerly.com',
-    timezone: 'America/Los_Angeles',
-    currency: 'USD'
-  });
+  const { accountInfo, updateAccountInfo } = useAccount();
+  const { addToast } = useToast();
+  const [formData, setFormData] = useState(accountInfo);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setFormData(accountInfo);
+  }, [accountInfo]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -26,8 +22,10 @@ const AccountSettings = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Save account settings:', formData);
-    // Implement save logic
+    setIsSaving(true);
+    updateAccountInfo(formData);
+    addToast('Account settings saved', 'success');
+    setIsSaving(false);
   };
 
   return (
@@ -313,18 +311,19 @@ const AccountSettings = () => {
         <div className={`mt-8 pt-6 border-t ${
           isDarkMode ? 'border-gray-700' : 'border-gray-200'
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-2">
             <div className={`text-sm ${
               isDarkMode ? 'text-gray-500' : 'text-gray-500'
             }`}>
-              Changes will be saved automatically
+              Tap "Save Changes" to persist the account profile locally
             </div>
             <button
               type="submit"
-              className="flex items-center px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              disabled={isSaving}
+              className="flex items-center px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Save className="w-4 h-4 mr-2" />
-              Save Changes
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </div>

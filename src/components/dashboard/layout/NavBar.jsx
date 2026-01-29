@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Search, 
   Bell, 
@@ -35,6 +35,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNotifications } from '../../../context/NotificationContext';
 import { useUser } from '../../../context/UserContext';
+import { useInvoice } from '../../../context/InvoiceContext';
 
 const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -48,6 +49,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   } = useNotifications();
   
   const { user } = useUser();
+  const { invoices, customers } = useInvoice();
   
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -147,24 +149,31 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
     return 'Ledgerly';
   };
 
-  // Get user stats function
-  const getUserStats = () => {
-    if (!user) {
-      return [
-        { label: 'Invoices', value: '0', icon: FileText },
-        { label: 'Customers', value: '0', icon: Users },
-        { label: 'Revenue', value: '$0', icon: Briefcase }
-      ];
+  const formatRevenue = (value) => {
+    if (!Number.isFinite(value) || value <= 0) {
+      return '$0';
     }
-    
+
+    if (value >= 1000) {
+      return `$${(value / 1000).toFixed(1)}k`;
+    }
+
+    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const getUserStats = () => {
+    const totalInvoices = invoices?.length || 0;
+    const totalCustomers = customers?.length || 0;
+    const totalRevenue = invoices?.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0) || 0;
+
     return [
-      { label: 'Invoices', value: user.invoiceCount || '24', icon: FileText },
-      { label: 'Customers', value: user.customerCount || '156', icon: Users },
-      { label: 'Revenue', value: user.revenue || '$12.5k', icon: Briefcase }
+      { label: 'Invoices', value: totalInvoices.toString(), icon: FileText },
+      { label: 'Customers', value: totalCustomers.toString(), icon: Users },
+      { label: 'Revenue', value: formatRevenue(totalRevenue), icon: Briefcase }
     ];
   };
 
-  const userStats = getUserStats();
+  const userStats = useMemo(() => getUserStats(), [invoices, customers]);
 
   // Handle search
   const handleSearch = (e) => {
