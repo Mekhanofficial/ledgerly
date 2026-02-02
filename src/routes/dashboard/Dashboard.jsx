@@ -1,33 +1,42 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
 import StatsCards from '../../components/dashboard/StatsCards';
 import QuickActions from '../../components/dashboard/QuickActions';
 import RecentInvoices from '../../components/dashboard/RecentInvoices';
 import AlertsNotifications from '../../components/dashboard/AlertsNotifications';
-import { useInvoice } from '../../context/InvoiceContext';
+import { fetchInvoices } from '../../store/slices/invoiceSlice';
+import { fetchCustomers } from '../../store/slices/customerSlice';
 
 const Dashboard = () => {
-  const { invoices, customers } = useInvoice();
+  const dispatch = useDispatch();
+  const invoices = useSelector((state) => state.invoices?.invoices || []);
+  const customers = useSelector((state) => state.customers?.customers || []);
+
+  useEffect(() => {
+    dispatch(fetchInvoices());
+    dispatch(fetchCustomers());
+  }, [dispatch]);
 
   // Calculate real-time stats
-  const calculateStats = () => {
+  const statsData = useMemo(() => {
     const totalInvoices = invoices.length;
-    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || inv.total || 0), 0);
     const paidInvoices = invoices.filter(inv => inv.status === 'paid').length;
     const pendingInvoices = invoices.filter(inv => inv.status === 'sent' || inv.status === 'viewed').length;
     const overdueInvoices = invoices.filter(inv => inv.status === 'overdue').length;
     const draftInvoices = invoices.filter(inv => inv.status === 'draft').length;
-    const activeCustomers = customers.filter(c => c.transactions > 0).length;
+    const activeCustomers = customers.filter(c => c.isActive !== false).length;
 
     // Calculate month-over-month changes (simplified)
     const currentMonth = new Date().getMonth();
     const lastMonthInvoices = invoices.filter(inv => {
-      const invDate = new Date(inv.createdAt || inv.issueDate);
+      const invDate = new Date(inv.createdAt || inv.issueDate || inv.date);
       return invDate.getMonth() === (currentMonth - 1 + 12) % 12;
     });
     
-    const lastMonthRevenue = lastMonthInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+    const lastMonthRevenue = lastMonthInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || inv.total || 0), 0);
     const revenueChange = lastMonthRevenue > 0 
       ? ((totalRevenue - lastMonthRevenue) / lastMonthRevenue * 100).toFixed(1)
       : totalRevenue > 0 ? '100.0' : '0.0';
@@ -47,12 +56,12 @@ const Dashboard = () => {
       pendingInvoices: pendingInvoices.toString(),
       draftInvoices: draftInvoices.toString()
     };
-  };
+  }, [invoices, customers]);
 
   return (
     <DashboardLayout>
       <DashboardHeader />
-      <StatsCards statsData={calculateStats()} />
+      <StatsCards statsData={statsData} />
       
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

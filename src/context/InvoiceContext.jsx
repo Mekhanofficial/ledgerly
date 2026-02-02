@@ -1,8 +1,33 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useToast } from './ToastContext';
-import { useNotifications } from './NotificationContext'; // Add this import
-import { useInventory } from './InventoryContext';
+import { useNotifications } from './NotificationContext';
 import templateStorage from '../utils/templateStorage';
+import {
+  fetchInvoices,
+  createInvoice as createInvoiceThunk,
+  updateInvoice as updateInvoiceThunk,
+  deleteInvoice as deleteInvoiceThunk,
+  sendInvoice as sendInvoiceThunk,
+  recordPayment
+} from '../store/slices/invoiceSlice';
+import {
+  fetchCustomers,
+  createCustomer as createCustomerThunk,
+  updateCustomer as updateCustomerThunk,
+  deleteCustomer as deleteCustomerThunk
+} from '../store/slices/customerSlice';
+import {
+  fetchProducts,
+  createProduct as createProductThunk,
+  updateProduct as updateProductThunk,
+  deleteProduct as deleteProductThunk
+} from '../store/slices/productSlide';
+import { mapInvoiceFromApi, buildInvoicePayload } from '../utils/invoiceAdapter';
+import { mapCustomerFromApi, buildCustomerPayload } from '../utils/customerAdapter';
+import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter';
+import { draftStorage } from '../utils/draftStorage';
+import { recurringStorage } from '../utils/recurringStorage';
 
 export const InvoiceContext = createContext();
 
@@ -16,453 +41,342 @@ export const useInvoice = () => {
 
 export const InvoiceProvider = ({ children }) => {
   const { addToast } = useToast();
-  const { addNotification } = useNotifications(); // Add notifications context
-  const { updateStockOnPayment: inventoryStockUpdate } = useInventory();
-  
-  const [invoices, setInvoices] = useState([]);
-  const [customers, setCustomers] = useState([]);
+  const { addNotification } = useNotifications();
+  const dispatch = useDispatch();
+  const { invoices: rawInvoices, loading: invoicesLoading } = useSelector((state) => state.invoices);
+  const { customers: rawCustomers } = useSelector((state) => state.customers);
+  const { products: rawProducts } = useSelector((state) => state.products);
+
+  const invoices = useMemo(() => rawInvoices.map((invoice) => mapInvoiceFromApi(invoice)), [rawInvoices]);
+  const customers = useMemo(() => rawCustomers.map((customer) => mapCustomerFromApi(customer)), [rawCustomers]);
+  const products = useMemo(() => rawProducts.map((product) => mapProductFromApi(product)), [rawProducts]);
+
   const [drafts, setDrafts] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [recurringInvoices, setRecurringInvoices] = useState([]);
-  const [products, setProducts] = useState([]); // Add products for inventory integration
-  const [categories, setCategories] = useState([]); // Add categories
   const [loading, setLoading] = useState(true);
 
-  // Load all data from localStorage on initial load
   useEffect(() => {
-    loadAllData();
-  }, []);
+    dispatch(fetchInvoices());
+    dispatch(fetchCustomers());
+    dispatch(fetchProducts({ isActive: true }));
+  }, [dispatch]);
 
-  const loadAllData = () => {
+  useEffect(() => {
     try {
-      // Load invoices
-      const savedInvoices = JSON.parse(localStorage.getItem('ledgerly_invoices')) || [];
-      setInvoices(savedInvoices);
-
-      // Load customers
-      const savedCustomers = JSON.parse(localStorage.getItem('ledgerly_customers')) || [
-        {
-          id: 'nextgen',
-          name: 'NextGen Technologies',
-          email: 'contact@nextgentech.com',
-          phone: '+1 (555) 123-4567',
-          address: '123 Innovation Drive, Tech Valley, CA 94025',
-          joinedDate: 'Jan 2024',
-          totalSpent: 5250,
-          outstanding: 1250,
-          transactions: 5,
-          lastTransaction: '2 days ago',
-          createdAt: '2024-01-15T10:30:00.000Z'
-        },
-        {
-          id: 'acme',
-          name: 'Acme Corp',
-          email: 'billing@acmecorp.com',
-          phone: '+1 (555) 987-6543',
-          address: '456 Business Ave, Suite 100, New York, NY 10001',
-          joinedDate: 'Dec 2023',
-          totalSpent: 8900,
-          outstanding: 0,
-          transactions: 8,
-          lastTransaction: '1 week ago',
-          createdAt: '2023-12-10T14:20:00.000Z'
-        },
-        {
-          id: 'techstart',
-          name: 'TechStart Inc',
-          email: 'finance@techstart.com',
-          phone: '+1 (555) 456-7890',
-          address: '789 Startup Blvd, San Francisco, CA 94107',
-          joinedDate: 'Feb 2024',
-          totalSpent: 3200,
-          outstanding: 3200,
-          transactions: 2,
-          lastTransaction: 'Today',
-          createdAt: '2024-02-01T09:15:00.000Z'
-        }
-      ];
-      
-      const customersWithTimestamp = savedCustomers.map(customer => ({
-        ...customer,
-        createdAt: customer.createdAt || new Date().toISOString()
-      }));
-      
-      setCustomers(customersWithTimestamp);
-
-      // Load drafts
-      const savedDrafts = JSON.parse(localStorage.getItem('ledgerly_drafts')) || [];
-      setDrafts(savedDrafts);
-
-      // Load templates
-      const savedTemplates = JSON.parse(localStorage.getItem('ledgerly_templates')) || [];
-      setTemplates(savedTemplates.length > 0 ? savedTemplates : getDefaultTemplates());
-
-      // Load recurring invoices
-      const savedRecurring = JSON.parse(localStorage.getItem('ledgerly_recurring')) || [];
-      setRecurringInvoices(savedRecurring);
-
-      // Load products from inventory
-      const savedProducts = JSON.parse(localStorage.getItem('ledgerly_products')) || [];
-      setProducts(savedProducts);
-
-      // Load categories
-      const savedCategories = JSON.parse(localStorage.getItem('ledgerly_categories')) || [];
-      setCategories(savedCategories);
-
+      setDrafts(draftStorage.getDrafts());
+      setTemplates(templateStorage.getAllTemplates());
+      setRecurringInvoices(recurringStorage.getRecurringInvoices());
     } catch (error) {
-      console.error('Error loading data:', error);
-      addToast('Error loading data from storage', 'error');
+      console.error('Error loading invoice context data:', error);
+      addToast('Error loading invoice data', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast]);
 
-  const getDefaultTemplates = () => {
-    return [
-      {
-        id: 'standard',
-        name: 'Standard Template',
-        description: 'Clean and professional design',
-        category: 'professional',
-        isDefault: true,
-        colors: { primary: [41, 128, 185], secondary: [52, 152, 219] },
-        lineItems: [
-          { description: 'Web Development Services', quantity: 1, rate: 125.00, tax: 10 },
-          { description: 'UI/UX Design', quantity: 1, rate: 150.00, tax: 10 }
-        ],
-        notes: 'Payment due within 30 days. Late payments subject to 1.5% monthly interest.',
-        terms: 'All services are subject to our terms and conditions. For any questions, please contact our billing department.',
-        emailSubject: 'Invoice for Services Rendered',
-        emailMessage: 'Dear valued customer,\n\nPlease find attached your invoice for services rendered.\n\nThank you for your business.\n\nBest regards,',
-        currency: 'USD',
-        paymentTerms: 'net-30',
-        templateStyle: 'standard'
-      },
-      {
-        id: 'modern',
-        name: 'Modern Template',
-        description: 'Minimal and contemporary design',
-        category: 'modern',
-        isDefault: false,
-        colors: { primary: [46, 204, 113], secondary: [39, 174, 96] },
-        lineItems: [
-          { description: 'Consulting Services', quantity: 1, rate: 200.00, tax: 10 }
-        ],
-        notes: 'Thank you for your business!',
-        terms: 'Terms and conditions apply.',
-        emailSubject: 'Your Invoice',
-        emailMessage: 'Hello,\n\nPlease find your invoice attached.\n\nBest regards,',
-        currency: 'USD',
-        paymentTerms: 'net-15',
-        templateStyle: 'modern'
-      },
-      // ... rest of templates remain the same
-    ];
-  };
+  const allowedInvoiceStatuses = useMemo(
+    () => new Set(['draft', 'sent', 'viewed', 'partial', 'paid', 'overdue', 'cancelled', 'void']),
+    []
+  );
 
-  // Save data to localStorage whenever state changes
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('ledgerly_invoices', JSON.stringify(invoices));
+  const normalizeInvoiceUpdate = useCallback((updates = {}) => {
+    const payload = { ...updates };
+
+    if (payload.issueDate) {
+      payload.date = new Date(payload.issueDate);
+      delete payload.issueDate;
     }
-  }, [invoices, loading]);
 
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('ledgerly_customers', JSON.stringify(customers));
+    if (payload.due && !payload.dueDate) {
+      payload.dueDate = payload.due;
+      delete payload.due;
     }
-  }, [customers, loading]);
 
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('ledgerly_drafts', JSON.stringify(drafts));
+    if (payload.sentAt && !payload.sentDate) {
+      payload.sentDate = payload.sentAt;
     }
-  }, [drafts, loading]);
+    delete payload.sentAt;
 
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('ledgerly_templates', JSON.stringify(templates));
+    if (payload.customerId && !payload.customer) {
+      payload.customer = payload.customerId;
+    } else if (payload.customer && typeof payload.customer === 'object') {
+      payload.customer = payload.customer._id || payload.customer.id || payload.customer.value || '';
     }
-  }, [templates, loading]);
+    delete payload.customerId;
 
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('ledgerly_recurring', JSON.stringify(recurringInvoices));
+    if (payload.totalAmount != null && payload.total == null) {
+      payload.total = payload.totalAmount;
     }
-  }, [recurringInvoices, loading]);
+    delete payload.totalAmount;
 
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('ledgerly_products', JSON.stringify(products));
+    if (payload.totalTax != null && payload.tax == null) {
+      payload.tax = { amount: payload.totalTax };
     }
-  }, [products, loading]);
+    delete payload.totalTax;
 
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('ledgerly_categories', JSON.stringify(categories));
+    delete payload.lineItems;
+    delete payload.amount;
+
+    return payload;
+  }, []);
+
+  const normalizeProductUpdate = useCallback((updates = {}) => {
+    const payload = {};
+
+    if (updates.name !== undefined) {
+      payload.name = updates.name?.trim();
     }
-  }, [categories, loading]);
 
-  // NEW: Get approved invoices ready for payment
-  const getInvoicesForPayment = useCallback((status = 'sent') => {
-    return invoices.filter(invoice => 
-      (invoice.status === status || invoice.status === 'pending_payment') && 
-      (invoice.totalAmount || invoice.amount) > 0 &&
+    if (updates.description !== undefined) {
+      payload.description = updates.description?.trim();
+    }
+
+    if (updates.sku !== undefined) {
+      payload.sku = updates.sku?.trim();
+    }
+
+    if (updates.price !== undefined || updates.sellingPrice !== undefined) {
+      const priceValue = updates.sellingPrice ?? updates.price;
+      const parsedPrice = Number(priceValue);
+      if (Number.isFinite(parsedPrice)) {
+        payload.sellingPrice = parsedPrice;
+      }
+    }
+
+    if (updates.costPrice !== undefined) {
+      const parsedCost = Number(updates.costPrice);
+      if (Number.isFinite(parsedCost)) {
+        payload.costPrice = parsedCost;
+      }
+    }
+
+    if (updates.unit !== undefined) {
+      payload.unit = updates.unit || 'pcs';
+    }
+
+    if (updates.isActive !== undefined) {
+      payload.isActive = updates.isActive;
+    }
+
+    if (updates.categoryId) {
+      payload.category = updates.categoryId;
+    }
+
+    if (updates.supplierId) {
+      payload.supplier = updates.supplierId;
+    }
+
+    if (updates.quantity !== undefined || updates.reorderLevel !== undefined) {
+      const quantityValue = updates.quantity;
+      const reorderValue = updates.reorderLevel;
+      const stockPayload = {};
+
+      if (quantityValue !== undefined) {
+        const parsedQty = Number(quantityValue);
+        if (Number.isFinite(parsedQty)) {
+          stockPayload.quantity = parsedQty;
+        }
+      }
+
+      if (reorderValue !== undefined) {
+        const parsedReorder = Number(reorderValue);
+        if (Number.isFinite(parsedReorder)) {
+          stockPayload.lowStockThreshold = parsedReorder;
+        }
+      }
+
+      if (Object.keys(stockPayload).length > 0) {
+        payload.stock = stockPayload;
+      }
+    }
+
+    if (updates.image) {
+      payload.images = [{ url: updates.image, isPrimary: true }];
+    }
+
+    return payload;
+  }, []);
+
+  // Get invoices ready for payment
+  const getInvoicesForPayment = useCallback((status) => {
+    const validStatuses = status
+      ? new Set([status])
+      : new Set(['sent', 'partial', 'overdue', 'viewed']);
+
+    return invoices.filter(invoice =>
+      validStatuses.has(invoice.status) &&
+      (invoice.balance ?? invoice.totalAmount ?? invoice.amount ?? 0) > 0 &&
       !invoice.paidAt
     );
   }, [invoices]);
 
-  // NEW: Mark invoice as approved for payment
+  // Keep for compatibility; backend controls status
   const markInvoiceAsApproved = useCallback((invoiceId) => {
-    try {
-      const updated = invoices.map(inv => 
-        inv.id === invoiceId ? { 
-          ...inv, 
-          status: 'pending_payment', 
-          approvedAt: new Date().toISOString(),
-          paymentStatus: 'pending'
-        } : inv
-      );
-      setInvoices(updated);
-      
-      // Add notification
-      const invoice = updated.find(inv => inv.id === invoiceId);
-      if (invoice) {
-        addNotification({
-          type: 'invoice_approved',
-          title: 'Invoice Ready for Payment',
-          description: `Invoice #${invoice.invoiceNumber || invoice.number} is now available for payment processing`,
-          time: 'Just now',
-          action: 'Process Payment',
-          color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
-          link: `/payments?invoice=${invoiceId}`,
-          icon: 'DollarSign',
-          invoiceId: invoiceId
-        });
-      }
-      
-      return updated.find(inv => inv.id === invoiceId);
-    } catch (error) {
-      addToast('Error approving invoice for payment', 'error');
-      throw error;
-    }
-  }, [invoices, addNotification, addToast]);
+    const invoice = invoices.find(inv => inv.id === invoiceId);
+    if (!invoice) return null;
+
+    addNotification({
+      type: 'invoice_approved',
+      title: 'Invoice Ready for Payment',
+      description: `Invoice #${invoice.invoiceNumber || invoice.number} is now available for payment processing`,
+      time: 'Just now',
+      action: 'Process Payment',
+      color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
+      link: `/payments?invoice=${invoiceId}`,
+      icon: 'DollarSign',
+      invoiceId
+    });
+
+    return invoice;
+  }, [invoices, addNotification]);
 
   // NEW: Get products from inventory for invoice creation
   const getProductsFromInventory = useCallback((category = 'all') => {
     if (category === 'all') {
       return products;
     }
-    return products.filter(product => product.category === category);
+    return products.filter(product => product.categoryId === category || product.category === category);
   }, [products]);
 
-  // NEW: Update stock when invoice is sent or paid
-  const updateStockOnPayment = useCallback((invoiceId, invoiceOverride = null) => {
+  // Inventory updates happen on the backend when payments are recorded
+  const updateStockOnPayment = useCallback(() => {}, []);
+
+  // Invoice Functions - backend powered
+  const addInvoice = async (invoiceData) => {
     try {
-      const targetInvoice = invoiceOverride || invoices.find(inv => inv.id === invoiceId);
-      if (!targetInvoice || !targetInvoice.lineItems) return;
-      if (targetInvoice.inventoryAdjusted) return;
+      const payload = buildInvoicePayload(invoiceData);
+      const created = await dispatch(createInvoiceThunk(payload)).unwrap();
+      const mappedInvoice = mapInvoiceFromApi(created);
 
-      if (typeof inventoryStockUpdate === 'function') {
-        inventoryStockUpdate(targetInvoice);
-      }
-
-      setInvoices(prev => prev.map(inv => 
-        inv.id === invoiceId 
-          ? { ...inv, inventoryAdjusted: true } 
-          : inv
-      ));
-    } catch (error) {
-      console.error('Error updating stock on payment:', error);
-    }
-  }, [invoices, inventoryStockUpdate]);
-
-  // Invoice Functions - UPDATED with inventory integration
-  const addInvoice = (invoiceData) => {
-    try {
-      const newInvoice = {
-        id: `inv_${Date.now()}`,
-        ...invoiceData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        paymentStatus: 'pending',
-        inventoryAdjusted: false
-      };
-      
-      // Link products from inventory if available
-      if (invoiceData.lineItems && products.length > 0) {
-        const updatedLineItems = invoiceData.lineItems.map(item => {
-          const product = products.find(p => p.name === item.description);
-          if (product) {
-            return {
-              ...item,
-              productId: product.id,
-              sku: product.sku,
-              stockQuantity: product.quantity
-            };
-          }
-          return item;
-        });
-        newInvoice.lineItems = updatedLineItems;
-      }
-      
-      const updatedInvoices = [...invoices, newInvoice];
-      setInvoices(updatedInvoices);
-
-      if (newInvoice.status === 'sent') {
-        updateStockOnPayment(newInvoice.id, newInvoice);
-      }
-      
-      // Add notification for new invoice
       addNotification({
         type: 'new-invoice',
         title: 'New Invoice Created',
-        description: `Invoice #${newInvoice.invoiceNumber || newInvoice.number} created`,
-        details: `Amount: $${(newInvoice.totalAmount || newInvoice.amount || 0).toLocaleString()}`,
+        description: `Invoice #${mappedInvoice.invoiceNumber || mappedInvoice.number} created`,
+        details: `Amount: $${(mappedInvoice.totalAmount || 0).toLocaleString()}`,
         time: 'Just now',
         action: 'View Invoice',
         color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800',
-        link: `/invoices/view/${newInvoice.id}`,
+        link: `/invoices/view/${mappedInvoice.id}`,
         icon: 'FileText',
-        invoiceId: newInvoice.id
+        invoiceId: mappedInvoice.id
       });
-      
-      // Update customer stats
-      if (invoiceData.customerId) {
-        updateCustomerStats(invoiceData.customerId, invoiceData.totalAmount || invoiceData.amount || 0);
-      }
-      
-      // Check if invoice should be auto-approved for payment
-      if (invoiceData.status === 'sent') {
-        addToPaymentQueue(newInvoice.id);
-      }
-      
-      return newInvoice;
+
+      return mappedInvoice;
     } catch (error) {
-      addToast('Error creating invoice', 'error');
+      addToast(error?.message || 'Error creating invoice', 'error');
       throw error;
     }
   };
 
-  // NEW: Add invoice to payment queue
-  const addToPaymentQueue = (invoiceId) => {
-    const invoice = invoices.find(inv => inv.id === invoiceId);
-    if (invoice) {
-      const pendingPayments = JSON.parse(localStorage.getItem('pending_payments') || '[]');
-      
-      if (!pendingPayments.find(p => p.invoiceId === invoiceId)) {
-        const paymentItem = {
-          id: `pay_${Date.now()}`,
-          invoiceId: invoiceId,
-          invoiceNumber: invoice.invoiceNumber || invoice.number,
-          customerId: invoice.customerId || (invoice.customer?.id || ''),
-          customerName: typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.name || 'Customer',
-          amount: invoice.totalAmount || invoice.amount,
-          originalAmount: invoice.totalAmount || invoice.amount,
-          status: 'pending',
-          createdFromInvoice: true,
-          invoiceData: {
-            items: invoice.items || invoice.lineItems,
-            subtotal: invoice.subtotal || invoice.totalAmount,
-            tax: invoice.tax || 0,
-            total: invoice.totalAmount || invoice.amount,
-            notes: invoice.notes,
-            terms: invoice.terms
-          }
-        };
-        
-        pendingPayments.push(paymentItem);
-        localStorage.setItem('pending_payments', JSON.stringify(pendingPayments));
+  const updateInvoice = async (id, updates = {}) => {
+    const existingInvoice = invoices.find(inv => inv.id === id);
+    if (!existingInvoice) {
+      addToast('Invoice not found', 'error');
+      return null;
+    }
+
+    if (updates.status && !allowedInvoiceStatuses.has(updates.status)) {
+      addToast('Unsupported invoice status update', 'warning');
+      return null;
+    }
+
+    const hasLineItems = Array.isArray(updates.lineItems) || Array.isArray(updates.items);
+    let payload;
+
+    if (hasLineItems) {
+      payload = buildInvoicePayload({
+        ...existingInvoice,
+        ...updates,
+        status: updates.status || existingInvoice.status,
+        customerId: updates.customerId || existingInvoice.customerId || existingInvoice.customer?._id || existingInvoice.customer,
+        issueDate: updates.issueDate || existingInvoice.issueDate,
+        dueDate: updates.dueDate || existingInvoice.dueDate,
+        paymentTerms: updates.paymentTerms || existingInvoice.paymentTerms,
+        currency: updates.currency || existingInvoice.currency,
+        notes: updates.notes ?? existingInvoice.notes,
+        terms: updates.terms ?? existingInvoice.terms
+      });
+
+      if (updates.sentAt || updates.sentDate) {
+        payload.sentDate = updates.sentAt || updates.sentDate;
+      }
+    } else {
+      payload = normalizeInvoiceUpdate(updates);
+      if (updates.status === 'sent' && !payload.sentDate) {
+        payload.sentDate = new Date();
       }
     }
-  };
 
-  const updateCustomerStats = (customerId, amount) => {
-    setCustomers(prevCustomers => 
-      prevCustomers.map(customer => {
-        if (customer.id === customerId) {
-          return {
-            ...customer,
-            totalSpent: (customer.totalSpent || 0) + amount,
-            transactions: (customer.transactions || 0) + 1,
-            lastTransaction: new Date().toLocaleDateString('en-US', { 
-              month: 'short', 
-              day: 'numeric', 
-              year: 'numeric' 
-            })
-          };
-        }
-        return customer;
-      })
-    );
-  };
-
-  const updateInvoice = (id, updates) => {
     try {
-      const existingInvoice = invoices.find(inv => inv.id === id);
-      const updatedInvoices = invoices.map(invoice => 
-        invoice.id === id 
-          ? { ...invoice, ...updates, updatedAt: new Date().toISOString() }
-          : invoice
-      );
-      setInvoices(updatedInvoices);
-      
-      const shouldAdjustStock = updates.status === 'sent' && existingInvoice?.status !== 'sent';
-      if (shouldAdjustStock) {
-        updateStockOnPayment(id);
-      }
-      
-      return updatedInvoices.find(inv => inv.id === id);
+      const updated = await dispatch(updateInvoiceThunk({ id, data: payload })).unwrap();
+      return mapInvoiceFromApi(updated);
     } catch (error) {
-      addToast('Error updating invoice', 'error');
-      throw error;
+      addToast(error?.message || 'Error updating invoice', 'error');
+      return null;
     }
   };
 
-  const deleteInvoice = (id) => {
+  const deleteInvoice = async (id) => {
     try {
       const invoiceToDelete = invoices.find(inv => inv.id === id);
-      const updatedInvoices = invoices.filter(invoice => invoice.id !== id);
-      setInvoices(updatedInvoices);
-      
+      await dispatch(deleteInvoiceThunk(id)).unwrap();
+
       addToast(`Invoice ${invoiceToDelete?.invoiceNumber || invoiceToDelete?.number || ''} deleted successfully!`, 'success');
       return true;
     } catch (error) {
-      addToast('Error deleting invoice', 'error');
+      addToast(error?.message || 'Error deleting invoice', 'error');
       return false;
     }
   };
 
-  const sendInvoice = (id) => {
+  const sendInvoice = async (id) => {
     try {
-      const updatedInvoice = updateInvoice(id, { 
-        status: 'sent',
-        sentAt: new Date().toISOString(),
-        paymentStatus: 'pending'
-      });
-      
-      // Add to payment queue
-      addToPaymentQueue(id);
-      
-      return updatedInvoice;
+      const updated = await dispatch(sendInvoiceThunk(id)).unwrap();
+      const mapped = mapInvoiceFromApi(updated);
+      addToast('Invoice sent successfully', 'success');
+      return mapped;
     } catch (error) {
-      addToast('Error sending invoice', 'error');
-      throw error;
+      addToast(error?.message || 'Error sending invoice', 'error');
+      return null;
     }
   };
 
-  const markAsPaid = (id) => {
+  const markAsPaid = async (id, paymentData = {}, options = {}) => {
+    const showToast = options.showToast ?? true;
     try {
-      const updatedInvoice = updateInvoice(id, { 
-        status: 'paid',
-        paymentStatus: 'completed',
-        paidAt: new Date().toISOString()
-      });
-      
+      const invoice = invoices.find(inv => inv.id === id);
+      const defaultAmount = invoice?.balance ?? invoice?.totalAmount ?? invoice?.amount ?? 0;
+      const amount = paymentData.amount ?? defaultAmount;
+
+      if (!amount || amount <= 0) {
+        if (showToast) {
+          addToast('Invalid payment amount', 'error');
+        }
+        return null;
+      }
+
+      const result = await dispatch(recordPayment({
+        id,
+        paymentData: {
+          amount,
+          paymentMethod: paymentData.paymentMethod || 'manual',
+          paymentReference: paymentData.paymentReference,
+          paymentGateway: paymentData.paymentGateway,
+          notes: paymentData.notes
+        }
+      })).unwrap();
+
+      const updatedInvoice = mapInvoiceFromApi(result?.invoice || result);
+      if (showToast) {
+        addToast('Payment recorded successfully', 'success');
+      }
       return updatedInvoice;
     } catch (error) {
-      addToast('Error marking invoice as paid', 'error');
-      throw error;
+      if (showToast) {
+        addToast(error?.message || 'Error recording payment', 'error');
+      }
+      return null;
     }
   };
 
@@ -479,9 +393,12 @@ export const InvoiceProvider = ({ children }) => {
     
     // Calculate pending payments
     const pendingPayments = invoices.filter(inv => 
-      inv.status === 'sent' || inv.status === 'pending_payment'
+      ['sent', 'partial', 'overdue', 'viewed'].includes(inv.status)
     );
-    const pendingAmount = pendingPayments.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+    const pendingAmount = pendingPayments.reduce(
+      (sum, inv) => sum + (inv.balance ?? inv.totalAmount ?? inv.amount ?? 0),
+      0
+    );
     
     const sentInvoices = invoices.filter(inv => inv.status === 'sent').length;
     const draftInvoices = invoices.filter(inv => inv.status === 'draft').length;
@@ -517,7 +434,7 @@ export const InvoiceProvider = ({ children }) => {
       filtered = filtered.filter(invoice => 
         (invoice.number && invoice.number.toLowerCase().includes(searchLower)) ||
         (invoice.invoiceNumber && invoice.invoiceNumber.toLowerCase().includes(searchLower)) ||
-        (invoice.customer && invoice.customer.toLowerCase().includes(searchLower)) ||
+        ((typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.name || invoice.customerName || '').toLowerCase().includes(searchLower)) ||
         (invoice.customerEmail && invoice.customerEmail.toLowerCase().includes(searchLower))
       );
     }
@@ -539,22 +456,27 @@ export const InvoiceProvider = ({ children }) => {
       const now = new Date();
       filtered = filtered.filter(invoice => {
         const invoiceDate = new Date(invoice.issueDate || invoice.createdAt);
-        
-        switch(dateRange) {
+
+        switch (dateRange) {
           case 'today':
             return invoiceDate.toDateString() === now.toDateString();
           case 'this-week':
+          case 'week': {
             const weekStart = new Date(now);
             weekStart.setDate(now.getDate() - now.getDay());
             return invoiceDate >= weekStart;
+          }
           case 'this-month':
-            return invoiceDate.getMonth() === now.getMonth() && 
+          case 'month':
+            return invoiceDate.getMonth() === now.getMonth() &&
                    invoiceDate.getFullYear() === now.getFullYear();
-          case 'this-quarter':
+          case 'this-quarter': {
             const quarter = Math.floor(now.getMonth() / 3);
             const quarterStart = new Date(now.getFullYear(), quarter * 3, 1);
             return invoiceDate >= quarterStart;
+          }
           case 'this-year':
+          case 'year':
             return invoiceDate.getFullYear() === now.getFullYear();
           default:
             return true;
@@ -566,22 +488,12 @@ export const InvoiceProvider = ({ children }) => {
   };
 
   // Customer Functions
-  const addCustomer = (customerData, options = {}) => {
+  const addCustomer = async (customerData, options = {}) => {
     try {
-      const newCustomer = {
-        id: `cust_${Date.now()}`,
-        ...customerData,
-        createdAt: new Date().toISOString(),
-        joinedDate: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        totalSpent: 0,
-        outstanding: 0,
-        transactions: 0,
-        lastTransaction: 'Never'
-      };
-      const updatedCustomers = [...customers, newCustomer];
-      setCustomers(updatedCustomers);
-      
-      // Add notification for new customer
+      const payload = buildCustomerPayload(customerData);
+      const created = await dispatch(createCustomerThunk(payload)).unwrap();
+      const newCustomer = mapCustomerFromApi(created);
+
       const showNotificationToast = options.showNotificationToast ?? true;
       addNotification({
         type: 'new-customer',
@@ -595,40 +507,38 @@ export const InvoiceProvider = ({ children }) => {
         icon: 'UserPlus',
         customerId: newCustomer.id
       }, { showToast: showNotificationToast });
-      
+
       return newCustomer;
     } catch (error) {
-      addToast('Error adding customer', 'error');
+      addToast(error?.message || 'Error adding customer', 'error');
       throw error;
     }
   };
 
-  const updateCustomer = (id, updates) => {
+  const updateCustomer = async (id, updates) => {
     try {
-      const updatedCustomers = customers.map(customer => 
-        customer.id === id 
-          ? { ...customer, ...updates, updatedAt: new Date().toISOString() }
-          : customer
-      );
-      setCustomers(updatedCustomers);
-      
-      return updatedCustomers.find(cust => cust.id === id);
+      const payload = { ...updates };
+      if (payload.address && typeof payload.address === 'string') {
+        payload.address = { street: payload.address };
+      }
+
+      const updated = await dispatch(updateCustomerThunk({ id, data: payload })).unwrap();
+      return mapCustomerFromApi(updated);
     } catch (error) {
-      addToast('Error updating customer', 'error');
-      throw error;
+      addToast(error?.message || 'Error updating customer', 'error');
+      return null;
     }
   };
 
-  const deleteCustomer = (id) => {
+  const deleteCustomer = async (id) => {
     try {
       const customerToDelete = customers.find(c => c.id === id);
-      const updatedCustomers = customers.filter(customer => customer.id !== id);
-      setCustomers(updatedCustomers);
-      
+      await dispatch(deleteCustomerThunk(id)).unwrap();
+
       addToast(`Customer "${customerToDelete?.name || ''}" deleted successfully!`, 'success');
       return true;
     } catch (error) {
-      addToast('Error deleting customer', 'error');
+      addToast(error?.message || 'Error deleting customer', 'error');
       return false;
     }
   };
@@ -688,50 +598,35 @@ export const InvoiceProvider = ({ children }) => {
   };
 
   // NEW: Inventory functions
-  const addProduct = (productData) => {
+  const addProduct = async (productData) => {
     try {
-      const newProduct = {
-        id: `prod_${Date.now()}`,
-        ...productData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      const updatedProducts = [...products, newProduct];
-      setProducts(updatedProducts);
-      
-      return newProduct;
+      const payload = buildProductPayload(productData);
+      const created = await dispatch(createProductThunk(payload)).unwrap();
+      return mapProductFromApi(created);
     } catch (error) {
-      addToast('Error adding product', 'error');
+      addToast(error?.message || 'Error adding product', 'error');
       throw error;
     }
   };
 
-  const updateProduct = (id, updates) => {
+  const updateProduct = async (id, updates) => {
     try {
-      const updatedProducts = products.map(product => 
-        product.id === id 
-          ? { ...product, ...updates, updatedAt: new Date().toISOString() }
-          : product
-      );
-      setProducts(updatedProducts);
-      
-      return updatedProducts.find(prod => prod.id === id);
+      const payload = normalizeProductUpdate(updates);
+      const updated = await dispatch(updateProductThunk({ id, data: payload })).unwrap();
+      return mapProductFromApi(updated);
     } catch (error) {
-      addToast('Error updating product', 'error');
-      throw error;
+      addToast(error?.message || 'Error updating product', 'error');
+      return null;
     }
   };
 
-  const deleteProduct = (id) => {
+  const deleteProduct = async (id) => {
     try {
-      const updatedProducts = products.filter(product => product.id !== id);
-      setProducts(updatedProducts);
-      
+      await dispatch(deleteProductThunk(id)).unwrap();
       addToast('Product deleted successfully!', 'success');
       return true;
     } catch (error) {
-      addToast('Error deleting product', 'error');
+      addToast(error?.message || 'Error deleting product', 'error');
       return false;
     }
   };
@@ -789,7 +684,7 @@ export const InvoiceProvider = ({ children }) => {
     return drafts.find(draft => draft.id === id);
   };
 
-  const convertDraftToInvoice = (draftId) => {
+  const convertDraftToInvoice = async (draftId) => {
     try {
       const draft = getDraft(draftId);
       if (!draft) {
@@ -807,7 +702,7 @@ export const InvoiceProvider = ({ children }) => {
 
       delete invoiceData.savedAt;
       
-      const newInvoice = addInvoice(invoiceData);
+      const newInvoice = await addInvoice(invoiceData);
       deleteDraft(draftId);
 
       return newInvoice;
@@ -925,6 +820,8 @@ export const InvoiceProvider = ({ children }) => {
     }
   };
 
+  const combinedLoading = loading || invoicesLoading;
+
   const contextValue = {
     // State
     invoices,
@@ -933,8 +830,7 @@ export const InvoiceProvider = ({ children }) => {
     templates,
     recurringInvoices,
     products,
-    categories,
-    loading,
+    loading: combinedLoading,
     
     // Invoice Functions
     addInvoice,
@@ -982,3 +878,4 @@ export const InvoiceProvider = ({ children }) => {
     </InvoiceContext.Provider>
   );
 };
+

@@ -749,7 +749,7 @@ const LiveChat = () => {
         phone: lines[2]?.replace('Phone:', '').trim() || lines[2]?.trim()
       };
 
-      addCustomer?.(customerData);
+      addCustomer?.(customerData).catch(() => {});
       addNotification({
         type: 'customer',
         title: 'New Customer Added',
@@ -783,7 +783,7 @@ const LiveChat = () => {
       };
 
       // Call addInventoryProduct from InventoryContext
-      addInventoryProduct?.(productData);
+      addInventoryProduct?.(productData).catch(() => {});
       
       setActiveAction(null);
       return createBotResponse(`Product "${productData.name}" added to inventory.`);

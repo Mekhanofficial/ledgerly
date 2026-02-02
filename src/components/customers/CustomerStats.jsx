@@ -1,14 +1,72 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Users, UserCheck, DollarSign, TrendingUp } from 'lucide-react';
+import { useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
-import { useInvoice } from '../../context/InvoiceContext'; // Added import
+import { mapCustomerFromApi } from '../../utils/customerAdapter';
 
-const CustomerStats = () => {
+const CustomerStats = ({ customers: customersProp }) => {
   const { isDarkMode } = useTheme();
-  const { getCustomerStats } = useInvoice(); // Get real stats
-  
-  // Use real stats from context instead of hardcoded values
-  const statsData = getCustomerStats();
+  const storeCustomers = useSelector((state) => state.customers?.customers || []);
+
+  const customers = useMemo(() => {
+    if (customersProp) {
+      return customersProp;
+    }
+    return storeCustomers.map(mapCustomerFromApi);
+  }, [customersProp, storeCustomers]);
+
+  const statsData = useMemo(() => {
+    const totalCustomers = customers.length;
+    const activeCustomers = customers.filter((customer) =>
+      (customer.transactions || 0) > 0 ||
+      (customer.totalSpent || 0) > 0 ||
+      (customer.outstanding || 0) > 0
+    ).length;
+    const totalOutstanding = customers.reduce((sum, customer) => sum + (customer.outstanding || 0), 0);
+    const totalSpent = customers.reduce((sum, customer) => sum + (customer.totalSpent || 0), 0);
+    const avgTransactionValue = activeCustomers > 0 ? totalSpent / activeCustomers : 0;
+
+    const now = new Date();
+    const newCustomersThisMonth = customers.filter((customer) => {
+      if (!customer.createdAt) return false;
+      const createdAt = new Date(customer.createdAt);
+      return createdAt.getMonth() === now.getMonth() && createdAt.getFullYear() === now.getFullYear();
+    }).length;
+
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const newCustomersLastMonth = customers.filter((customer) => {
+      if (!customer.createdAt) return false;
+      const createdAt = new Date(customer.createdAt);
+      return createdAt.getMonth() === lastMonth.getMonth() && createdAt.getFullYear() === lastMonth.getFullYear();
+    }).length;
+
+    const customerChange = newCustomersLastMonth > 0
+      ? ((newCustomersThisMonth - newCustomersLastMonth) / newCustomersLastMonth * 100).toFixed(1)
+      : newCustomersThisMonth > 0 ? '100.0' : '0.0';
+
+    return [
+      {
+        label: 'Total Customers',
+        value: totalCustomers.toString(),
+        description: `+${customerChange}% vs last month`
+      },
+      {
+        label: 'Active Customers',
+        value: activeCustomers.toString(),
+        description: 'Transactions in last 90 days'
+      },
+      {
+        label: 'Total Outstanding',
+        value: `$${totalOutstanding.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        description: 'Across all customers'
+      },
+      {
+        label: 'Avg Transaction Value',
+        value: `$${avgTransactionValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        description: '+4.2% vs last month'
+      }
+    ];
+  }, [customers]);
   
   const stats = [
     {

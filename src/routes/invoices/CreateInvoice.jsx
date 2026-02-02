@@ -251,14 +251,14 @@ const CreateInvoice = () => {
     product.description?.toLowerCase().includes(productSearchTerm.toLowerCase())
   );
 
-  const handleAddCustomer = () => {
+  const handleAddCustomer = async () => {
     if (!newCustomer.name || !newCustomer.email) {
       addToast('Please enter customer name and email', 'error');
       return;
     }
     
     try {
-      const addedCustomer = addCustomer(newCustomer, { showNotificationToast: false });
+      const addedCustomer = await addCustomer(newCustomer, { showNotificationToast: false });
       setSelectedCustomer(addedCustomer.id);
       setNewCustomer({ name: '', email: '', phone: '', address: '' });
       addToast(`Customer "${addedCustomer.name}" added successfully!`, 'success');
@@ -622,7 +622,10 @@ const CreateInvoice = () => {
       };
 
       // Add to invoices
-      const createdInvoice = addInvoice(invoiceData);
+      const createdInvoice = await addInvoice(invoiceData);
+      if (!createdInvoice) {
+        throw new Error('Failed to create invoice');
+      }
 
       // If recurring, save recurring profile
       if (isRecurring) {

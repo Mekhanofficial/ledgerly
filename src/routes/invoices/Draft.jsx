@@ -32,19 +32,25 @@ const Drafts = () => {
     }
   };
 
-  const handleConvertToInvoice = (draftId) => {
+  const handleConvertToInvoice = async (draftId) => {
     try {
-      const invoice = convertDraftToInvoice(draftId);
+      const invoice = await convertDraftToInvoice(draftId);
+      if (!invoice) {
+        throw new Error('Invoice creation failed');
+      }
       addToast(`Draft converted to invoice: ${invoice.invoiceNumber}`, 'success');
     } catch (error) {
       addToast('Error converting draft to invoice', 'error');
     }
   };
 
-  const handleSendDraft = (draftId) => {
+  const handleSendDraft = async (draftId) => {
     try {
-      const invoice = convertDraftToInvoice(draftId);
-      sendInvoice(invoice.id);
+      const invoice = await convertDraftToInvoice(draftId);
+      if (!invoice) {
+        throw new Error('Invoice creation failed');
+      }
+      await sendInvoice(invoice.id);
       addToast(`Invoice ${invoice.invoiceNumber} sent successfully!`, 'success');
     } catch (error) {
       addToast('Error sending draft', 'error');

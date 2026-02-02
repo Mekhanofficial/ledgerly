@@ -1,188 +1,125 @@
-import React, { useState, useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
-import { registerUser, loginUser, checkAuthStatus, logoutUser } from "./services/authServices";
+import React from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 
-// Components
-import AuthForm from "./components/auth/AuthForm";
-import ProtectedRoute from "./components/auth/ProtectedRoute";
-import Products from "./components/products/Products";
-import Cart from "./pages/cart/Cart";
-import Checkout from "./pages/checkout/Checkout";
-import AdminPanel from "./components/admin/AdminPanel";
-import NotFound from "./components/NotFound";
-import UserLayout from "./components/layout";
+// Import components
+import HomePage from './routes/home'
+import Dashboard from './routes/dashboard/Dashboard'
+import InvoiceList from './routes/invoices/InvoiceList'
+import CreateInvoice from './routes/invoices/CreateInvoice'
+import RecurringInvoices from './routes/invoices/RecurringInvoices'
+import InvoiceTemplates from './routes/invoices/Templates'
+import Receipts from './routes/receipts/Receipts'
+import Inventory from './routes/inventory/Inventory'
+import Customers from './routes/customers/Customers'
+import Products from './routes/inventory/Products'
+import Categories from './routes/inventory/Categories'
+import StockAdjustments from './routes/inventory/StockAdjustments'
+import Suppliers from './routes/inventory/Suppliers'
+import Reports from './routes/reports/Reports'
+import Payments from './routes/payments/Payments'
+import Settings from './routes/settings/Settings'
+import Notifications from './routes/notifications/Notifications'
+import Support from './routes/support/Support'
+import LiveChatWrapper from './components/livechat/LiveChatWrapper'
 
-export default function App() {
-  const [user, setUser] = useState(checkAuthStatus());
-  const [isLoading, setIsLoading] = useState(false);
+// Import context providers
+import { ThemeProvider } from './context/ThemeContext'
+import { ToastProvider } from './context/ToastContext'
+import { NotificationProvider } from './context/NotificationContext'
+import { InvoiceProvider } from './context/InvoiceContext'
+import { PaymentProvider } from './context/PaymentContext'
+import { InventoryProvider } from './context/InventoryContext'
+import { UserProvider } from './context/UserContext'
+import { AccountProvider } from './context/AccountContext'
+import Drafts from './routes/invoices/Draft'
+import EditInvoice from './routes/invoices/EditInvoice'
+import ViewInvoice from './routes/invoices/ViewInvoice'
+import CustomerProfile from './routes/customers/CustomerProfile'
+import LoginPage from './auth/login/Login'
+import SignupPage from './auth/register/SignUp'
+import ProcessPayment from './routes/payments/ProcessPayment'
+import NewCategory from './routes/inventory/NewCategory'
+import NewProduct from './routes/inventory/NewProduct'
+import EditProduct from './routes/inventory/EditProduct'
+import NewSupplier from './routes/inventory/NewSupplier'
+import NewStockAdjustment from './routes/inventory/NewStockAdjustment'
 
-  // Listen to storage changes to sync user state across tabs/windows
-  useEffect(() => {
-    const handleStorageChange = (event) => {
-      if (event.key === 'loggedInUser' || event.key === null) {
-        const updatedUser = checkAuthStatus();
-        setUser(updatedUser);
-      }
-    };
-
-    // Check auth status on mount and periodically
-    const checkAuth = () => {
-      const updatedUser = checkAuthStatus();
-      if (JSON.stringify(updatedUser) !== JSON.stringify(user)) {
-        setUser(updatedUser);
-      }
-    };
-
-    // Initial check
-    checkAuth();
-    
-    // Set up listeners
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Check every second (helps with logout detection)
-    const intervalId = setInterval(checkAuth, 1000);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(intervalId);
-    };
-  }, [user]);
-
-  const handleLogin = (email, password) => {
-    setIsLoading(true);
-    
-    setTimeout(() => {
-      const u = loginUser(email, password);
-      if (!u) {
-        alert("Invalid credentials");
-        setIsLoading(false);
-        return;
-      }
-      setUser(u);
-      setIsLoading(false);
-      
-      // Force refresh to update all components
-      window.dispatchEvent(new Event('storage'));
-    }, 500);
-  };
-
-  const handleRegister = (formData) => {
-    setIsLoading(true);
-    
-    setTimeout(() => {
-      const success = registerUser({ 
-        fname: formData.fname, 
-        email: formData.email, 
-        password: formData.password, 
-        role: "user" 
-      });
-      
-      if (success) {
-        alert("Registration successful! Please login.");
-        setIsLoading(false);
-        // Auto-login after successful registration
-        const u = loginUser(formData.email, formData.password);
-        if (u) {
-          setUser(u);
-          window.dispatchEvent(new Event('storage'));
-        }
-      } else {
-        alert("Email already exists.");
-        setIsLoading(false);
-      }
-    }, 500);
-  };
-
-  const handleLogout = () => {
-    logoutUser();
-    setUser(null);
-    window.dispatchEvent(new Event('storage'));
-  };
-
+const App = () => {
   return (
-    <Routes>
-      {/* Auth Route - Always accessible */}
-      <Route 
-        path="/auth" 
-        element={
-          user ? (
-            <Navigate to={user.role === "admin" ? "/admin" : "/products"} replace />
-          ) : (
-            <AuthForm 
-              onLogin={handleLogin} 
-              onRegister={handleRegister}
-              isLoading={isLoading}
-            />
-          )
-        } 
-      />
+    <BrowserRouter>
+      <ThemeProvider>
+        <ToastProvider>
+          <NotificationProvider>
+            <AccountProvider>
+              <UserProvider> {/* Only add UserProvider, no route protection */}
+                <InventoryProvider>
+                  <InvoiceProvider>
+                    <PaymentProvider>
+                      {/* Live Chat Component - Positioned globally */}
+                      <LiveChatWrapper />
 
-      {/* Root - Redirect to auth or products based on login status */}
-      <Route 
-        path="/" 
-        element={
-          user ? (
-            <Navigate to={user.role === "admin" ? "/admin" : "/products"} replace />
-          ) : (
-            <Navigate to="/auth" replace />
-          )
-        } 
-      />
+                      <Routes>
+                        {/* Public Routes */}
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/signup" element={<SignupPage />} />
 
-      {/* User Routes - Protected */}
-      <Route 
-        path="/products" 
-        element={
-          <ProtectedRoute user={user} onLogout={handleLogout}>
-            <UserLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Products />} />
-      </Route>
+                        {/* Dashboard & Main App Routes */}
+                        <Route path="/dashboard" element={<Dashboard />} />
 
-      <Route 
-        path="/cart" 
-        element={
-          <ProtectedRoute user={user} onLogout={handleLogout}>
-            <UserLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Cart />} />
-      </Route>
+                        {/* Invoice Management Routes */}
+                        <Route path="/invoices" element={<InvoiceList />} />
+                        <Route path="/invoices/create" element={<CreateInvoice />} />
+                        <Route path="/invoices/view/:id" element={<ViewInvoice />} />
+                        <Route path="/invoices/drafts" element={<Drafts />} />
+                        <Route path="/invoices/edit/:id" element={<EditInvoice />} />
+                        <Route path="/invoices/recurring" element={<RecurringInvoices />} />
+                        <Route path="/invoices/templates" element={<InvoiceTemplates />} />
 
-      <Route 
-        path="/checkout" 
-        element={
-          <ProtectedRoute user={user} onLogout={handleLogout}>
-            <UserLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Checkout />} />
-      </Route>
+                        {/* Receipts Route */}
+                        <Route path="/receipts" element={<Receipts />} />
 
-      {/* Admin Routes */}
-      <Route 
-        path="/admin" 
-        element={
-          <ProtectedRoute user={user} adminOnly={true} onLogout={handleLogout}>
-            <AdminPanel />
-          </ProtectedRoute>
-        }
-      />
-      <Route 
-        path="/admin/*" 
-        element={
-          <ProtectedRoute user={user} adminOnly={true} onLogout={handleLogout}>
-            <AdminPanel />
-          </ProtectedRoute>
-        }
-      />
-      
-      {/* 404 Route - Catch all */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  );
+                        {/* Inventory Routes */}
+                        <Route path="/inventory" element={<Inventory />} />
+                        <Route path="/inventory/products" element={<Products />} />
+                        <Route path="/inventory/products/edit/:id" element={<EditProduct />} />
+                        <Route path="/inventory/products/new" element={<NewProduct />} />
+                        <Route path="/inventory/categories" element={<Categories />} />
+                        <Route path="/inventory/categories/new" element={<NewCategory />} />
+                        <Route path="/inventory/stock-adjustments" element={<StockAdjustments />} />
+                        <Route path="/inventory/suppliers" element={<Suppliers />} />
+                        <Route path="/inventory/suppliers/new" element={<NewSupplier />} />
+                        <Route path="/inventory/stock-adjustments/new" element={<NewStockAdjustment />} />
+
+                        {/* Customer Management */}
+                        <Route path="/customers" element={<Customers />} />
+                        <Route path="/customers/:id" element={<CustomerProfile />} />
+
+                        {/* Payments Routes */}
+                        <Route path="/payments" element={<Payments />} />
+                        <Route path="/payments/process" element={<ProcessPayment />} />
+
+                        {/* Reports & Analytics */}
+                        <Route path="/reports" element={<Reports />} />
+
+                        {/* Support & Settings */}
+                        <Route path="/support" element={<Support />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="/notifications" element={<Notifications />} />
+
+                        {/* 404 Page (optional) */}
+                        {/* <Route path="*" element={<NotFound />} /> */}
+                      </Routes>
+                    </PaymentProvider>
+                  </InvoiceProvider>
+                </InventoryProvider>
+              </UserProvider>
+            </AccountProvider>
+          </NotificationProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </BrowserRouter>
+  )
 }
+
+export default App

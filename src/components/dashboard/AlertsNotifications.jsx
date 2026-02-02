@@ -1,13 +1,14 @@
 // src/components/dashboard/AlertsNotifications.js
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlertCircle, Package, DollarSign, UserPlus, Clock, ChevronRight, FileText, Receipt, BarChart3, CreditCard, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
-import { useInvoice } from '../../context/InvoiceContext';
+import { useSelector } from 'react-redux';
 import { useNotifications } from '../../context/NotificationContext';
 import { usePayments } from '../../context/PaymentContext'; // Added import
 import { Link } from 'react-router-dom';
 
 const AlertsNotifications = () => {
-  const { invoices, customers } = useInvoice();
+  const invoices = useSelector((state) => state.invoices?.invoices || []);
+  const customers = useSelector((state) => state.customers?.customers || []);
   const { notifications, getRecentNotifications } = useNotifications();
   const { transactions, getPaymentStats } = usePayments(); // Added payment context
   
@@ -17,6 +18,10 @@ const AlertsNotifications = () => {
   const [previousTransactionCount, setPreviousTransactionCount] = useState(transactions.length); // Added
   const [reports, setReports] = useState([]);
   const [paymentStats, setPaymentStats] = useState(null);
+  const getInvoiceTotal = useCallback(
+    (invoice) => invoice.totalAmount || invoice.amount || invoice.total || 0,
+    []
+  );
   
   // Load reports from localStorage
   useEffect(() => {
@@ -144,7 +149,7 @@ const AlertsNotifications = () => {
     
     // Overdue invoices
     const overdueInvoices = invoices.filter(inv => inv.status === 'overdue');
-    const overdueAmount = overdueInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+    const overdueAmount = overdueInvoices.reduce((sum, inv) => sum + getInvoiceTotal(inv), 0);
     
     if (overdueInvoices.length > 0) {
       ongoingAlerts.push({
@@ -165,7 +170,7 @@ const AlertsNotifications = () => {
     // Draft invoices
     const draftInvoices = invoices.filter(inv => inv.status === 'draft');
     if (draftInvoices.length > 0) {
-      const draftAmount = draftInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+      const draftAmount = draftInvoices.reduce((sum, inv) => sum + getInvoiceTotal(inv), 0);
       
       ongoingAlerts.push({
         type: 'draft',
@@ -190,7 +195,7 @@ const AlertsNotifications = () => {
     );
     
     if (pendingInvoices.length > 0) {
-      const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+      const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + getInvoiceTotal(inv), 0);
       
       ongoingAlerts.push({
         type: 'pending',
@@ -218,7 +223,7 @@ const AlertsNotifications = () => {
     );
     
     if (dueSoonInvoices.length > 0) {
-      const dueSoonAmount = dueSoonInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+      const dueSoonAmount = dueSoonInvoices.reduce((sum, inv) => sum + getInvoiceTotal(inv), 0);
       
       ongoingAlerts.push({
         type: 'payment-due',
@@ -496,7 +501,7 @@ const AlertsNotifications = () => {
     }
 
     return ongoingAlerts;
-  }, [invoices, reports, transactions, paymentStats]);
+  }, [invoices, reports, transactions, paymentStats, getInvoiceTotal]);
 
   // Combine notifications and ongoing alerts
   useEffect(() => {

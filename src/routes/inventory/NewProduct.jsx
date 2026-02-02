@@ -1,16 +1,20 @@
 // src/routes/inventory/NewProduct.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, Save, X, Plus, DollarSign, Hash, AlertCircle } from 'lucide-react';
+import { Package, Save, X, DollarSign, Hash, AlertCircle } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
+import { useDispatch } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useInventory } from '../../context/InventoryContext';
+import { createProduct } from '../../store/slices/productSlide';
+import { buildProductPayload } from '../../utils/productAdapter';
 
 const NewProduct = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
-  const { addProduct, categories, suppliers } = useInventory();
+  const { categories, suppliers } = useInventory();
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
@@ -81,24 +85,8 @@ const NewProduct = () => {
     setIsSubmitting(true);
     
     try {
-      const productData = {
-        name: formData.name.trim(),
-        sku: formData.sku.trim(),
-        description: formData.description.trim(),
-        price: parseFloat(formData.price),
-        quantity: parseInt(formData.quantity),
-        categoryId: formData.categoryId || null,
-        supplierId: formData.supplierId || null,
-        costPrice: parseFloat(formData.costPrice),
-        reorderLevel: parseInt(formData.reorderLevel),
-        unit: formData.unit,
-        image: formData.image,
-        stock: parseInt(formData.quantity),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      await addProduct(productData);
+      const productData = buildProductPayload(formData);
+      await dispatch(createProduct(productData)).unwrap();
       
       addToast('Product created successfully!', 'success');
       // Redirect to products page instead of inventory dashboard

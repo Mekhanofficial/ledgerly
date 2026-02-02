@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Download, ChevronDown, Calendar, X } from 'lucide-react';
+import { useSelector } from 'react-redux';
 import { useInvoice } from '../../context/InvoiceContext';
-import { useUser } from '../../context/UserContext';
+import { getUserDisplayName, resolveAuthUser } from '../../utils/userDisplay';
 
 const DashboardHeader = () => {
   const [activeFilter, setActiveFilter] = useState('this-month');
   const [customRangeOpen, setCustomRangeOpen] = useState(false);
   const [showDateFilters, setShowDateFilters] = useState(false);
   const { exportInvoicesAsCSV } = useInvoice();
-  const { user } = useUser();
+  const authUser = useSelector((state) => state.auth?.user);
+  const user = resolveAuthUser(authUser);
 
   const dateFilters = [
     { id: 'today', label: 'Today', mobileLabel: 'Today' },
@@ -16,26 +18,6 @@ const DashboardHeader = () => {
     { id: 'this-month', label: 'This Month', mobileLabel: 'Month' },
     { id: 'custom', label: 'Custom', mobileLabel: 'Custom', icon: ChevronDown }
   ];
-
-  // Helper function to get user display name
-  const getUserDisplayName = () => {
-    if (!user) return 'Welcome back!';
-    
-    if (user.firstName && user.lastName) {
-      return `${user.firstName} ${user.lastName}`;
-    }
-    
-    if (user.firstName) {
-      return user.firstName;
-    }
-    
-    if (user.email) {
-      const username = user.email.split('@')[0];
-      return username;
-    }
-    
-    return 'Welcome back!';
-  };
 
   const handleExport = () => {
     exportInvoicesAsCSV();
@@ -65,7 +47,7 @@ const DashboardHeader = () => {
                 Dashboard Overview
               </h1>
               <p className="text-gray-600 dark:text-gray-300 text-xs sm:text-sm mt-0.5 sm:mt-1">
-                Welcome back, <span className="font-medium text-primary-600 dark:text-primary-400">{getUserDisplayName()}</span>! Here's your real-time business overview.
+                Welcome back, <span className="font-medium text-primary-600 dark:text-primary-400">{getUserDisplayName(user)}</span>! Here's your real-time business overview.
               </p>
             </div>
             

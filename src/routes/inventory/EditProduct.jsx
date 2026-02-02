@@ -3,15 +3,19 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Package, Save, X, DollarSign, Hash, AlertCircle } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
+import { useDispatch } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useInventory } from '../../context/InventoryContext';
+import { fetchProductById, updateProduct } from '../../store/slices/productSlide';
+import { buildProductPayload, mapProductFromApi } from '../../utils/productAdapter';
 
 const EditProduct = () => {
   const { id } = useParams();
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
-  const { getProductById, updateProduct, categories, suppliers } = useInventory();
+  const { categories, suppliers } = useInventory();
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
@@ -32,27 +36,47 @@ const EditProduct = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const product = getProductById(id);
-    if (product) {
-      setFormData({
-        name: product.name || '',
-        sku: product.sku || '',
-        description: product.description || '',
-        price: product.price || 0,
-        quantity: product.quantity || product.stock || 0,
-        categoryId: product.categoryId || '',
-        supplierId: product.supplierId || '',
-        costPrice: product.costPrice || 0,
-        reorderLevel: product.reorderLevel || 10,
-        unit: product.unit || 'pcs',
-        image: product.image || null
+    let isMounted = true;
+    setIsLoading(true);
+
+    dispatch(fetchProductById(id))
+      .unwrap()
+      .then((payload) => {
+        const productData = payload?.product ?? payload;
+        const product = mapProductFromApi(productData || {});
+
+        if (!product.id) {
+          throw new Error('Product not found');
+        }
+
+        if (isMounted) {
+          setFormData({
+            name: product.name || '',
+            sku: product.sku || '',
+            description: product.description || '',
+            price: product.price || 0,
+            quantity: product.quantity || product.stock || 0,
+            categoryId: product.categoryId || '',
+            supplierId: product.supplierId || '',
+            costPrice: product.costPrice || 0,
+            reorderLevel: product.reorderLevel || 10,
+            unit: product.unit || 'pcs',
+            image: product.image || null
+          });
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          addToast('Product not found', 'error');
+          navigate('/inventory/products');
+        }
       });
-    } else {
-      addToast('Product not found', 'error');
-      navigate('/inventory/products');
-    }
-    setIsLoading(false);
-  }, [id, getProductById, addToast, navigate]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id, dispatch, addToast, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -110,21 +134,8 @@ const EditProduct = () => {
     setIsSubmitting(true);
     
     try {
-      const updates = {
-        name: formData.name.trim(),
-        sku: formData.sku.trim(),
-        description: formData.description.trim(),
-        price: parseFloat(formData.price),
-        quantity: parseInt(formData.quantity),
-        categoryId: formData.categoryId || null,
-        supplierId: formData.supplierId || null,
-        costPrice: parseFloat(formData.costPrice),
-        reorderLevel: parseInt(formData.reorderLevel),
-        unit: formData.unit,
-        image: formData.image
-      };
-      
-      await updateProduct(id, updates);
+      const updates = buildProductPayload(formData);
+      await dispatch(updateProduct({ id, data: updates })).unwrap();
       
       addToast('Product updated successfully!', 'success');
       navigate('/inventory/products');

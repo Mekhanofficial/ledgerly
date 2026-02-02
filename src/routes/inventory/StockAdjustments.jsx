@@ -1,22 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { PackagePlus, Plus, Search, Filter, Download, TrendingUp, TrendingDown, BarChart, ArrowUp, ArrowDown, RefreshCw, X, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { PackagePlus, Plus, Search, Filter, Download, TrendingUp, TrendingDown, BarChart, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { Link } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
-import { useInventory } from '../../context/InventoryContext';
+import { mapProductFromApi } from '../../utils/productAdapter';
+import { fetchProducts } from '../../store/slices/productSlide';
 
 const StockAdjustments = () => {
   const { isDarkMode } = useTheme();
-  const { stockAdjustments, products } = useInventory();
+  const dispatch = useDispatch();
+  const { products: rawProducts, stockAdjustments } = useSelector((state) => state.products);
+  const products = useMemo(
+    () => rawProducts.map((product) => mapProductFromApi(product)),
+    [rawProducts]
+  );
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [showMobileActions, setShowMobileActions] = useState(false);
+  const adjustments = stockAdjustments;
 
   useEffect(() => {
-    console.log('Current stock adjustments:', stockAdjustments);
-    console.log('Current products:', products);
-  }, [stockAdjustments, products]);
+    if (!rawProducts.length) {
+      dispatch(fetchProducts({ isActive: true }));
+    }
+  }, [dispatch, rawProducts.length]);
 
   const getProductName = (productId) => {
     const product = products.find(p => p.id === productId);
@@ -36,10 +44,13 @@ const StockAdjustments = () => {
       Damage: isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800',
       Adjustment: isDarkMode ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-800'
     };
-    return colors[type] || isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800';
+    return colors[type] || (isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800');
   };
 
   const getTypeIcon = (type) => {
+    if (type?.startsWith('Adjustment')) {
+      return PackagePlus;
+    }
     const icons = {
       Restock: ArrowUp,
       Sale: ArrowDown,
@@ -50,39 +61,41 @@ const StockAdjustments = () => {
     return icons[type] || PackagePlus;
   };
 
-  const filteredAdjustments = stockAdjustments.filter(adj => {
+  const filteredAdjustments = adjustments.filter(adj => {
     const productName = getProductName(adj.productId);
     const productSku = getProductSku(adj.productId);
+    const adjustmentId = (adj.id || adj._id || '').toString();
+    const normalizedType = adj.type?.startsWith('Adjustment') ? 'Adjustment' : adj.type;
     
     const matchesSearch = productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          productSku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         adj.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filter === 'all' || adj.type.toLowerCase() === filter.toLowerCase();
+                         adjustmentId.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filter === 'all' || normalizedType?.toLowerCase() === filter.toLowerCase();
     return matchesSearch && matchesFilter;
   });
 
   const stats = [
     { 
       label: 'Total Adjustments', 
-      value: stockAdjustments.length, 
+      value: adjustments.length, 
       icon: PackagePlus, 
       color: 'bg-blue-500' 
     },
     { 
       label: 'Restocks', 
-      value: stockAdjustments.filter(a => a.type === 'Restock').length, 
+      value: adjustments.filter(a => a.type === 'Restock').length, 
       icon: TrendingUp, 
       color: 'bg-emerald-500' 
     },
     { 
       label: 'Sales', 
-      value: stockAdjustments.filter(a => a.type === 'Sale').length, 
+      value: adjustments.filter(a => a.type === 'Sale').length, 
       icon: TrendingDown, 
       color: 'bg-blue-500' 
     },
     { 
       label: 'This Month', 
-      value: stockAdjustments.filter(a => {
+      value: adjustments.filter(a => {
         const adjDate = new Date(a.date);
         const now = new Date();
         return adjDate.getMonth() === now.getMonth() && adjDate.getFullYear() === now.getFullYear();
@@ -97,6 +110,7 @@ const StockAdjustments = () => {
     const TypeIcon = getTypeIcon(adj.type);
     const productName = getProductName(adj.productId);
     const productSku = getProductSku(adj.productId);
+    const adjustmentId = adj.id || adj._id || 'N/A';
     const formattedDate = new Date(adj.date).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -108,7 +122,7 @@ const StockAdjustments = () => {
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1 min-w-0">
             <div className={`font-medium truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              {adj.id || 'N/A'}
+              {adjustmentId}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               {formattedDate}
@@ -326,7 +340,7 @@ const StockAdjustments = () => {
 
         {/* Count Display */}
         <div className={`text-sm md:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-          Showing {filteredAdjustments.length} of {stockAdjustments.length} adjustments
+          Showing {filteredAdjustments.length} of {adjustments.length} adjustments
         </div>
 
         {/* Desktop Table */}
@@ -401,12 +415,12 @@ const StockAdjustments = () => {
                     });
 
                     return (
-                      <tr key={adj.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
+                      <tr key={adj.id || adj._id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
                         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                           <div className={`text-sm font-medium ${
                             isDarkMode ? 'text-white' : 'text-gray-900'
                           }`}>
-                            {adj.id || 'N/A'}
+                            {adj.id || adj._id || 'N/A'}
                           </div>
                         </td>
                         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
@@ -491,7 +505,7 @@ const StockAdjustments = () => {
             </div>
           ) : (
             filteredAdjustments.map((adj) => (
-              <MobileAdjustmentCard key={adj.id} adj={adj} />
+              <MobileAdjustmentCard key={adj.id || adj._id} adj={adj} />
             ))
           )}
         </div>

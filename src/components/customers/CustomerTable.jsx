@@ -11,11 +11,14 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete })
 
   // Filter customers based on search and status
   const filteredCustomers = customers.filter(customer => {
+    const email = customer.email || '';
+    const phone = customer.phone || '';
+    const name = customer.name || '';
     // Search filter
     const matchesSearch = !searchTerm || 
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone.includes(searchTerm);
+      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      phone.includes(searchTerm);
     
     // Status filter
     let matchesStatus = true;
@@ -159,7 +162,7 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete })
       }`}>
         <div className="flex flex-wrap gap-2">
           {[
-            { id: 'all', label: 'All', count: filterCounts.all },
+    { id: 'all', label: 'All', count: filterCounts.all },
             { id: 'no-balance', label: 'No Balance', count: filterCounts['no-balance'] },
             { id: 'has-balance', label: 'Has Balance', count: filterCounts['has-balance'] },
             { id: 'overdue', label: 'Overdue', count: filterCounts.overdue }

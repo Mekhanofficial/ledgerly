@@ -1,17 +1,25 @@
 // src/routes/inventory/NewStockAdjustment.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PackagePlus, Save, X, Search, Package, AlertCircle, ArrowUp, ArrowDown, Calendar, User } from 'lucide-react';
+import { Save, X, Search, Package, AlertCircle, ArrowUp, ArrowDown, Calendar, User } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
-import { useInventory } from '../../context/InventoryContext';
+import { adjustStock, fetchProducts } from '../../store/slices/productSlide';
+import { mapProductFromApi } from '../../utils/productAdapter';
 
 const NewStockAdjustment = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
-  const { addStockAdjustment, products, getProductById } = useInventory();
+  const dispatch = useDispatch();
+  const { products: rawProducts } = useSelector((state) => state.products);
   const navigate = useNavigate();
+
+  const products = React.useMemo(
+    () => rawProducts.map((product) => mapProductFromApi(product)),
+    [rawProducts]
+  );
   
   const [formData, setFormData] = useState({
     productId: '',
@@ -26,6 +34,10 @@ const NewStockAdjustment = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productSearch, setProductSearch] = useState('');
   const [filteredProducts, setFilteredProducts] = useState([]);
+
+  useEffect(() => {
+    dispatch(fetchProducts({ isActive: true }));
+  }, [dispatch]);
 
   // Filter products based on search
   useEffect(() => {
@@ -43,12 +55,12 @@ const NewStockAdjustment = () => {
   // Update selected product when productId changes
   useEffect(() => {
     if (formData.productId) {
-      const product = getProductById(formData.productId);
+      const product = products.find((item) => item.id === formData.productId);
       setSelectedProduct(product);
     } else {
       setSelectedProduct(null);
     }
-  }, [formData.productId, getProductById]);
+  }, [formData.productId, products]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -86,14 +98,22 @@ const NewStockAdjustment = () => {
     setIsSubmitting(true);
     
     try {
-      await addStockAdjustment({
-        productId: formData.productId,
+      const isDecrease = ['Sale', 'Damage', 'Adjustment (Decrease)'].includes(formData.type);
+      const signedQuantity = isDecrease
+        ? -Math.abs(formData.quantity)
+        : Math.abs(formData.quantity);
+      const reason = formData.reason.trim();
+      const notes = `${formData.type}${formData.user ? ` | ${formData.user.trim()}` : ''}`;
+
+      await dispatch(adjustStock({
+        id: formData.productId,
+        quantity: signedQuantity,
+        reason,
+        notes,
         type: formData.type,
-        quantity: formData.quantity,
-        reason: formData.reason.trim(),
-        date: formData.date,
-        user: formData.user.trim()
-      });
+        user: formData.user.trim() || 'System',
+        date: formData.date
+      })).unwrap();
       
       addToast('Stock adjustment recorded successfully!', 'success');
       navigate('/inventory/stock-adjustments');

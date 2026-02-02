@@ -1,40 +1,41 @@
 // src/routes/inventory/Inventory.js
-import React, { useState, useEffect } from 'react';
-import { Package, ArrowRight, TrendingUp, TrendingDown, BarChart, AlertCircle, Layers, Users, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Package, ArrowRight, TrendingUp, BarChart, AlertCircle, Layers, Users, RefreshCw } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { Link } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { useInventory } from '../../context/InventoryContext';
 import { useToast } from '../../context/ToastContext';
+import { fetchProducts } from '../../store/slices/productSlide';
+import { mapProductFromApi } from '../../utils/productAdapter';
 
 const Inventory = () => {
   const { isDarkMode } = useTheme();
-  const { getInventoryStats, products, stockAdjustments, suppliers, categories } = useInventory();
+  const { suppliers, categories } = useInventory();
+  const dispatch = useDispatch();
+  const { products: rawProducts, loading: productsLoading, stockAdjustments } = useSelector((state) => state.products);
+  const products = useMemo(
+    () => rawProducts.map((product) => mapProductFromApi(product)),
+    [rawProducts]
+  );
   const { addToast } = useToast();
   
-  const [stats, setStats] = useState(null);
   const [recentActivity, setRecentActivity] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Load real-time data
   useEffect(() => {
-    loadData();
-  }, [products, stockAdjustments, suppliers, categories]);
+    dispatch(fetchProducts({ isActive: true }));
+  }, [dispatch]);
 
-  const loadData = () => {
+  useEffect(() => {
     try {
-      // Get real stats from inventory context
-      const inventoryStats = getInventoryStats();
-      setStats(inventoryStats);
-
-      // Format recent activity from stock adjustments
       const sortedAdjustments = [...stockAdjustments]
         .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 5); // Get only 5 most recent
+        .slice(0, 5);
 
-      const activity = sortedAdjustments.map(adj => {
+      const activity = sortedAdjustments.map((adj) => {
         const timeAgo = calculateTimeAgo(adj.date);
-        const product = products.find(p => p.id === adj.productId);
+        const product = products.find((p) => p.id === adj.productId);
         return {
           id: adj.id,
           action: getActionText(adj, product),
@@ -50,10 +51,8 @@ const Inventory = () => {
     } catch (error) {
       console.error('Error loading inventory data:', error);
       addToast('Error loading inventory data', 'error');
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, [stockAdjustments, products, addToast]);
 
   const calculateTimeAgo = (dateString) => {
     const now = new Date();
@@ -92,6 +91,30 @@ const Inventory = () => {
     }
   };
 
+  const stats = useMemo(() => {
+    const totalProducts = products.length;
+    const totalValue = products.reduce((sum, product) => sum + (product.stock || 0) * (product.price || 0), 0);
+    const lowStockCount = products.filter((product) => {
+      const stock = product.stock || 0;
+      const reorderLevel = product.reorderLevel || 10;
+      return stock > 0 && stock <= reorderLevel;
+    }).length;
+    const outOfStockCount = products.filter((product) => (product.stock || 0) === 0).length;
+    const inStockCount = products.filter((product) => {
+      const stock = product.stock || 0;
+      const reorderLevel = product.reorderLevel || 10;
+      return stock > reorderLevel;
+    }).length;
+
+    return {
+      totalProducts,
+      totalValue,
+      lowStockCount,
+      outOfStockCount,
+      inStockCount
+    };
+  }, [products]);
+
   const quickStats = [
     {
       label: 'Total Products',
@@ -128,14 +151,17 @@ const Inventory = () => {
   ];
 
   const handleRefresh = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      loadData();
-      addToast('Inventory data refreshed', 'success');
-    }, 500);
+    dispatch(fetchProducts({ isActive: true }))
+      .unwrap()
+      .then(() => {
+        addToast('Inventory data refreshed', 'success');
+      })
+      .catch(() => {
+        addToast('Failed to refresh inventory data', 'error');
+      });
   };
 
-  if (isLoading) {
+  if (productsLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">

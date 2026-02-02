@@ -15,7 +15,7 @@ export const usePayments = () => {
 
 export const PaymentProvider = ({ children }) => {
   const { addToast } = useToast();
-  const { invoices, updateInvoice, customers, updateStockOnPayment } = useInvoice();
+  const { invoices, updateInvoice, customers, updateStockOnPayment, markAsPaid } = useInvoice();
   const { addNotification } = useNotifications();
   
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -225,7 +225,7 @@ export const PaymentProvider = ({ children }) => {
   // Get invoices ready for payment
   const getInvoicesForPayment = useCallback(() => {
     return invoices.filter(invoice => 
-      (invoice.status === 'sent' || invoice.status === 'pending_payment') && 
+      (invoice.status === 'sent' || invoice.status === 'partial' || invoice.status === 'overdue' || invoice.status === 'viewed') && 
       (invoice.totalAmount || invoice.amount) > 0 &&
       !invoice.paidAt
     );
@@ -296,14 +296,15 @@ export const PaymentProvider = ({ children }) => {
       const updatedTransactions = [newTransaction, ...transactions];
       setTransactions(updatedTransactions);
 
-      // Update invoice status to paid
-      updateInvoice(invoiceId, {
-        status: 'paid',
-        paymentStatus: 'completed',
-        paidAt: new Date().toISOString(),
-        transactionId,
-        paymentMethod: paymentMethod.type
-      });
+      const recordedInvoice = await markAsPaid(invoiceId, {
+        amount,
+        paymentMethod: paymentMethod.type,
+        paymentReference: paymentMethod.id,
+        notes
+      }, { showToast: false });
+      if (!recordedInvoice) {
+        throw new Error('Failed to record payment');
+      }
 
       // Update stock if inventory integration is enabled
       try {
@@ -355,7 +356,7 @@ export const PaymentProvider = ({ children }) => {
       
       return {
         transaction: newTransaction,
-        invoice: {
+        invoice: recordedInvoice || {
           ...invoice,
           status: 'paid',
           paidAt: newTransaction.processedAt

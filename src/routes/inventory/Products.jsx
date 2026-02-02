@@ -1,16 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Package, Plus, Filter, Download, Search, Edit, Trash2, MoreVertical, Eye, AlertCircle, CheckCircle, X, ChevronDown } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { Link, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { useInventory } from '../../context/InventoryContext';
 import { useToast } from '../../context/ToastContext';
+import { fetchProducts, deleteProduct as deactivateProduct } from '../../store/slices/productSlide';
+import { mapProductFromApi } from '../../utils/productAdapter';
 
 const Products = () => {
   const { isDarkMode } = useTheme();
-  const { products, categories, suppliers, deleteProduct } = useInventory();
+  const { categories } = useInventory();
   const { addToast } = useToast();
+  const dispatch = useDispatch();
+  const { products: rawProducts } = useSelector((state) => state.products);
   const navigate = useNavigate();
+
+  const products = useMemo(
+    () => rawProducts.map((product) => mapProductFromApi(product)),
+    [rawProducts]
+  );
   
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,6 +29,10 @@ const Products = () => {
   const [productToDelete, setProductToDelete] = useState(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(null);
+
+  useEffect(() => {
+    dispatch(fetchProducts({ isActive: true }));
+  }, [dispatch]);
 
   // Calculate product statistics
   const calculateProductStats = () => {
@@ -37,11 +51,12 @@ const Products = () => {
     if (filter !== 'all') {
       filteredProducts = filteredProducts.filter(product => {
         const stock = product.stock || product.quantity || 0;
+        const reorderLevel = product.reorderLevel || 10;
         switch (filter) {
           case 'in-stock':
-            return stock > 10;
+            return stock > reorderLevel;
           case 'low-stock':
-            return stock > 0 && stock <= 10;
+            return stock > 0 && stock <= reorderLevel;
           case 'out-of-stock':
             return stock === 0;
           default:
@@ -55,9 +70,10 @@ const Products = () => {
 
   const filteredProducts = calculateProductStats();
 
-  const getCategoryName = (categoryId) => {
-    if (!categoryId) return 'Uncategorized';
-    const category = categories.find(c => c.id === categoryId);
+  const getCategoryName = (product) => {
+    if (product.categoryName) return product.categoryName;
+    if (!product.categoryId) return 'Uncategorized';
+    const category = categories.find(c => c.id === product.categoryId);
     return category ? category.name : 'Uncategorized';
   };
 
@@ -122,9 +138,11 @@ const Products = () => {
 
   const handleConfirmDelete = async () => {
     if (productToDelete) {
-      const success = await deleteProduct(productToDelete.id);
-      if (success) {
+      try {
+        await dispatch(deactivateProduct(productToDelete.id)).unwrap();
         addToast(`Product "${productToDelete.name}" deleted successfully`, 'success');
+      } catch (error) {
+        addToast(error?.message || 'Failed to delete product', 'error');
       }
     }
     setShowDeleteModal(false);
@@ -160,8 +178,12 @@ const Products = () => {
     if (selectedProducts.length > 0) {
       let successCount = 0;
       for (const productId of selectedProducts) {
-        const success = await deleteProduct(productId);
-        if (success) successCount++;
+        try {
+          await dispatch(deactivateProduct(productId)).unwrap();
+          successCount += 1;
+        } catch (error) {
+          console.error('Failed to delete product:', error);
+        }
       }
       
       addToast(`${successCount} product(s) deleted successfully`, 'success');
@@ -290,7 +312,7 @@ const Products = () => {
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Category</div>
-            <div className="text-sm truncate">{getCategoryName(product.categoryId)}</div>
+            <div className="text-sm truncate">{getCategoryName(product)}</div>
           </div>
           <div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Stock</div>
@@ -716,7 +738,7 @@ const Products = () => {
                               ? 'bg-gray-700 text-gray-300' 
                               : 'bg-gray-100 text-gray-800'
                           }`}>
-                            {getCategoryName(product.categoryId)}
+                            {getCategoryName(product)}
                           </span>
                         </td>
                         <td className="px-4 md:px-6 py-4">
@@ -826,7 +848,7 @@ const Products = () => {
                     onClick={() => setShowDeleteModal(false)}
                     className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                   >
-                    ✕
+                    X
                   </button>
                 </div>
               </div>
@@ -870,3 +892,4 @@ const Products = () => {
 };
 
 export default Products;
+

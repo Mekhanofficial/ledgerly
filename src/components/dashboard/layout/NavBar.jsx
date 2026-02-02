@@ -32,10 +32,10 @@ import {
   X
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNotifications } from '../../../context/NotificationContext';
-import { useUser } from '../../../context/UserContext';
-import { useInvoice } from '../../../context/InvoiceContext';
+import { getAvatarSeed, getUserDisplayName, getUserEmail, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
 
 const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -48,8 +48,10 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
     getRecentNotifications 
   } = useNotifications();
   
-  const { user } = useUser();
-  const { invoices, customers } = useInvoice();
+  const authUser = useSelector((state) => state.auth?.user);
+  const user = resolveAuthUser(authUser);
+  const invoices = useSelector((state) => state.invoices?.invoices || []);
+  const customers = useSelector((state) => state.customers?.customers || []);
   
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -98,56 +100,6 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       searchInputRef.current.focus();
     }
   }, [isSearchOpen]);
-
-  // Get user display name
-  const getUserDisplayName = () => {
-    if (!user) return 'Guest User';
-    
-    if (user.firstName && user.lastName) {
-      return `${user.firstName} ${user.lastName}`;
-    }
-    
-    if (user.firstName) {
-      return user.firstName;
-    }
-    
-    if (user.email) {
-      return user.email.split('@')[0];
-    }
-    
-    return 'Ledgerly User';
-  };
-
-  // Get user email
-  const getUserEmail = () => {
-    if (!user) return 'guest@example.com';
-    return user.email || 'guest@example.com';
-  };
-
-  // Get user role
-  const getUserRole = () => {
-    if (!user) return 'Guest';
-    return user.role === 'admin' ? 'Admin' : 'User';
-  };
-
-  // Get user avatar seed for DiceBear
-  const getAvatarSeed = () => {
-    if (!user) return 'Guest';
-    
-    if (user.email) {
-      return user.email;
-    }
-    
-    if (user.firstName && user.lastName) {
-      return `${user.firstName}${user.lastName}`;
-    }
-    
-    if (user.firstName) {
-      return user.firstName;
-    }
-    
-    return 'Ledgerly';
-  };
 
   const formatRevenue = (value) => {
     if (!Number.isFinite(value) || value <= 0) {
@@ -643,7 +595,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
               >
                 <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-primary-600 to-primary-800 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-gray-800">
                   <img 
-                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${getAvatarSeed()}&backgroundColor=4f46e5&backgroundType=solid&hairColor=262626&mouth=smile&eyes=happy&eyebrows=raised`}
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${getAvatarSeed(user)}&backgroundColor=4f46e5&backgroundType=solid&hairColor=262626&mouth=smile&eyes=happy&eyebrows=raised`}
                     alt="User avatar" 
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -665,7 +617,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                     <div className="flex items-center space-x-3 sm:space-x-4">
                       <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-primary-600 to-primary-800 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-gray-800">
                         <img 
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${getAvatarSeed()}&backgroundColor=4f46e5&backgroundType=solid&hairColor=262626&mouth=smile&eyes=happy&eyebrows=raised`}
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${getAvatarSeed(user)}&backgroundColor=4f46e5&backgroundType=solid&hairColor=262626&mouth=smile&eyes=happy&eyebrows=raised`}
                           alt="User avatar" 
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -679,19 +631,19 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-gray-900 dark:text-white truncate text-sm sm:text-base">
-                          {getUserDisplayName()}
+                          {getUserDisplayName(user)}
                         </h4>
                         <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
-                          {getUserEmail()}
+                          {getUserEmail(user)}
                         </p>
                         <div className="flex items-center mt-1">
-                          {getUserRole() === 'Admin' ? (
+                          {getUserRoleLabel(user) === 'Admin' ? (
                             <Shield className="w-3 h-3 text-green-500 dark:text-green-400 mr-1" />
                           ) : (
                             <User className="w-3 h-3 text-blue-500 dark:text-blue-400 mr-1" />
                           )}
-                          <span className={`text-xs ${getUserRole() === 'Admin' ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`}>
-                            {getUserRole()}
+                          <span className={`text-xs ${getUserRoleLabel(user) === 'Admin' ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                            {getUserRoleLabel(user)}
                           </span>
                         </div>
                       </div>

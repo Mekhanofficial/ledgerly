@@ -1,0 +1,251 @@
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
+
+// Create axios instance
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
+});
+
+// Add token to requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Async thunks for invoices
+export const fetchInvoices = createAsyncThunk(
+  'invoices/fetchAll',
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/invoices', { params });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to fetch invoices');
+    }
+  }
+);
+
+export const fetchInvoiceById = createAsyncThunk(
+  'invoices/fetchById',
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/invoices/${id}`);
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to fetch invoice');
+    }
+  }
+);
+
+export const createInvoice = createAsyncThunk(
+  'invoices/create',
+  async (invoiceData, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/invoices', invoiceData);
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to create invoice');
+    }
+  }
+);
+
+export const updateInvoice = createAsyncThunk(
+  'invoices/update',
+  async ({ id, data }, { rejectWithValue }) => {
+    try {
+      const response = await api.put(`/invoices/${id}`, data);
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to update invoice');
+    }
+  }
+);
+
+export const deleteInvoice = createAsyncThunk(
+  'invoices/delete',
+  async (id, { rejectWithValue }) => {
+    try {
+      await api.delete(`/invoices/${id}`);
+      return id;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to delete invoice');
+    }
+  }
+);
+
+export const sendInvoice = createAsyncThunk(
+  'invoices/send',
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await api.post(`/invoices/${id}/send`);
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to send invoice');
+    }
+  }
+);
+
+export const recordPayment = createAsyncThunk(
+  'invoices/recordPayment',
+  async ({ id, paymentData }, { rejectWithValue }) => {
+    try {
+      const response = await api.post(`/invoices/${id}/payment`, paymentData);
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to record payment');
+    }
+  }
+);
+
+export const fetchOutstandingInvoices = createAsyncThunk(
+  'invoices/fetchOutstanding',
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/invoices/outstanding', { params });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to fetch outstanding invoices');
+    }
+  }
+);
+
+const initialState = {
+  invoices: [],
+  currentInvoice: null,
+  outstandingInvoices: [],
+  loading: false,
+  error: null,
+  total: 0,
+  pages: 1,
+  summary: {
+    totalAmount: 0,
+    totalPaid: 0,
+    totalOutstanding: 0,
+    count: 0,
+  },
+};
+
+const invoiceSlice = createSlice({
+  name: 'invoices',
+  initialState,
+  reducers: {
+    clearInvoiceError: (state) => {
+      state.error = null;
+    },
+    clearCurrentInvoice: (state) => {
+      state.currentInvoice = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Fetch all invoices
+      .addCase(fetchInvoices.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchInvoices.fulfilled, (state, action) => {
+        state.loading = false;
+        state.invoices = action.payload.data;
+        state.total = action.payload.total;
+        state.pages = action.payload.pages;
+        state.summary = action.payload.summary || state.summary;
+      })
+      .addCase(fetchInvoices.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Fetch invoice by ID
+      .addCase(fetchInvoiceById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchInvoiceById.fulfilled, (state, action) => {
+        state.loading = false;
+        state.currentInvoice = action.payload;
+      })
+      .addCase(fetchInvoiceById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Create invoice
+      .addCase(createInvoice.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createInvoice.fulfilled, (state, action) => {
+        state.loading = false;
+        state.invoices.unshift(action.payload);
+        state.total += 1;
+      })
+      .addCase(createInvoice.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Update invoice
+      .addCase(updateInvoice.fulfilled, (state, action) => {
+        const index = state.invoices.findIndex(i => i._id === action.payload._id);
+        if (index !== -1) {
+          state.invoices[index] = action.payload;
+        }
+        if (state.currentInvoice?._id === action.payload._id) {
+          state.currentInvoice = action.payload;
+        }
+      })
+      
+      // Delete invoice
+      .addCase(deleteInvoice.fulfilled, (state, action) => {
+        state.invoices = state.invoices.filter(i => i._id !== action.payload);
+        state.total -= 1;
+      })
+      
+      // Send invoice
+      .addCase(sendInvoice.fulfilled, (state, action) => {
+        const index = state.invoices.findIndex(i => i._id === action.payload._id);
+        if (index !== -1) {
+          state.invoices[index] = action.payload;
+        }
+        if (state.currentInvoice?._id === action.payload._id) {
+          state.currentInvoice = action.payload;
+        }
+      })
+      
+      // Record payment
+      .addCase(recordPayment.fulfilled, (state, action) => {
+        const index = state.invoices.findIndex(i => i._id === action.payload.invoice._id);
+        if (index !== -1) {
+          state.invoices[index] = action.payload.invoice;
+        }
+        if (state.currentInvoice?._id === action.payload.invoice._id) {
+          state.currentInvoice = action.payload.invoice;
+        }
+      })
+      
+      // Fetch outstanding invoices
+      .addCase(fetchOutstandingInvoices.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchOutstandingInvoices.fulfilled, (state, action) => {
+        state.loading = false;
+        state.outstandingInvoices = action.payload.data;
+      })
+      .addCase(fetchOutstandingInvoices.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+  },
+});
+
+export const { clearInvoiceError, clearCurrentInvoice } = invoiceSlice.actions;
+export default invoiceSlice.reducer;

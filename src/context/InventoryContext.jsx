@@ -24,258 +24,16 @@ export const InventoryProvider = ({ children }) => {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load data from localStorage
+  // Initialize inventory state (backend is source of truth)
   useEffect(() => {
-    loadInventoryData();
+    setLoading(false);
   }, []);
-
-  const loadInventoryData = () => {
-    try {
-      // Load products - EMPTY BY DEFAULT
-      const savedProducts = JSON.parse(localStorage.getItem('inventory_products')) || [];
-      setProducts(savedProducts);
-      
-      // Load categories - EMPTY BY DEFAULT
-      const savedCategories = JSON.parse(localStorage.getItem('inventory_categories')) || [];
-      setCategories(savedCategories);
-      
-      // Load stock adjustments
-      const savedAdjustments = JSON.parse(localStorage.getItem('inventory_adjustments')) || [];
-      setStockAdjustments(savedAdjustments);
-      
-      // Load suppliers
-      const savedSuppliers = JSON.parse(localStorage.getItem('inventory_suppliers')) || [];
-      setSuppliers(savedSuppliers);
-      
-    } catch (error) {
-      console.error('Error loading inventory data:', error);
-      addToast('Error loading inventory data', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Optimize product data by compressing images
-  const optimizeProductForStorage = (product) => {
-    const optimizedProduct = { ...product };
-    
-    // If there's a large base64 image, store only a reference or compress it
-    if (optimizedProduct.image && optimizedProduct.image.startsWith('data:image')) {
-      // For production, you would upload to a server and store URL
-      // For now, we'll compress large base64 strings or remove them
-      if (optimizedProduct.image.length > 100000) { // More than 100KB
-        console.warn('Large image detected, storing only reference');
-        optimizedProduct.image = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHJ4PSI4IiBmaWxsPSIjRkZGIi8+PHBhdGggZD0iTTIwIDI2QzIzLjMxMzcgMjYgMjYgMjMuMzEzNyAyNiAyMEMyNiAxNi42ODYzIDIzLjMxMzcgMTQgMjAgMTRDMTYuNjg2MyAxNCAxNCAxNi42ODYzIDE0IDIwQzE0IDIzLjMxMzcgMTYuNjg2MyAyNiAyMCAyNloiIGZpbGw9IiNFRUVFRUUiLz48cGF0aCBkPSJNMjYgMjZIMTRWMjJIMjZWMjZaIiBmaWxsPSIjRUVFRUVFIi8+PC9zdmc+'; // Tiny placeholder
-      }
-    }
-    
-    return optimizedProduct;
-  };
-
-  // Save data to localStorage with error handling
-  const saveToLocalStorage = (key, data) => {
-    try {
-      // Optimize data if it's products with images
-      let optimizedData = data;
-      if (key === 'inventory_products') {
-        optimizedData = data.map(product => optimizeProductForStorage(product));
-      }
-      
-      const dataString = JSON.stringify(optimizedData);
-      
-      // Check if data is too large
-      if (dataString.length > 4500000) { // Approx 4.5MB
-        console.warn(`Data for ${key} is too large (${(dataString.length / 1024 / 1024).toFixed(2)}MB)`);
-        
-        if (key === 'inventory_products') {
-          // Remove images from products to save space
-          optimizedData = data.map(({ image, ...rest }) => rest);
-          localStorage.setItem(key, JSON.stringify(optimizedData));
-          addToast('Large image data removed to save space', 'warning');
-        } else {
-          // Try to save a subset of data
-          localStorage.setItem(key, JSON.stringify(data.slice(0, 50)));
-          addToast(`Too much data for ${key}, only storing first 50 items`, 'warning');
-        }
-      } else {
-        localStorage.setItem(key, dataString);
-      }
-    } catch (error) {
-      console.error(`Error saving ${key} to localStorage:`, error);
-      addToast(`Error saving ${key} data`, 'error');
-      
-      // Clear some space if quota exceeded
-      if (error.name === 'QuotaExceededError') {
-        handleStorageQuotaError(key, data);
-      }
-    }
-  };
-
-  // Handle storage quota errors
-  const handleStorageQuotaError = (key, data) => {
-    console.log('Storage quota exceeded, clearing old data');
-    
-    // Clear oldest data or reduce data size
-    if (key === 'inventory_products') {
-      // Keep only recent 100 products
-      const recentProducts = data.slice(0, 100);
-      const productsWithoutImages = recentProducts.map(({ image, ...rest }) => rest);
-      localStorage.setItem(key, JSON.stringify(productsWithoutImages));
-      addToast('Cleared old products to save space', 'warning');
-    } else if (key === 'inventory_adjustments') {
-      // Keep only recent 200 adjustments
-      const recentAdjustments = data.slice(0, 200);
-      localStorage.setItem(key, JSON.stringify(recentAdjustments));
-      addToast('Cleared old stock adjustments to save space', 'warning');
-    }
-  };
-
-  // Save data to localStorage with optimizations
-  useEffect(() => {
-    if (!loading) {
-      saveToLocalStorage('inventory_products', products);
-    }
-  }, [products, loading]);
-
-  useEffect(() => {
-    if (!loading) {
-      saveToLocalStorage('inventory_categories', categories);
-    }
-  }, [categories, loading]);
-
-  useEffect(() => {
-    if (!loading) {
-      saveToLocalStorage('inventory_adjustments', stockAdjustments);
-    }
-  }, [stockAdjustments, loading]);
-
-  useEffect(() => {
-    if (!loading) {
-      saveToLocalStorage('inventory_suppliers', suppliers);
-    }
-  }, [suppliers, loading]);
-
-  // Helper function to calculate product total value
-  const calculateProductTotalValue = (product) => {
-    const quantity = parseFloat(product.quantity) || 0;
-    const price = parseFloat(product.price) || 0;
-    const total = quantity * price;
-    return isNaN(total) ? 0 : total;
-  };
 
   // Helper function to parse numeric values safely
   const parseNumber = (value, defaultValue = 0) => {
     if (value === null || value === undefined) return defaultValue;
     const parsed = parseFloat(value);
     return isNaN(parsed) ? defaultValue : parsed;
-  };
-
-  // Get default categories (used when creating first product)
-  const getDefaultCategories = () => {
-    return [
-      {
-        id: 'cat_1',
-        name: 'Electronics',
-        description: 'Computers, phones, and accessories',
-        productCount: 0,
-        totalValue: 0,
-        color: '#3B82F6',
-        icon: '💻',
-        createdBy: 'system',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'cat_2',
-        name: 'Stationery',
-        description: 'Office supplies and writing materials',
-        productCount: 0,
-        totalValue: 0,
-        color: '#10B981',
-        icon: '📝',
-        createdBy: 'system',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'cat_3',
-        name: 'Furniture',
-        description: 'Office furniture and equipment',
-        productCount: 0,
-        totalValue: 0,
-        color: '#F59E0B',
-        icon: '🪑',
-        createdBy: 'system',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'cat_4',
-        name: 'Clothing',
-        description: 'Apparel and accessories',
-        productCount: 0,
-        totalValue: 0,
-        color: '#8B5CF6',
-        icon: '👕',
-        createdBy: 'system',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'cat_5',
-        name: 'Accessories',
-        description: 'Miscellaneous accessories',
-        productCount: 0,
-        totalValue: 0,
-        color: '#EC4899',
-        icon: '🎒',
-        createdBy: 'system',
-        createdAt: new Date().toISOString()
-      }
-    ];
-  };
-
-  // Get default suppliers (used when creating first product)
-  const getDefaultSuppliers = () => {
-    return [
-      {
-        id: 'sup_1',
-        name: 'Tech Distributors',
-        contact: 'John Smith',
-        email: 'john@techdist.com',
-        phone: '(555) 123-4567',
-        address: '123 Tech Street, Silicon Valley, CA',
-        products: [],
-        status: 'Active',
-        rating: 4.8,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: 'sup_2',
-        name: 'Office Supplies Co',
-        contact: 'Sarah Wilson',
-        email: 'sarah@officesupply.com',
-        phone: '(555) 987-6543',
-        address: '456 Office Lane, Business Park, NY',
-        products: [],
-        status: 'Active',
-        rating: 4.5,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ];
-  };
-
-  // Initialize default data when first product is added
-  const initializeDefaultData = () => {
-    if (categories.length === 0) {
-      const defaultCategories = getDefaultCategories();
-      setCategories(defaultCategories);
-      saveToLocalStorage('inventory_categories', defaultCategories);
-    }
-    
-    if (suppliers.length === 0) {
-      const defaultSuppliers = getDefaultSuppliers();
-      setSuppliers(defaultSuppliers);
-      saveToLocalStorage('inventory_suppliers', defaultSuppliers);
-    }
   };
 
   // Compress image to reduce size
@@ -316,11 +74,6 @@ export const InventoryProvider = ({ children }) => {
   // Add a new product
   const addProduct = async (productData) => {
     try {
-      // Initialize default data if this is the first product
-      if (products.length === 0) {
-        initializeDefaultData();
-      }
-
       const quantity = parseNumber(productData.quantity);
       const price = parseNumber(productData.price);
       const costPrice = parseNumber(productData.costPrice);
@@ -884,33 +637,23 @@ export const InventoryProvider = ({ children }) => {
       setCategories([]);
       setStockAdjustments([]);
       setSuppliers([]);
-      localStorage.removeItem('inventory_products');
-      localStorage.removeItem('inventory_categories');
-      localStorage.removeItem('inventory_adjustments');
-      localStorage.removeItem('inventory_suppliers');
       addToast('All inventory data cleared', 'success');
     }
   };
 
-  // Clear localStorage and reset
+  // Clear inventory state and reset
   const clearLocalStorageAndReset = () => {
     try {
-      // Clear all inventory related localStorage
-      localStorage.removeItem('inventory_products');
-      localStorage.removeItem('inventory_categories');
-      localStorage.removeItem('inventory_adjustments');
-      localStorage.removeItem('inventory_suppliers');
-      
       // Reset state
       setProducts([]);
       setCategories([]);
       setStockAdjustments([]);
       setSuppliers([]);
       
-      addToast('LocalStorage cleared and reset successfully', 'success');
+      addToast('Inventory state reset successfully', 'success');
     } catch (error) {
-      console.error('Error clearing localStorage:', error);
-      addToast('Error clearing localStorage', 'error');
+      console.error('Error clearing inventory state:', error);
+      addToast('Error clearing inventory state', 'error');
     }
   };
 
@@ -995,3 +738,4 @@ export const InventoryProvider = ({ children }) => {
     </InventoryContext.Provider>
   );
 };
+

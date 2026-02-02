@@ -1,26 +1,30 @@
 // src/routes/customers/CustomerProfile.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  User, Mail, Phone, MapPin, Calendar, DollarSign, 
+  User, Mail, Phone, MapPin, DollarSign, 
   FileText, ArrowLeft, Edit, Download, Send, MoreVertical,
   TrendingUp, Clock, CheckCircle, XCircle
 } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useTheme } from '../../context/ThemeContext';
-import { useInvoice } from '../../context/InvoiceContext';
 import { useToast } from '../../context/ToastContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchCustomerById, updateCustomer as updateCustomerThunk, deleteCustomer as deleteCustomerThunk } from '../../store/slices/customerSlice';
+import { fetchInvoices } from '../../store/slices/invoiceSlice';
+import { buildCustomerPayload, mapCustomerFromApi } from '../../utils/customerAdapter';
 
 const CustomerProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
-  const { customers, invoices, deleteCustomer } = useInvoice();
   const { addToast } = useToast();
+  const dispatch = useDispatch();
+  const { currentCustomer, loading: customerLoading, error: customerError } = useSelector((state) => state.customers);
+  const { invoices, loading: invoicesLoading, error: invoicesError } = useSelector((state) => state.invoices);
   
   const [customer, setCustomer] = useState(null);
   const [customerInvoices, setCustomerInvoices] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -31,53 +35,80 @@ const CustomerProfile = () => {
   });
 
   useEffect(() => {
-    loadCustomerData();
-  }, [id, customers, invoices]);
+    dispatch(fetchCustomerById(id));
+    dispatch(fetchInvoices({ customer: id, limit: 50 }));
+  }, [dispatch, id]);
 
-  const loadCustomerData = () => {
-    const foundCustomer = customers.find(c => c.id === id);
-    if (foundCustomer) {
-      setCustomer(foundCustomer);
+  const mappedCustomer = useMemo(() => {
+    if (!currentCustomer) return null;
+    return mapCustomerFromApi(currentCustomer);
+  }, [currentCustomer]);
+
+  useEffect(() => {
+    if (mappedCustomer) {
+      setCustomer(mappedCustomer);
       setEditForm({
-        name: foundCustomer.name || '',
-        email: foundCustomer.email || '',
-        phone: foundCustomer.phone || '',
-        address: foundCustomer.address || ''
+        name: mappedCustomer.name || '',
+        email: mappedCustomer.email || '',
+        phone: mappedCustomer.phone || '',
+        address: mappedCustomer.address || ''
       });
-      
-      // Find customer invoices
-      const customerInvs = invoices.filter(inv => 
-        inv.customerId === id || inv.customer === foundCustomer.name
-      );
-      setCustomerInvoices(customerInvs);
-    } else {
-      addToast('Customer not found', 'error');
-      navigate('/customers');
     }
-    setLoading(false);
-  };
+  }, [mappedCustomer]);
 
-  const handleEditCustomer = () => {
+  useEffect(() => {
+    if (invoicesError) {
+      addToast(invoicesError, 'error');
+    }
+  }, [invoicesError, addToast]);
+
+  useEffect(() => {
+    if (customerError) {
+      addToast(customerError, 'error');
+    }
+  }, [customerError, addToast]);
+
+  const isLoading = customerLoading || invoicesLoading;
+
+  useEffect(() => {
+    const customerInvs = (invoices || []).filter((invoice) => {
+      const invoiceCustomerId = invoice.customerId || (typeof invoice.customer === 'string'
+        ? invoice.customer
+        : invoice.customer?._id);
+      return invoiceCustomerId === id;
+    });
+    setCustomerInvoices(customerInvs);
+  }, [invoices, id]);
+
+  const handleEditCustomer = async () => {
     if (!editForm.name || !editForm.email) {
       addToast('Name and email are required', 'error');
       return;
     }
     
-    // In a real app, you would update the customer in your context/API
-    setCustomer(prev => ({
-      ...prev,
-      ...editForm
-    }));
-    
-    addToast('Customer updated successfully!', 'success');
-    setShowEditModal(false);
+    try {
+      const payload = buildCustomerPayload(editForm);
+      const result = await dispatch(updateCustomerThunk({ id, data: payload }));
+      if (result.meta.requestStatus === 'fulfilled') {
+        addToast('Customer updated successfully!', 'success');
+        setShowEditModal(false);
+      } else {
+        addToast(result.payload || 'Failed to update customer', 'error');
+      }
+    } catch (error) {
+      addToast('Failed to update customer', 'error');
+    }
   };
 
   const handleDeleteCustomer = () => {
-    if (deleteCustomer(id)) {
-      addToast('Customer deleted successfully!', 'success');
-      navigate('/customers');
-    }
+    dispatch(deleteCustomerThunk(id)).then((result) => {
+      if (result.meta.requestStatus === 'fulfilled') {
+        addToast('Customer deleted successfully!', 'success');
+        navigate('/customers');
+      } else {
+        addToast(result.payload || 'Failed to delete customer', 'error');
+      }
+    });
   };
 
   const handleSendStatement = () => {
@@ -111,16 +142,16 @@ const CustomerProfile = () => {
     if (!customer) return {};
     
     const totalInvoices = customerInvoices.length;
-    const totalAmount = customerInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+    const totalAmount = customerInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || inv.total || 0), 0);
     const paidAmount = customerInvoices
       .filter(inv => inv.status === 'paid')
-      .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+      .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || inv.total || 0), 0);
     const pendingAmount = customerInvoices
       .filter(inv => inv.status === 'sent' || inv.status === 'viewed')
-      .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+      .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || inv.total || 0), 0);
     const overdueAmount = customerInvoices
       .filter(inv => inv.status === 'overdue')
-      .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
+      .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || inv.total || 0), 0);
     
     return {
       totalInvoices,
@@ -169,7 +200,7 @@ const CustomerProfile = () => {
     return texts[status] || status;
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -399,12 +430,12 @@ const CustomerProfile = () => {
                       isDarkMode ? 'bg-gray-800' : 'bg-white'
                     }`}>
                       {customerInvoices.slice(0, 5).map((invoice) => (
-                        <tr key={invoice.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
+                        <tr key={invoice._id || invoice.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className={`text-sm font-medium ${
                               isDarkMode ? 'text-white' : 'text-gray-900'
                             }`}>
-                              {invoice.number || invoice.invoiceNumber}
+                              {invoice.number || invoice.invoiceNumber || invoice._id?.slice(-6)}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -418,7 +449,7 @@ const CustomerProfile = () => {
                             <div className={`text-sm font-semibold ${
                               isDarkMode ? 'text-white' : 'text-gray-900'
                             }`}>
-                              ${(invoice.totalAmount || invoice.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              ${(invoice.totalAmount || invoice.amount || invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -428,7 +459,7 @@ const CustomerProfile = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <button
-                              onClick={() => navigate(`/invoices/view/${invoice.id}`)}
+                              onClick={() => navigate(`/invoices/view/${invoice._id || invoice.id}`)}
                               className={`text-sm font-medium ${
                                 isDarkMode 
                                   ? 'text-primary-400 hover:text-primary-300' 

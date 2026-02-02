@@ -1,12 +1,24 @@
 // src/components/receipts/ProductGrid.js - FIXED VERSION (Vertical Layout)
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Package, Search, Filter, AlertCircle } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
-import { useInventory } from '../../context/InventoryContext';
+import { mapProductFromApi } from '../../utils/productAdapter';
+import { fetchProducts } from '../../store/slices/productSlide';
 
 const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
   const { isDarkMode } = useTheme();
-  const { getProductsForPOS, categories } = useInventory();
+  const dispatch = useDispatch();
+  const { products: rawProducts } = useSelector((state) => state.products);
+  const posProducts = useMemo(() => {
+    return rawProducts.map((product) => {
+      const mapped = mapProductFromApi(product);
+      return {
+        ...mapped,
+        category: mapped.categoryName || 'Uncategorized'
+      };
+    });
+  }, [rawProducts]);
   
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
@@ -16,10 +28,12 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
 
   // Load products from inventory
   useEffect(() => {
-    const loadedProducts = getProductsForPOS();
-    setProducts(loadedProducts);
-    setFilteredProducts(loadedProducts);
-  }, [getProductsForPOS]);
+    if (!rawProducts.length) {
+      dispatch(fetchProducts({ isActive: true }));
+    }
+    setProducts(posProducts);
+    setFilteredProducts(posProducts);
+  }, [dispatch, posProducts, rawProducts.length]);
 
   // Filter and sort products
   useEffect(() => {
@@ -63,12 +77,12 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
     return item ? item.quantity : 0;
   };
 
-  const getStockStatus = (stock) => {
+  const getStockStatus = (stock, reorderLevel = 10) => {
     if (stock === 0) return { 
       label: 'Out of Stock', 
       color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
     };
-    if (stock <= 10) return { 
+    if (stock <= reorderLevel) return { 
       label: 'Low Stock', 
       color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
     };
@@ -82,7 +96,6 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
   const productCategories = ['all', ...new Set(products
     .map(p => p.category)
     .filter(Boolean)
-    .filter(category => categories.some(c => c.id === category || c.name === category))
   )];
 
   return (
@@ -188,9 +201,8 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
           <div className="space-y-3 pr-1">
             {filteredProducts.map((product) => {
               const cartQuantity = getCartQuantity(product.id);
-              const stockStatus = getStockStatus(product.stock || product.quantity || 0);
-              const categoryObj = categories.find(c => c.id === product.categoryId || c.name === product.category);
-              const categoryName = categoryObj?.name || product.category || 'Uncategorized';
+              const stockStatus = getStockStatus(product.stock || product.quantity || 0, product.reorderLevel || 10);
+              const categoryName = product.category || 'Uncategorized';
               const isOutOfStock = (product.stock || product.quantity || 0) === 0;
               
               return (
@@ -307,7 +319,11 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
             </div>
             <div className="text-center">
               <div className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {products.filter(p => (p.stock || p.quantity || 0) <= 10 && (p.stock || p.quantity || 0) > 0).length}
+                {products.filter(p => {
+                  const stock = p.stock || p.quantity || 0;
+                  const reorderLevel = p.reorderLevel || 10;
+                  return stock > 0 && stock <= reorderLevel;
+                }).length}
               </div>
               <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Low Stock

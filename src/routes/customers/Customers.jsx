@@ -1,17 +1,20 @@
 // Update Customers.js
-import React, { useState, useEffect, useRef } from 'react';
-import { Users, Plus, Download, Mail, Search } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Plus, Download, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'; // Added import
+import { useDispatch, useSelector } from 'react-redux';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import CustomerStats from '../../components/customers/CustomerStats';
 import CustomerTable from '../../components/customers/CustomerTable';
 import { useTheme } from '../../context/ThemeContext';
-import { useInvoice } from '../../context/InvoiceContext';
 import { useToast } from '../../context/ToastContext';
+import { fetchCustomers, createCustomer as createCustomerThunk, deleteCustomer as deleteCustomerThunk } from '../../store/slices/customerSlice';
+import { buildCustomerPayload, mapCustomerFromApi } from '../../utils/customerAdapter';
 
 const Customers = () => {
   const { isDarkMode } = useTheme();
-  const { customers, addCustomer, deleteCustomer, getCustomerStats } = useInvoice();
+  const dispatch = useDispatch();
+  const { customers: apiCustomers, error } = useSelector((state) => state.customers);
   const { addToast } = useToast();
   const navigate = useNavigate(); // Added hook
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,14 +27,26 @@ const Customers = () => {
   });
   const addCustomerNameRef = useRef(null);
 
-  // Get stats from context
-  const stats = getCustomerStats();
+  const customers = useMemo(
+    () => (apiCustomers || []).map(mapCustomerFromApi),
+    [apiCustomers]
+  );
 
   useEffect(() => {
     if (showAddCustomerModal && addCustomerNameRef.current) {
       addCustomerNameRef.current.focus();
     }
   }, [showAddCustomerModal]);
+
+  useEffect(() => {
+    dispatch(fetchCustomers());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (error) {
+      addToast(error, 'error');
+    }
+  }, [error, addToast]);
 
   // Filter customers based on search
   const filteredCustomers = customers.filter(customer => 
@@ -41,17 +56,22 @@ const Customers = () => {
     customer.phone.includes(searchTerm)
   );
 
-  const handleAddCustomer = () => {
+  const handleAddCustomer = async () => {
     if (!newCustomer.name || !newCustomer.email) {
       addToast('Please fill in required fields', 'error');
       return;
     }
     
     try {
-      addCustomer(newCustomer, { showNotificationToast: false });
-      addToast(`Customer "${newCustomer.name}" added successfully!`, 'success');
-      setNewCustomer({ name: '', email: '', phone: '', address: '' });
-      setShowAddCustomerModal(false);
+      const payload = buildCustomerPayload(newCustomer);
+      const result = await dispatch(createCustomerThunk(payload));
+      if (result.meta.requestStatus === 'fulfilled') {
+        addToast(`Customer "${newCustomer.name}" added successfully!`, 'success');
+        setNewCustomer({ name: '', email: '', phone: '', address: '' });
+        setShowAddCustomerModal(false);
+      } else {
+        addToast(result.payload || 'Error adding customer', 'error');
+      }
     } catch (error) {
       addToast('Error adding customer', 'error');
     }
@@ -76,8 +96,13 @@ const Customers = () => {
   const handleDeleteCustomer = (customerId) => {
     const customer = customers.find(c => c.id === customerId);
     if (window.confirm(`Are you sure you want to delete "${customer?.name}"? This action cannot be undone.`)) {
-      deleteCustomer(customerId);
-      addToast(`Customer "${customer?.name}" deleted successfully!`, 'success');
+      dispatch(deleteCustomerThunk(customerId)).then((result) => {
+        if (result.meta.requestStatus === 'fulfilled') {
+          addToast(`Customer "${customer?.name}" deleted successfully!`, 'success');
+        } else {
+          addToast(result.payload || 'Failed to delete customer', 'error');
+        }
+      });
     }
   };
 
@@ -157,7 +182,7 @@ const Customers = () => {
         </div>
 
         {/* Stats Component */}
-        <CustomerStats />
+        <CustomerStats customers={customers} />
 
         {/* Customer Table Component */}
         <CustomerTable
