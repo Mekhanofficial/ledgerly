@@ -414,7 +414,7 @@ Thank you for shopping with us!
     }
   };
 
-  const handleEmailOnly = () => {
+  const handleEmailOnly = async () => {
     if (!customerEmail && !selectedCustomerId) {
       addToast('Please select a customer or enter email', 'warning');
       return;
