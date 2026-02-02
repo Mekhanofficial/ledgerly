@@ -1,5 +1,5 @@
 // src/routes/reports/Reports.js - CLEANED VERSION
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart3, Download, Calendar, Plus, AlertCircle } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import ReportStats from '../../components/reports/ReportStats';
@@ -14,6 +14,13 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useInvoice } from '../../context/InvoiceContext';
+import {
+  fetchReports as fetchStoredReports,
+  createReport as createStoredReport,
+  updateReport as updateStoredReport,
+  deleteReport as deleteStoredReport,
+  recordDownload as recordReportDownload
+} from '../../services/reportService';
 
 const Reports = () => {
   const { isDarkMode } = useTheme();
@@ -29,10 +36,19 @@ const Reports = () => {
   const [reports, setReports] = useState([]);
   const [jsPDF, setJsPDF] = useState(null);
 
-  // Load reports from localStorage
+  const loadReports = useCallback(async () => {
+    try {
+      const storedReports = await fetchStoredReports();
+      setReports(storedReports);
+    } catch (error) {
+      console.error('Error loading reports:', error);
+      addToast('Unable to load generated reports', 'error');
+    }
+  }, [addToast]);
+
   useEffect(() => {
     loadReports();
-  }, []);
+  }, [loadReports]);
 
   // Dynamically import jsPDF
   useEffect(() => {
@@ -41,50 +57,25 @@ const Reports = () => {
     });
   }, []);
 
-  const loadReports = () => {
-    try {
-      const savedReports = JSON.parse(localStorage.getItem('ledgerly_reports') || '[]');
-      setReports(savedReports);
-    } catch (error) {
-      console.error('Error loading reports:', error);
-    }
-  };
-
   const handleCreateReport = () => {
     setShowCreateModal(true);
   };
 
   const handleSaveReport = async (reportData) => {
     try {
-      const newReport = {
-        ...reportData,
-        id: `REPORT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        status: 'processing',
-        progress: 0,
-        downloads: 0,
-        lastDownloaded: null
-      };
+      const payload = buildReportPayload(reportData);
+      const storedReport = await createStoredReport(payload);
 
-      // Add to reports list
-      const updatedReports = [newReport, ...reports];
-      setReports(updatedReports);
-      localStorage.setItem('ledgerly_reports', JSON.stringify(updatedReports));
-
-      // Show progress modal
+      setReports(prev => [storedReport, ...prev]);
       setShowCreateModal(false);
-      setGeneratingReport(newReport);
+      setGeneratingReport(storedReport);
       setShowProgressModal(true);
-
-      // Start report generation
-      simulateReportGeneration(newReport);
+      simulateReportGeneration(storedReport);
 
       addToast('Report creation started!', 'success');
-      
     } catch (error) {
       console.error('Error creating report:', error);
-      addToast('Error creating report: ' + error.message, 'error');
+      addToast('Error creating report: ' + (error.message || 'Unable to save report'), 'error');
     }
   };
 
@@ -96,7 +87,7 @@ const Reports = () => {
       
       // Update progress
       setReports(prevReports => {
-        const updatedReports = prevReports.map(r => 
+        return prevReports.map(r => 
           r.id === report.id ? { 
             ...r, 
             progress: Math.min(progress, 100), 
@@ -104,28 +95,26 @@ const Reports = () => {
             updatedAt: new Date().toISOString()
           } : r
         );
-        
-        localStorage.setItem('ledgerly_reports', JSON.stringify(updatedReports));
-        return updatedReports;
       });
 
       if (progress >= 100) {
         clearInterval(interval);
         
-        // Final update to completed status
-        setReports(prevReports => {
-          const finalUpdatedReports = prevReports.map(r => 
-            r.id === report.id ? { 
-              ...r, 
-              status: 'completed',
-              progress: 100,
-              updatedAt: new Date().toISOString()
-            } : r
-          );
-          
-          localStorage.setItem('ledgerly_reports', JSON.stringify(finalUpdatedReports));
-          return finalUpdatedReports;
-        });
+      // Final update to completed status
+      const completionTime = new Date().toISOString();
+      setReports(prevReports => {
+        const finalUpdatedReports = prevReports.map(r => 
+          r.id === report.id ? { 
+            ...r, 
+            status: 'completed',
+            progress: 100,
+            updatedAt: completionTime,
+            completedAt: completionTime
+          } : r
+        );
+        
+        return finalUpdatedReports;
+      });
 
         // Add notification when report is complete
         addReportNotification(report, 'completed');
@@ -135,56 +124,61 @@ const Reports = () => {
           setShowProgressModal(false);
           setGeneratingReport(null);
         }, 1000);
+
+      updateStoredReport(report.id, {
+        status: 'completed',
+        progress: 100,
+        completedAt: completionTime
+      }).catch((err) => {
+        console.error('Failed to update report status:', err);
+      });
       }
     }, 300);
   };
 
-  const handleGenerateReport = (reportId) => {
-    const reportTemplate = {
-      sales: { title: 'Sales Report', type: 'sales', format: 'pdf' },
-      revenue: { title: 'Revenue Report', type: 'revenue', format: 'pdf' },
-      inventory: { title: 'Inventory Report', type: 'inventory', format: 'pdf' },
-      customer: { title: 'Customer Report', type: 'customer', format: 'pdf' },
-      profit: { title: 'Profit & Loss Report', type: 'profit', format: 'pdf' },
-      expenses: { title: 'Expenses Report', type: 'expenses', format: 'pdf' },
-      'quick-summary': { title: 'Quick Summary Report', type: 'summary', format: 'pdf' },
-      'monthly-performance': { title: 'Monthly Performance Report', type: 'performance', format: 'pdf' }
-    };
+  const handleGenerateReport = async (reportId) => {
+    try {
+      const reportTemplate = {
+        sales: { title: 'Sales Report', type: 'sales', format: 'pdf' },
+        revenue: { title: 'Revenue Report', type: 'revenue', format: 'pdf' },
+        inventory: { title: 'Inventory Report', type: 'inventory', format: 'pdf' },
+        customer: { title: 'Customer Report', type: 'customer', format: 'pdf' },
+        profit: { title: 'Profit & Loss Report', type: 'profit', format: 'pdf' },
+        expenses: { title: 'Expenses Report', type: 'expenses', format: 'pdf' },
+        'quick-summary': { title: 'Quick Summary Report', type: 'summary', format: 'pdf' },
+        'monthly-performance': { title: 'Monthly Performance Report', type: 'performance', format: 'pdf' }
+      };
 
-    const template = reportTemplate[reportId] || { 
-      title: 'Custom Report', 
-      type: 'custom',
-      format: 'pdf'
-    };
-    
-    const report = {
-      ...template,
-      id: `REPORT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: 'processing',
-      progress: 0,
-      downloads: 0,
-      lastDownloaded: null
-    };
+      const template = reportTemplate[reportId] || { 
+        title: 'Custom Report', 
+        type: 'custom',
+        format: 'pdf'
+      };
 
-    // Add to reports list
-    const updatedReports = [report, ...reports];
-    setReports(updatedReports);
-    localStorage.setItem('ledgerly_reports', JSON.stringify(updatedReports));
+      const reportPayload = buildReportPayload({
+        ...template,
+        dateRange: 'last-30-days',
+        includeCharts: true,
+        sections: ['summary', 'charts', 'tables', 'details'],
+        description: template.description || ''
+      });
 
-    // Start generation
-    setGeneratingReport(report);
-    setShowProgressModal(true);
-    
-    // Use setTimeout to ensure state updates are processed
-    setTimeout(() => {
-      simulateReportGeneration(report);
-    }, 100);
+      const storedReport = await createStoredReport(reportPayload);
+      setReports(prev => [storedReport, ...prev]);
+
+      setGeneratingReport(storedReport);
+      setShowProgressModal(true);
+      setTimeout(() => {
+        simulateReportGeneration(storedReport);
+      }, 100);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      addToast('Unable to generate report at the moment', 'error');
+    }
   };
 
   // Generate actual report data functions
-  const generateReportData = (report) => {
+  function generateReportData(report) {
     // Calculate invoice statistics
     const totalInvoices = invoices.length;
     const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
@@ -294,7 +288,45 @@ const Reports = () => {
     };
 
     return data;
-  };
+  }
+
+  function buildReportPayload(report, overrides = {}) {
+    const reportData = generateReportData(report);
+    const metadata = {
+      ...reportData.metadata,
+      dateRange: report.dateRange || reportData.metadata.dateRange || 'last-30-days',
+      generated: overrides.generatedAt || new Date().toISOString(),
+      extra: report.metadata?.extra || {}
+    };
+    const payload = {
+      title: report.title || reportData.metadata.title || 'Business Report',
+      description: report.description || '',
+      type: report.type || reportData.metadata.type || 'custom',
+      format: report.format || reportData.metadata.format || 'pdf',
+      filters: report.filters || {},
+      options: {
+        includeCharts: report.includeCharts ?? true,
+        sections: report.sections && report.sections.length > 0
+          ? report.sections
+          : ['summary', 'charts', 'tables', 'details']
+      },
+      metadata,
+      summary: reportData.summary,
+      breakdown: reportData.breakdown,
+      status: overrides.status || 'processing',
+      progress: overrides.progress ?? 0,
+      generatedAt: metadata.generated
+    };
+
+    if (overrides.extra) {
+      payload.metadata.extra = {
+        ...payload.metadata.extra,
+        ...overrides.extra
+      };
+    }
+
+    return payload;
+  }
 
   // Generate PDF using jsPDF
 // Update the generatePDF function in Reports.js
@@ -898,7 +930,7 @@ ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
   };
 
   // Download function with actual content generation
-  const handleExport = (format, reportId = null) => {
+  const handleExport = async (format, reportId = null) => {
     const report = reportId ? reports.find(r => r.id === reportId) : null;
     
     if (!report && reportId) {
@@ -942,20 +974,12 @@ ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
 
       // Update report download count
       if (report) {
-        setReports(prevReports => {
-          const updatedReports = prevReports.map(r => 
-            r.id === report.id 
-              ? { 
-                  ...r, 
-                  downloads: (r.downloads || 0) + 1, 
-                  lastDownloaded: new Date().toISOString(),
-                  updatedAt: new Date().toISOString()
-                } 
-              : r
-          );
-          localStorage.setItem('ledgerly_reports', JSON.stringify(updatedReports));
-          return updatedReports;
-        });
+        try {
+          const updated = await recordReportDownload(report.id);
+          setReports(prev => prev.map(r => r.id === report.id ? updated : r));
+        } catch (error) {
+          console.error('Unable to record report download:', error);
+        }
       }
 
       // Show success toast
@@ -969,12 +993,16 @@ ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
     }
   };
 
-  const handleDeleteReport = (reportId) => {
+  const handleDeleteReport = async (reportId) => {
     if (window.confirm('Are you sure you want to delete this report? This action cannot be undone.')) {
-      const updatedReports = reports.filter(r => r.id !== reportId);
-      setReports(updatedReports);
-      localStorage.setItem('ledgerly_reports', JSON.stringify(updatedReports));
-      addToast('Report deleted successfully', 'success');
+      try {
+        await deleteStoredReport(reportId);
+        setReports(prev => prev.filter(r => r.id !== reportId));
+        addToast('Report deleted successfully', 'success');
+      } catch (error) {
+        console.error('Delete report failed:', error);
+        addToast('Unable to delete report', 'error');
+      }
     }
   };
 

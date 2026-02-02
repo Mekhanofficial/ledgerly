@@ -112,6 +112,7 @@ export const buildInvoicePayload = (invoiceData = {}) => {
       : invoiceData.customer);
 
   const payload = {
+    invoiceNumber: invoiceData.invoiceNumber || invoiceData.number,
     customer: resolvedCustomer || '',
     date: invoiceData.issueDate ? new Date(invoiceData.issueDate) : undefined,
     dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,

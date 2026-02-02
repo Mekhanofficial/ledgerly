@@ -1,24 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
-
-// Create axios instance
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
-});
-
-// Add token to requests
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+import api from '../../services/api';
 
 // Async thunks for products
 export const fetchProducts = createAsyncThunk(
@@ -83,17 +64,34 @@ export const deleteProduct = createAsyncThunk(
 
 export const adjustStock = createAsyncThunk(
   'products/adjustStock',
-  async ({ id, quantity, reason, notes, location }, { rejectWithValue }) => {
+  async ({ id, quantity, reason, notes, location, type, user, date }, { rejectWithValue }) => {
     try {
-      const response = await api.post(`/products/${id}/adjust-stock`, {
+      const payload = {
         quantity,
         reason,
         notes,
         location
-      });
+      };
+      if (type) payload.type = type;
+      if (user) payload.user = user;
+      if (date) payload.date = date;
+
+      const response = await api.post(`/products/${id}/adjust-stock`, payload);
       return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || 'Failed to adjust stock');
+    }
+  }
+);
+
+export const fetchStockAdjustments = createAsyncThunk(
+  'products/fetchAdjustments',
+  async (params = { limit: 50 }, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/inventory/stock-adjustments', { params });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to fetch stock adjustments');
     }
   }
 );
@@ -107,6 +105,10 @@ const initialState = {
   error: null,
   total: 0,
   pages: 1,
+  adjustmentsLoading: false,
+  adjustmentsError: null,
+  adjustmentsTotal: 0,
+  adjustmentsPages: 1
 };
 
 const productSlice = createSlice({
@@ -191,30 +193,58 @@ const productSlice = createSlice({
       
       // Adjust stock
       .addCase(adjustStock.fulfilled, (state, action) => {
-        const args = action.meta?.arg || {};
-        const existing = state.products.find(p => p._id === action.payload?._id);
-        const previousStock = existing?.stock?.quantity ?? existing?.quantity ?? existing?.stock ?? 0;
-        const newStock = action.payload?.stock?.quantity ?? action.payload?.quantity ?? (previousStock + (args.quantity || 0));
-        const adjustmentEntry = {
-          id: `adj_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-          productId: action.payload?._id || args.id,
-          type: args.type || 'Adjustment',
-          quantity: args.quantity,
-          reason: args.reason,
-          notes: args.notes,
-          user: args.user || 'System',
-          date: args.date ? new Date(args.date).toISOString() : new Date().toISOString(),
-          previousStock,
-          newStock
-        };
-        state.stockAdjustments.unshift(adjustmentEntry);
-        const index = state.products.findIndex(p => p._id === action.payload._id);
-        if (index !== -1) {
-          state.products[index] = action.payload;
+        const payload = action.payload || {};
+        const adjustedProduct = payload.product || payload;
+        const transaction = payload.transaction;
+        const adjustmentEntry = transaction
+          ? {
+              id: transaction._id || transaction.id || `adj_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+              productId: transaction.product || adjustedProduct?._id,
+              type: transaction.type,
+              quantity: transaction.quantity,
+              reason: transaction.reason,
+              notes: transaction.notes,
+              user: transaction.user,
+              date: transaction.createdAt || new Date().toISOString(),
+              previousStock: transaction.previousStock,
+              newStock: transaction.newStock
+            }
+          : {
+              id: `adj_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+              productId: adjustedProduct?._id,
+              type: action.meta?.arg?.type || 'Adjustment',
+              quantity: action.meta?.arg?.quantity,
+              reason: action.meta?.arg?.reason,
+              notes: action.meta?.arg?.notes,
+              user: action.meta?.arg?.user,
+              date: action.meta?.arg?.date ? new Date(action.meta.arg.date).toISOString() : new Date().toISOString(),
+              previousStock: transaction?.previousStock ?? 0,
+              newStock: transaction?.newStock ?? adjustedProduct?.stock?.quantity ?? 0
+            };
+
+        state.stockAdjustments = [adjustmentEntry, ...state.stockAdjustments].slice(0, 200);
+
+        const index = state.products.findIndex(p => p._id === adjustedProduct?._id);
+        if (index !== -1 && adjustedProduct) {
+          state.products[index] = adjustedProduct;
         }
-        if (state.currentProduct?._id === action.payload._id) {
-          state.currentProduct = action.payload;
+        if (state.currentProduct?._id === adjustedProduct?._id) {
+          state.currentProduct = adjustedProduct;
         }
+      })
+      .addCase(fetchStockAdjustments.pending, (state) => {
+        state.adjustmentsLoading = true;
+        state.adjustmentsError = null;
+      })
+      .addCase(fetchStockAdjustments.fulfilled, (state, action) => {
+        state.adjustmentsLoading = false;
+        state.stockAdjustments = action.payload?.data || [];
+        state.adjustmentsTotal = action.payload?.total || state.stockAdjustments.length;
+        state.adjustmentsPages = action.payload?.pages || 1;
+      })
+      .addCase(fetchStockAdjustments.rejected, (state, action) => {
+        state.adjustmentsLoading = false;
+        state.adjustmentsError = action.payload;
       });
   },
 });

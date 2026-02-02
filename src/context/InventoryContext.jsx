@@ -1,7 +1,25 @@
 // src/context/InventoryContext.jsx
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useToast } from './ToastContext';
 import { useNotifications } from './NotificationContext';
+import api from '../services/api';
+import {
+  fetchProducts,
+  createProduct as createProductThunk,
+  updateProduct as updateProductThunk,
+  deleteProduct as deleteProductThunk,
+  adjustStock as adjustStockThunk,
+  fetchStockAdjustments
+} from '../store/slices/productSlide';
+import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter';
 
 export const InventoryContext = createContext();
 
@@ -16,18 +34,56 @@ export const useInventory = () => {
 export const InventoryProvider = ({ children }) => {
   const { addToast } = useToast();
   const { addNotification } = useNotifications();
+  const dispatch = useDispatch();
+  const { products: rawProducts, stockAdjustments: storeAdjustments } = useSelector((state) => state.products);
   
   // State - EMPTY BY DEFAULT
-  const [products, setProducts] = useState([]);
+  const products = useMemo(() => rawProducts.map((product) => mapProductFromApi(product)), [rawProducts]);
+  const stockAdjustments = storeAdjustments;
   const [categories, setCategories] = useState([]);
-  const [stockAdjustments, setStockAdjustments] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Initialize inventory state (backend is source of truth)
+  const loadCategories = useCallback(async () => {
+    try {
+      const response = await api.get('/categories');
+      setCategories(response.data.data || []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      addToast('Failed to load categories', 'error');
+    }
+  }, [addToast]);
+
+  const loadSuppliers = useCallback(async () => {
+    try {
+      const response = await api.get('/suppliers');
+      setSuppliers(response.data.data || []);
+    } catch (error) {
+      console.error('Error loading suppliers:', error);
+      addToast('Failed to load suppliers', 'error');
+    }
+  }, [addToast]);
+
   useEffect(() => {
-    setLoading(false);
-  }, []);
+    const initialize = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([
+          dispatch(fetchProducts({ isActive: true })),
+          dispatch(fetchStockAdjustments({ limit: 200 })),
+          loadCategories(),
+          loadSuppliers()
+        ]);
+      } catch (error) {
+        console.error('Error initializing inventory state:', error);
+        addToast('Error loading inventory data', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initialize();
+  }, [dispatch, loadCategories, loadSuppliers, addToast]);
 
   // Helper function to parse numeric values safely
   const parseNumber = (value, defaultValue = 0) => {
@@ -76,78 +132,40 @@ export const InventoryProvider = ({ children }) => {
     try {
       const quantity = parseNumber(productData.quantity);
       const price = parseNumber(productData.price);
-      const costPrice = parseNumber(productData.costPrice);
-      const reorderLevel = parseInt(productData.reorderLevel) || 10;
-      
-      // Compress image if it exists and is large
       let optimizedImage = productData.image;
+
       if (productData.image && productData.image.startsWith('data:image')) {
-        if (productData.image.length > 50000) { // More than 50KB
+        if (productData.image.length > 50000) {
           try {
             optimizedImage = await compressImage(productData.image, 400, 0.7);
-            console.log('Image compressed:', {
-              original: (productData.image.length / 1024).toFixed(2) + 'KB',
-              compressed: (optimizedImage.length / 1024).toFixed(2) + 'KB'
-            });
           } catch (error) {
             console.error('Error compressing image:', error);
           }
         }
       }
-      
-      const newProduct = {
-        id: `prod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+
+      const payload = buildProductPayload({
         ...productData,
         image: optimizedImage,
-        quantity: quantity,
-        price: price,
-        costPrice: costPrice,
-        reorderLevel: reorderLevel,
-        stock: quantity,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        status: quantity > 10 ? 'In Stock' : quantity > 0 ? 'Low Stock' : 'Out of Stock',
-        totalValue: quantity * price
-      };
+        price,
+        costPrice: parseNumber(productData.costPrice),
+        quantity,
+        reorderLevel: parseNumber(productData.reorderLevel, 10)
+      });
 
-      // Add to products
-      const updatedProducts = [newProduct, ...products];
-      setProducts(updatedProducts);
+      const created = await dispatch(createProductThunk(payload)).unwrap();
+      const newProduct = mapProductFromApi(created);
 
-      // Update category product count
       if (productData.categoryId) {
         updateCategoryProductCount(productData.categoryId, 1);
       }
 
-      // Update supplier product list
-      if (productData.supplierId) {
-        updateSupplierProducts(productData.supplierId, newProduct.id);
-      }
-
-      // Add stock adjustment for new product
-      const adjustment = {
-        id: `adj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        productId: newProduct.id,
-        productName: newProduct.name,
-        sku: newProduct.sku,
-        type: 'New Product',
-        quantity: newProduct.quantity,
-        previousStock: 0,
-        newStock: newProduct.quantity,
-        reason: 'New product added to inventory',
-        date: new Date().toISOString(),
-        user: 'System'
-      };
-      
-      setStockAdjustments(prev => [adjustment, ...prev]);
-
       addToast(`Product "${newProduct.name}" added successfully!`, 'success');
-      
       addNotification({
         type: 'inventory',
         title: 'New Product Added',
         description: `${newProduct.name} (${newProduct.sku})`,
-        details: `Quantity: ${newProduct.quantity} | Price: $${newProduct.price.toFixed(2)}`,
+        details: `Quantity: ${newProduct.stock} | Price: $${newProduct.price}`,
         time: 'Just now',
         action: 'View Product',
         color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
@@ -158,7 +176,7 @@ export const InventoryProvider = ({ children }) => {
       return newProduct;
     } catch (error) {
       console.error('Error adding product:', error);
-      addToast('Error adding product', 'error');
+      addToast(error?.message || 'Error adding product', 'error');
       throw error;
     }
   };
@@ -166,14 +184,9 @@ export const InventoryProvider = ({ children }) => {
   // Update product
   const updateProduct = async (id, updates) => {
     try {
-      const oldProduct = products.find(p => p.id === id);
-      if (!oldProduct) throw new Error('Product not found');
-
-      const quantity = parseNumber(updates.quantity ?? oldProduct.quantity, 0);
-      const price = parseNumber(updates.price ?? oldProduct.price, 0);
-      
-      // Compress image if provided
+      const quantity = parseNumber(updates.quantity, 0);
       let optimizedImage = updates.image;
+
       if (updates.image && updates.image.startsWith('data:image')) {
         if (updates.image.length > 50000) {
           try {
@@ -183,60 +196,39 @@ export const InventoryProvider = ({ children }) => {
           }
         }
       }
-      
-      const updatedProduct = {
-        ...oldProduct,
+
+      const payload = buildProductPayload({
         ...updates,
-        image: optimizedImage || oldProduct.image,
-        quantity: quantity,
-        price: price,
-        stock: quantity,
-        updatedAt: new Date().toISOString(),
-        totalValue: quantity * price,
-        status: quantity > 10 ? 'In Stock' : quantity > 0 ? 'Low Stock' : 'Out of Stock'
-      };
+        image: optimizedImage,
+        price: parseNumber(updates.price),
+        costPrice: parseNumber(updates.costPrice),
+        quantity,
+        reorderLevel: parseNumber(updates.reorderLevel, 10)
+      });
 
-      const updatedProducts = products.map(p => 
-        p.id === id ? updatedProduct : p
-      );
-      setProducts(updatedProducts);
+      const updated = await dispatch(updateProductThunk({ id, data: payload })).unwrap();
+      const mapped = mapProductFromApi(updated);
 
-      // If category changed, update category counts
-      if (updates.categoryId && updates.categoryId !== oldProduct.categoryId) {
-        if (oldProduct.categoryId) {
-          updateCategoryProductCount(oldProduct.categoryId, -1);
-        }
-        updateCategoryProductCount(updates.categoryId, 1);
-      }
-
-      addToast(`Product "${updatedProduct.name}" updated successfully!`, 'success');
-      return updatedProduct;
+      addToast(`Product "${mapped.name}" updated successfully!`, 'success');
+      await loadCategories();
+      return mapped;
     } catch (error) {
       console.error('Error updating product:', error);
-      addToast('Error updating product', 'error');
+      addToast(error?.message || 'Error updating product', 'error');
       throw error;
     }
   };
 
   // Delete product
-  const deleteProduct = (id) => {
+  const deleteProduct = async (id) => {
     try {
-      const product = products.find(p => p.id === id);
-      if (!product) throw new Error('Product not found');
-
-      const updatedProducts = products.filter(p => p.id !== id);
-      setProducts(updatedProducts);
-
-      // Update category product count
-      if (product.categoryId) {
-        updateCategoryProductCount(product.categoryId, -1);
-      }
-
-      addToast(`Product "${product.name}" deleted successfully!`, 'success');
+      await dispatch(deleteProductThunk(id)).unwrap();
+      addToast('Product deleted successfully!', 'success');
+      await loadCategories();
       return true;
     } catch (error) {
       console.error('Error deleting product:', error);
-      addToast('Error deleting product', 'error');
+      addToast(error?.message || 'Error deleting product', 'error');
       return false;
     }
   };
@@ -280,22 +272,12 @@ export const InventoryProvider = ({ children }) => {
   };
 
   // Add a new category
-  const addCategory = (categoryData) => {
+  const addCategory = async (categoryData) => {
     try {
-      const newCategory = {
-        id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        ...categoryData,
-        productCount: 0,
-        totalValue: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      const updatedCategories = [newCategory, ...categories];
-      setCategories(updatedCategories);
-
+      const response = await api.post('/categories', categoryData);
+      const newCategory = response.data.data;
+      setCategories(prev => [newCategory, ...prev]);
       addToast(`Category "${newCategory.name}" created successfully!`, 'success');
-      
       addNotification({
         type: 'inventory',
         title: 'New Category Added',
@@ -307,126 +289,79 @@ export const InventoryProvider = ({ children }) => {
         link: '/inventory/categories',
         icon: 'Folder'
       }, { showToast: false });
-
+      await loadCategories();
       return newCategory;
     } catch (error) {
       console.error('Error creating category:', error);
-      addToast('Error creating category', 'error');
+      addToast(error?.message || 'Error creating category', 'error');
       throw error;
     }
   };
 
   // Update category
-  const updateCategory = (id, updates) => {
+  const updateCategory = async (id, updates) => {
     try {
-      const updatedCategories = categories.map(cat =>
-        cat.id === id ? { 
-          ...cat, 
-          ...updates,
-          updatedAt: new Date().toISOString()
-        } : cat
-      );
-      setCategories(updatedCategories);
+      const response = await api.put(`/categories/${id}`, updates);
+      const updatedCategory = response.data.data;
+      setCategories(prev => prev.map(cat => (cat._id === updatedCategory._id ? updatedCategory : cat)));
       addToast('Category updated successfully!', 'success');
-      return updatedCategories.find(cat => cat.id === id);
+      await loadCategories();
+      return updatedCategory;
     } catch (error) {
       console.error('Error updating category:', error);
-      addToast('Error updating category', 'error');
+      addToast(error?.message || 'Error updating category', 'error');
       throw error;
     }
   };
 
   // Delete category
-  const deleteCategory = (id) => {
+  const deleteCategory = async (id) => {
     try {
-      const category = categories.find(c => c.id === id);
-      if (!category) throw new Error('Category not found');
-
-      // Check if category has products
       const categoryProducts = products.filter(p => p.categoryId === id);
       if (categoryProducts.length > 0) {
         addToast('Cannot delete category with products. Move products first.', 'warning');
         return false;
       }
 
-      const updatedCategories = categories.filter(c => c.id !== id);
-      setCategories(updatedCategories);
-
-      addToast(`Category "${category.name}" deleted successfully!`, 'success');
+      await api.delete(`/categories/${id}`);
+      setCategories(prev => prev.filter(c => c._id !== id));
+      addToast('Category deleted successfully!', 'success');
+      await loadCategories();
       return true;
     } catch (error) {
       console.error('Error deleting category:', error);
-      addToast('Error deleting category', 'error');
+      addToast(error?.message || 'Error deleting category', 'error');
       return false;
     }
   };
 
   // Add stock adjustment
-  const addStockAdjustment = (adjustmentData) => {
+  const addStockAdjustment = async (adjustmentData) => {
     try {
-      const product = products.find(p => p.id === adjustmentData.productId);
-      if (!product) throw new Error('Product not found');
-
-      const oldQuantity = parseNumber(product.quantity);
-      const adjustmentQuantity = parseNumber(adjustmentData.quantity);
-      
-      let newQuantity;
-      switch (adjustmentData.type) {
-        case 'Restock':
-        case 'Return':
-        case 'Adjustment (Increase)':
-          newQuantity = oldQuantity + adjustmentQuantity;
-          break;
-        case 'Sale':
-        case 'Damage':
-        case 'Adjustment (Decrease)':
-          newQuantity = oldQuantity - adjustmentQuantity;
-          break;
-        default:
-          newQuantity = oldQuantity;
-      }
-
-      // Ensure quantity doesn't go negative
-      newQuantity = Math.max(0, newQuantity);
-
-      const newAdjustment = {
-        id: `adj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        ...adjustmentData,
-        quantity: adjustmentData.type.includes('Decrease') || adjustmentData.type === 'Sale' || adjustmentData.type === 'Damage' 
-          ? -Math.abs(adjustmentQuantity) 
-          : Math.abs(adjustmentQuantity),
-        date: new Date().toISOString(),
-        previousStock: oldQuantity,
-        newStock: newQuantity,
-        user: adjustmentData.user || 'System'
+      const payload = {
+        id: adjustmentData.productId,
+        quantity: adjustmentData.quantity,
+        reason: adjustmentData.reason,
+        notes: adjustmentData.notes,
+        location: adjustmentData.location,
+        type: adjustmentData.type,
+        user: adjustmentData.user,
+        date: adjustmentData.date
       };
 
-      // Update product quantity
-      const updatedProducts = products.map(p =>
-        p.id === product.id
-          ? {
-              ...p,
-              quantity: newQuantity,
-              stock: newQuantity,
-              status: newQuantity > 10 ? 'In Stock' : newQuantity > 0 ? 'Low Stock' : 'Out of Stock',
-              totalValue: newQuantity * (p.price || 0),
-              updatedAt: new Date().toISOString()
-            }
-          : p
-      );
-      setProducts(updatedProducts);
+      const result = await dispatch(adjustStockThunk(payload)).unwrap();
+      await dispatch(fetchStockAdjustments({ limit: 200 }));
 
-      // Add to adjustments
-      setStockAdjustments(prev => [newAdjustment, ...prev]);
+      const product = result.product;
+      const newStock = result.transaction?.newStock ?? product?.stock ?? 0;
+      const reorderLevel = product?.reorderLevel ?? 10;
 
-      // Send notification for low stock
-      const reorderLevel = product.reorderLevel || 10;
-      if (newQuantity <= reorderLevel && newQuantity > 0) {
+      if (newStock <= reorderLevel && newStock > 0) {
         addNotification({
           type: 'inventory',
           title: 'Low Stock Alert',
-          description: `${product.name} (${product.sku})`,
-          details: `Only ${newQuantity} items left in stock (reorder level: ${reorderLevel})`,
+          description: `${product?.name || 'Product'} (${product?.sku || ''})`,
+          details: `Only ${newStock} items left in stock (reorder level: ${reorderLevel})`,
           time: 'Just now',
           action: 'Restock',
           color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
@@ -435,11 +370,11 @@ export const InventoryProvider = ({ children }) => {
         });
       }
 
-      addToast(`Stock adjustment recorded for "${product.name}"`, 'success');
-      return newAdjustment;
+      addToast(`Stock adjustment recorded for "${product?.name || 'product'}"`, 'success');
+      return result;
     } catch (error) {
       console.error('Error recording stock adjustment:', error);
-      addToast('Error recording stock adjustment', 'error');
+      addToast(error?.message || 'Error recording stock adjustment', 'error');
       throw error;
     }
   };
@@ -478,67 +413,35 @@ export const InventoryProvider = ({ children }) => {
   };
 
   // Update stock when invoice is paid
-  const updateStockOnPayment = (invoice) => {
+  const updateStockOnPayment = async (invoice) => {
     try {
-      if (!invoice.lineItems || !Array.isArray(invoice.lineItems)) {
+      if (!invoice?.lineItems || !Array.isArray(invoice.lineItems)) {
         return;
       }
 
       const adjustments = [];
-      
-      invoice.lineItems.forEach(item => {
-        const product = products.find(p => 
-          p.id === item.productId || 
-          p.name === item.description || 
-          p.sku === item.sku
-        );
-        
-        if (product) {
-          const oldQuantity = parseNumber(product.quantity);
-          const soldQuantity = parseNumber(item.quantity);
-          
-          if (oldQuantity >= soldQuantity) {
-            // Reduce stock for sold items
-            const newQuantity = oldQuantity - soldQuantity;
-            
-            const updatedProducts = products.map(p =>
-              p.id === product.id
-                ? {
-                    ...p,
-                    quantity: newQuantity,
-                    stock: newQuantity,
-                    status: newQuantity > 10 ? 'In Stock' : newQuantity > 0 ? 'Low Stock' : 'Out of Stock',
-                    totalValue: newQuantity * (p.price || 0),
-                    updatedAt: new Date().toISOString()
-                  }
-                : p
-            );
-            setProducts(updatedProducts);
 
-            // Record adjustment
-            const adjustment = {
-              id: `adj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              productId: product.id,
-              productName: product.name,
-              sku: product.sku,
-              type: 'Sale',
-              quantity: -soldQuantity,
-              previousStock: oldQuantity,
-              newStock: newQuantity,
-              reason: `Invoice #${invoice.invoiceNumber || invoice.id}`,
-              date: new Date().toISOString(),
-              user: 'System'
-            };
-            
-            adjustments.push(adjustment);
-          }
+      for (const item of invoice.lineItems) {
+        const quantity = parseNumber(item.quantity);
+        if (!quantity) continue;
+
+        try {
+          await dispatch(adjustStockThunk({
+            id: item.productId,
+            quantity: -Math.abs(quantity),
+            type: 'Sale',
+            reason: `Invoice #${invoice.invoiceNumber || invoice.id}`,
+            notes: 'Sale',
+            user: item.soldBy || 'System'
+          })).unwrap();
+          adjustments.push(item.productId);
+        } catch (itemError) {
+          console.error('Error adjusting stock for invoice item:', itemError);
         }
-      });
+      }
 
-      // Add all adjustments
       if (adjustments.length > 0) {
-        setStockAdjustments(prev => [...adjustments, ...prev]);
-        
+        await dispatch(fetchStockAdjustments({ limit: 200 }));
         addNotification({
           type: 'inventory',
           title: 'Stock Updated',
@@ -618,25 +521,27 @@ export const InventoryProvider = ({ children }) => {
   };
 
   // Bulk operations
-  const bulkUpdateProducts = (productIds, updates) => {
-    const updatedProducts = products.map(p =>
-      productIds.includes(p.id) ? { 
-        ...p, 
-        ...updates,
-        updatedAt: new Date().toISOString()
-      } : p
-    );
-    setProducts(updatedProducts);
-    addToast(`${productIds.length} products updated`, 'success');
+  const bulkUpdateProducts = async (productIds, updates) => {
+    try {
+      await Promise.all(productIds.map(id =>
+        dispatch(updateProductThunk({ id, data: updates })).unwrap()
+      ));
+      dispatch(fetchProducts({ isActive: true }));
+      addToast(`${productIds.length} products updated`, 'success');
+    } catch (error) {
+      console.error('Error updating products in bulk:', error);
+      addToast(error?.message || 'Error updating products', 'error');
+      throw error;
+    }
   };
 
   // Clear all inventory data (for testing/debugging)
   const clearInventoryData = () => {
     if (window.confirm('Are you sure you want to clear ALL inventory data? This cannot be undone.')) {
-      setProducts([]);
       setCategories([]);
-      setStockAdjustments([]);
       setSuppliers([]);
+      dispatch(fetchProducts({ isActive: true }));
+      dispatch(fetchStockAdjustments({ limit: 0 }));
       addToast('All inventory data cleared', 'success');
     }
   };
@@ -645,10 +550,10 @@ export const InventoryProvider = ({ children }) => {
   const clearLocalStorageAndReset = () => {
     try {
       // Reset state
-      setProducts([]);
       setCategories([]);
-      setStockAdjustments([]);
       setSuppliers([]);
+      dispatch(fetchProducts({ isActive: true }));
+      dispatch(fetchStockAdjustments({ limit: 100 }));
       
       addToast('Inventory state reset successfully', 'success');
     } catch (error) {
@@ -657,41 +562,31 @@ export const InventoryProvider = ({ children }) => {
     }
   };
 
-  const addSupplier = (supplierData) => {
-  try {
-    const newSupplier = {
-      id: `sup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      ...supplierData,
-      products: [],
-      orderCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    const updatedSuppliers = [newSupplier, ...suppliers];
-    setSuppliers(updatedSuppliers);
-
-    addToast(`Supplier "${newSupplier.name}" created successfully!`, 'success');
-    
-    addNotification({
-      type: 'inventory',
-      title: 'New Supplier Added',
-      description: newSupplier.name,
-      details: newSupplier.email || 'No email provided',
-      time: 'Just now',
-      action: 'View Supplier',
-      color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
-      link: '/inventory/suppliers',
-      icon: 'Truck'
-    }, { showToast: false });
-
-    return newSupplier;
-  } catch (error) {
-    console.error('Error creating supplier:', error);
-    addToast('Error creating supplier', 'error');
-    throw error;
-  }
-};
+  const addSupplier = async (supplierData) => {
+    try {
+      const response = await api.post('/suppliers', supplierData);
+      const newSupplier = response.data.data;
+      setSuppliers(prev => [newSupplier, ...prev]);
+      addToast(`Supplier "${newSupplier.name}" created successfully!`, 'success');
+      addNotification({
+        type: 'inventory',
+        title: 'New Supplier Added',
+        description: newSupplier.name,
+        details: newSupplier.email || 'No email provided',
+        time: 'Just now',
+        action: 'View Supplier',
+        color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+        link: '/inventory/suppliers',
+        icon: 'Truck'
+      }, { showToast: false });
+      await loadSuppliers();
+      return newSupplier;
+    } catch (error) {
+      console.error('Error creating supplier:', error);
+      addToast(error?.message || 'Error creating supplier', 'error');
+      throw error;
+    }
+  };
 
   const contextValue = {
     // State

@@ -2,6 +2,60 @@ import React, { createContext, useState, useContext, useEffect, useCallback } fr
 import { useToast } from './ToastContext';
 import { useInvoice } from './InvoiceContext';
 import { useNotifications } from './NotificationContext';
+import { getPayments, refundPayment } from '../services/paymentService';
+import { getReceipts, createReceipt } from '../services/receiptService';
+
+const mapPaymentToTransaction = (payment = {}) => {
+  const invoice = payment.invoice || {};
+  const customer = payment.customer || {};
+  const processedAt = payment.paymentDate || payment.createdAt || new Date().toISOString();
+  const refundAmount = payment.refundAmount || 0;
+  const amount = Number(payment.amount ?? 0);
+  return {
+    id: payment._id || payment.id,
+    invoiceId: invoice._id || invoice.id || payment.invoiceId,
+    invoiceNumber: invoice.invoiceNumber || payment.invoiceNumber,
+    customerId: customer._id || customer.id || payment.customerId,
+    customerName: customer.name || payment.customerName || 'Customer',
+    customerEmail: customer.email || payment.customerEmail,
+    amount: refundAmount > 0 ? amount - refundAmount : amount,
+    paymentMethod: payment.paymentMethod || 'manual',
+    paymentMethodDetails: payment.paymentGateway
+      ? `${payment.paymentMethod || 'payment'} via ${payment.paymentGateway}`
+      : payment.paymentMethod || 'manual',
+    paymentReference: payment.paymentReference,
+    paymentGateway: payment.paymentGateway,
+    status: payment.status || 'completed',
+    processedAt,
+    notes: payment.notes || '',
+    type: payment.type || (refundAmount > 0 ? 'refund' : 'payment'),
+    raw: payment,
+    refundAmount
+  };
+};
+
+const mapReceiptToUi = (receipt = {}) => {
+  const invoice = receipt.invoice || {};
+  const customer = receipt.customer || {};
+  const date = receipt.date || receipt.createdAt;
+  return {
+    id: receipt._id || receipt.id,
+    receiptNumber: receipt.receiptNumber,
+    invoiceId: invoice._id || invoice.id,
+    invoiceNumber: invoice.invoiceNumber,
+    customerId: customer._id || customer.id,
+    customerName: customer.name || receipt.customerName || 'Customer',
+    customerEmail: customer.email,
+    total: receipt.total || 0,
+    amountPaid: receipt.amountPaid || receipt.total || 0,
+    change: receipt.change || 0,
+    paymentMethod: receipt.paymentMethod,
+    paymentReference: receipt.paymentReference,
+    paymentDate: date,
+    status: receipt.isVoid ? 'void' : (receipt.status || 'completed'),
+    metadata: receipt
+  };
+};
 
 export const PaymentContext = createContext();
 
@@ -24,36 +78,54 @@ export const PaymentProvider = ({ children }) => {
   const [pendingPayments, setPendingPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Load data from localStorage
   useEffect(() => {
-    loadPaymentData();
+    const savedMethods = JSON.parse(localStorage.getItem('ledgerly_payment_methods')) || getDefaultPaymentMethods();
+    setPaymentMethods(savedMethods);
   }, []);
 
-  const loadPaymentData = () => {
+  const refreshTransactions = useCallback(async (params = {}) => {
     try {
-      // Load payment methods
-      const savedMethods = JSON.parse(localStorage.getItem('ledgerly_payment_methods')) || getDefaultPaymentMethods();
-      setPaymentMethods(savedMethods);
-      
-      // Load transactions
-      const savedTransactions = JSON.parse(localStorage.getItem('ledgerly_transactions')) || [];
-      setTransactions(savedTransactions);
-      
-      // Load receipts
-      const savedReceipts = JSON.parse(localStorage.getItem('Ledgerly_receipts')) || [];
-      setReceipts(savedReceipts);
-      
-      // Load pending payments
-      const savedPending = JSON.parse(localStorage.getItem('pending_payments')) || [];
-      setPendingPayments(savedPending);
-      
+      const payload = await getPayments(params);
+      const backendTransactions = payload?.data || [];
+      const mapped = backendTransactions.map(mapPaymentToTransaction);
+      setTransactions(mapped);
+      return mapped;
+    } catch (error) {
+      console.error('Failed to refresh transactions:', error);
+      addToast('Unable to load payment history', 'error');
+      return [];
+    }
+  }, [addToast]);
+
+  const refreshReceipts = useCallback(async (params = {}) => {
+    try {
+      const payload = await getReceipts(params);
+      const backendReceipts = payload?.data || [];
+      const mapped = backendReceipts.map(mapReceiptToUi);
+      setReceipts(mapped);
+      return mapped;
+    } catch (error) {
+      console.error('Failed to refresh receipts:', error);
+      addToast('Unable to load receipt history', 'error');
+      return [];
+    }
+  }, [addToast]);
+
+  const loadPaymentData = useCallback(async () => {
+    setLoading(true);
+    try {
+      await Promise.all([refreshTransactions(), refreshReceipts()]);
     } catch (error) {
       console.error('Error loading payment data:', error);
-      addToast('Error loading payment data', 'error');
+      addToast('Unable to load payment data', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshTransactions, refreshReceipts, addToast]);
+
+  useEffect(() => {
+    loadPaymentData();
+  }, [loadPaymentData]);
 
   const getDefaultPaymentMethods = () => {
     return [
@@ -116,27 +188,6 @@ export const PaymentProvider = ({ children }) => {
       localStorage.setItem('ledgerly_payment_methods', JSON.stringify(paymentMethods));
     }
   }, [paymentMethods, loading]);
-
-  // Save transactions to localStorage
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('ledgerly_transactions', JSON.stringify(transactions));
-    }
-  }, [transactions, loading]);
-
-  // Save receipts to localStorage
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('Ledgerly_receipts', JSON.stringify(receipts));
-    }
-  }, [receipts, loading]);
-
-  // Save pending payments to localStorage
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('pending_payments', JSON.stringify(pendingPayments));
-    }
-  }, [pendingPayments, loading]);
 
   // Add a new payment method
   const addPaymentMethod = (methodData) => {
@@ -239,74 +290,35 @@ export const PaymentProvider = ({ children }) => {
         amount,
         paymentMethodId,
         customerId,
-        notes = '',
-        generateReceipt = true
+        notes = ''
       } = paymentData;
 
-      // Find the invoice
       const invoice = invoices.find(inv => inv.id === invoiceId);
       if (!invoice) {
         throw new Error('Invoice not found');
       }
 
-      // Find payment method
-      const paymentMethod = paymentMethods.find(method => method.id === paymentMethodId);
-      if (!paymentMethod) {
-        throw new Error('Payment method not found');
-      }
+      const paymentMethod = paymentMethods.find(method => method.id === paymentMethodId)
+        || paymentMethods.find(method => method.isDefault);
+      const methodType = paymentMethod?.type || paymentData.paymentMethod || 'manual';
+      const customer = customers.find(c => c.id === customerId) || {};
 
-      // Find customer
-      const customer = customers.find(c => c.id === customerId);
-      if (!customer) {
-        throw new Error('Customer not found');
-      }
-
-      // Create transaction record
-      const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const newTransaction = {
-        id: transactionId,
-        invoiceId,
-        invoiceNumber: invoice.number || invoice.invoiceNumber,
-        customerId,
-        customerName: customer.name,
+      const result = await markAsPaid(invoiceId, {
         amount,
-        paymentMethod: paymentMethod.type,
-        paymentMethodId: paymentMethod.id,
-        paymentMethodDetails: paymentMethod.type === 'credit_card' 
-          ? `${paymentMethod.brand} ending in ${paymentMethod.last4}`
-          : paymentMethod.type === 'paypal'
-          ? `PayPal: ${paymentMethod.email}`
-          : paymentMethod.type === 'bank_transfer'
-          ? `Bank Transfer: ${paymentMethod.last4}`
-          : paymentMethod.type === 'mobile_money'
-          ? `Mobile Money: ${paymentMethod.phone}`
-          : 'Cash Payment',
-        status: 'completed',
-        processedAt: new Date().toISOString(),
-        notes,
-        type: 'payment',
-        metadata: {
-          invoiceAmount: invoice.totalAmount || invoice.amount,
-          outstandingBefore: invoice.outstanding || 0,
-          itemsCount: invoice.lineItems?.length || invoice.items?.length || 0
-        }
-      };
-
-      // Add to transactions
-      const updatedTransactions = [newTransaction, ...transactions];
-      setTransactions(updatedTransactions);
-
-      const recordedInvoice = await markAsPaid(invoiceId, {
-        amount,
-        paymentMethod: paymentMethod.type,
-        paymentReference: paymentMethod.id,
+        paymentMethod: methodType,
+        paymentReference: paymentMethod?.id || paymentData.paymentReference,
+        paymentGateway: paymentData.paymentGateway,
         notes
       }, { showToast: false });
+
+      const recordedInvoice = result?.invoice;
+      const payment = result?.payment;
+      const receipt = result?.receipt;
+
       if (!recordedInvoice) {
         throw new Error('Failed to record payment');
       }
 
-      // Update stock if inventory integration is enabled
       try {
         if (typeof updateStockOnPayment === 'function') {
           updateStockOnPayment(invoiceId);
@@ -315,35 +327,20 @@ export const PaymentProvider = ({ children }) => {
         console.warn('Could not update stock:', stockError);
       }
 
-      // Remove from pending payments
-      const updatedPending = pendingPayments.filter(p => p.invoiceId !== invoiceId);
-      setPendingPayments(updatedPending);
+      setPendingPayments(prev => prev.filter(p => p.invoiceId !== invoiceId));
 
-      // Generate receipt if requested
-      let receipt = null;
-      if (generateReceipt) {
-        receipt = await generateReceiptFromPayment({
-          transaction: newTransaction,
-          invoice,
-          customer,
-          paymentMethod
-        });
-      }
+      await Promise.all([refreshTransactions(), refreshReceipts()]);
 
-      // Update customer stats
-      const customerInvoices = invoices.filter(inv => inv.customerId === customerId);
-      const totalOutstanding = customerInvoices
-        .filter(inv => inv.status !== 'paid')
-        .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
-      
-      // Send notification
+      const customerName = customer.name || recordedInvoice?.customer?.name || 'Customer';
+      const displayAmount = Number(payment?.amount ?? amount) || 0;
+
       addNotification({
         type: 'payment',
         title: 'Payment Processed',
-        description: `$${amount.toLocaleString()} from ${customer.name}`,
-        details: `Invoice #${invoice.number || invoice.invoiceNumber}`,
+        description: `$${displayAmount.toLocaleString()} from ${customerName}`,
+        details: `Invoice #${recordedInvoice.invoiceNumber || recordedInvoice.number}`,
         time: 'Just now',
-        action: 'View Receipt',
+        action: receipt ? 'View Receipt' : 'View Invoice',
         color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
         link: receipt ? `/receipts` : `/invoices/view/${invoiceId}`,
         icon: 'DollarSign',
@@ -352,18 +349,13 @@ export const PaymentProvider = ({ children }) => {
         receiptId: receipt?.id
       }, { showToast: false });
 
-      addToast(`Payment of $${amount} processed successfully!`, 'success');
-      
+      addToast(`Payment of $${displayAmount.toLocaleString()} processed successfully!`, 'success');
+
       return {
-        transaction: newTransaction,
-        invoice: recordedInvoice || {
-          ...invoice,
-          status: 'paid',
-          paidAt: newTransaction.processedAt
-        },
+        transaction: payment ? mapPaymentToTransaction(payment) : null,
+        invoice: recordedInvoice,
         receipt
       };
-
     } catch (error) {
       console.error('Payment processing error:', error);
       addToast(`Payment failed: ${error.message}`, 'error');
@@ -371,57 +363,28 @@ export const PaymentProvider = ({ children }) => {
     }
   };
 
-  // Generate receipt from payment
-  const generateReceiptFromPayment = async (paymentData) => {
-    try {
-      const { transaction, invoice, customer, paymentMethod } = paymentData;
-      
-      const receiptId = `RCP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      
-      const receiptData = {
-        id: receiptId,
-        date: new Date().toLocaleString(),
-        items: invoice.lineItems || invoice.items || [],
-        subtotal: invoice.subtotal || invoice.totalAmount,
-        tax: invoice.tax || 0,
-        total: transaction.amount,
-        customerName: customer.name,
-        customerEmail: customer.email,
-        customerId: customer.id,
-        paymentMethod: paymentMethod.type,
-        paymentMethodId: paymentMethod.id,
-        paymentMethodDetails: paymentMethod.type === 'credit_card' 
-          ? `${paymentMethod.brand} ending in ${paymentMethod.last4}`
-          : paymentMethod.type === 'paypal'
-          ? `PayPal: ${paymentMethod.email}`
-          : paymentMethod.type === 'bank_transfer'
-          ? `Bank Transfer: ${paymentMethod.last4}`
-          : paymentMethod.type === 'mobile_money'
-          ? `Mobile Money: ${paymentMethod.phone}`
-          : 'Cash Payment',
-        notes: transaction.notes,
-        invoiceNumber: invoice.number || invoice.invoiceNumber,
-        transactionId: transaction.id,
-        savedAt: new Date().toISOString(),
-        status: 'completed',
-        type: 'invoice_payment'
-      };
-
-      // Add to receipts
-      const updatedReceipts = [receiptData, ...receipts];
-      setReceipts(updatedReceipts);
-
-      return receiptData;
-    } catch (error) {
-      console.error('Error generating receipt:', error);
-      addToast('Error generating receipt', 'warning');
-      return null;
-    }
-  };
-
   // Record a transaction (e.g., from receipts or manual entry)
-  const recordTransaction = (transactionData) => {
+  const recordTransaction = async (transactionData) => {
     try {
+      if (transactionData.type === 'receipt' && transactionData.receiptPayload?.items?.length) {
+        const payload = {
+          customer: transactionData.receiptPayload.customerId || transactionData.receiptPayload.customer,
+          customerEmail: transactionData.receiptPayload.customerEmail,
+          items: transactionData.receiptPayload.items,
+          paymentMethod: transactionData.receiptPayload.paymentMethod || transactionData.paymentMethod,
+          amountPaid: transactionData.receiptPayload.total || transactionData.amount,
+          subtotal: transactionData.receiptPayload.subtotal,
+          tax: transactionData.receiptPayload.tax,
+          notes: transactionData.receiptPayload.notes || transactionData.notes,
+          paymentReference: transactionData.receiptPayload.paymentReference || transactionData.paymentReference,
+          change: transactionData.receiptPayload.change
+        };
+
+        await createReceipt(payload);
+        await Promise.all([refreshTransactions(), refreshReceipts()]);
+        return null;
+      }
+
       const newTransaction = {
         id: transactionData.id || `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         processedAt: new Date().toISOString(),
@@ -484,76 +447,29 @@ export const PaymentProvider = ({ children }) => {
   // Process a refund
   const processRefund = async (transactionId, refundData) => {
     try {
-      const transaction = transactions.find(t => t.id === transactionId);
-      if (!transaction) {
-        throw new Error('Transaction not found');
-      }
+      const response = await refundPayment(transactionId, refundData);
+      const refundedPayment = response?.data;
+      await Promise.all([refreshTransactions(), refreshReceipts()]);
 
-      const { amount, reason = '' } = refundData;
+      const refundAmount = Number(refundData.amount || refundedPayment?.refundAmount || 0);
+      const customerName = refundedPayment?.customer?.name || refundedPayment?.customerName || 'Customer';
 
-      // Create refund transaction
-      const refundId = `ref_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const refundTransaction = {
-        id: refundId,
-        originalTransactionId: transactionId,
-        invoiceId: transaction.invoiceId,
-        invoiceNumber: transaction.invoiceNumber,
-        customerId: transaction.customerId,
-        customerName: transaction.customerName,
-        amount: -amount, // Negative amount for refund
-        paymentMethod: transaction.paymentMethod,
-        paymentMethodDetails: transaction.paymentMethodDetails,
-        status: 'refunded',
-        processedAt: new Date().toISOString(),
-        notes: reason,
-        type: 'refund',
-        metadata: {
-          originalAmount: transaction.amount,
-          refundReason: reason
-        }
-      };
-
-      // Add to transactions
-      const updatedTransactions = [refundTransaction, ...transactions];
-      setTransactions(updatedTransactions);
-
-      // Update original invoice status if needed
-      const invoice = invoices.find(inv => inv.id === transaction.invoiceId);
-      if (invoice) {
-        // If full refund, mark as refunded
-        if (amount >= transaction.amount) {
-          updateInvoice(transaction.invoiceId, {
-            status: 'refunded',
-            refundedAt: new Date().toISOString()
-          });
-        } else {
-          // Partial refund
-          updateInvoice(transaction.invoiceId, {
-            status: 'partially_refunded',
-            refundedAmount: amount,
-            refundedAt: new Date().toISOString()
-          });
-        }
-      }
-
-      // Send notification
       addNotification({
         type: 'refund',
         title: 'Refund Processed',
-        description: `$${amount.toLocaleString()} refunded to ${transaction.customerName}`,
-        details: `Original invoice #${transaction.invoiceNumber}`,
+        description: `$${Math.abs(refundAmount).toLocaleString()} refunded to ${customerName}`,
+        details: `Original invoice #${refundedPayment?.invoiceNumber || refundedPayment?.invoice?.invoiceNumber || ''}`,
         time: 'Just now',
-        action: 'View Details',
+        action: 'View Payment',
         color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
         link: '/payments',
         icon: 'RefreshCw',
-        transactionId: refundId
+        transactionId
       }, { showToast: false });
 
-      addToast(`Refund of $${amount} processed successfully!`, 'success');
-      
-      return refundTransaction;
+      addToast(`Refund of $${Math.abs(refundAmount).toLocaleString()} processed successfully!`, 'success');
 
+      return mapPaymentToTransaction(refundedPayment);
     } catch (error) {
       console.error('Refund processing error:', error);
       addToast(`Refund failed: ${error.message}`, 'error');

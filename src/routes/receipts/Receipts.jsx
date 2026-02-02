@@ -211,7 +211,7 @@ const Receipts = () => {
       }
 
       // Record transaction in PaymentContext
-      recordTransaction({
+      await recordTransaction({
         id: `txn_${receiptId}`,
         invoiceId: receiptId,
         invoiceNumber: receiptId,
@@ -232,7 +232,8 @@ const Receipts = () => {
           tax,
           total,
           receiptId
-        }
+        },
+        receiptPayload: receiptData
       });
 
       // Generate PDF
@@ -317,7 +318,7 @@ const Receipts = () => {
       }
 
       // Record transaction in PaymentContext
-      recordTransaction({
+      await recordTransaction({
         id: `txn_${receiptId}`,
         invoiceId: receiptId,
         invoiceNumber: receiptId,
@@ -338,7 +339,8 @@ const Receipts = () => {
           tax,
           total,
           receiptId
-        }
+        },
+        receiptPayload: receiptData
       });
 
       // Generate PDF
@@ -453,7 +455,7 @@ Thank you for shopping with us!
     saveReceiptToHistory(receiptData);
 
     // Record transaction in PaymentContext
-    recordTransaction({
+    await recordTransaction({
       id: `txn_${receiptId}`,
       invoiceId: receiptId,
       invoiceNumber: receiptId,
@@ -474,7 +476,8 @@ Thank you for shopping with us!
         tax,
         total,
         receiptId
-      }
+      },
+      receiptPayload: receiptData
     });
 
     // Add notification

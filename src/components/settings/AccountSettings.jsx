@@ -8,11 +8,30 @@ const AccountSettings = () => {
   const { isDarkMode } = useTheme();
   const { accountInfo, updateAccountInfo } = useAccount();
   const { addToast } = useToast();
-  const [formData, setFormData] = useState(accountInfo);
+  const EMPTY_FORM_STATE = {
+    companyName: '',
+    contactName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'United States',
+    timezone: 'America/Los_Angeles',
+    currency: 'USD'
+  };
+  const [formData, setFormData] = useState({
+    ...EMPTY_FORM_STATE,
+    ...accountInfo
+  });
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setFormData(accountInfo);
+    setFormData({
+      ...EMPTY_FORM_STATE,
+      ...accountInfo
+    });
   }, [accountInfo]);
 
   const handleChange = (e) => {
@@ -20,12 +39,17 @@ const AccountSettings = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSaving(true);
-    updateAccountInfo(formData);
-    addToast('Account settings saved', 'success');
-    setIsSaving(false);
+    try {
+      await updateAccountInfo(formData);
+      addToast('Account settings saved', 'success');
+    } catch (error) {
+      addToast(error?.message || 'Failed to save account settings', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

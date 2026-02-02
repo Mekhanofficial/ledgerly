@@ -46,6 +46,16 @@ const resolveTemplateColors = (templateId) => {
   };
 };
 
+const dedupeTemplates = (templates = []) => {
+  const map = new Map();
+  templates.forEach((template) => {
+    if (template?.id && !map.has(template.id)) {
+      map.set(template.id, template);
+    }
+  });
+  return Array.from(map.values());
+};
+
 const CreateInvoice = () => {
   const { addToast } = useToast();
   const { 
@@ -121,7 +131,7 @@ const CreateInvoice = () => {
 
   // Load templates
   useEffect(() => {
-    const templates = getAvailableTemplates();
+    const templates = dedupeTemplates(getAvailableTemplates());
     setAvailableTemplates(templates);
     
     // Set initial template data if available
@@ -152,7 +162,7 @@ const CreateInvoice = () => {
   const loadTemplate = (templateId) => {
     setLoadingTemplate(true);
     try {
-      const templates = getAvailableTemplates();
+      const templates = dedupeTemplates(getAvailableTemplates());
       const template = templates.find(t => t.id === templateId);
       if (template) {
         // Apply template settings
@@ -320,9 +330,10 @@ const CreateInvoice = () => {
     }
   };
 
-  const generatePDF = async (download = true) => {
+  const generatePDF = async (download = true, overrideLineItems = null) => {
     try {
       const customer = getSelectedCustomer() || newCustomer;
+      const pdfLineItems = (overrideLineItems && overrideLineItems.length > 0) ? overrideLineItems : lineItems;
       
       // Create a hidden div for PDF generation
       const pdfContainer = document.createElement('div');
@@ -453,7 +464,7 @@ const CreateInvoice = () => {
               </tr>
             </thead>
             <tbody>
-              ${lineItems.map((item, index) => `
+              ${pdfLineItems.map((item, index) => `
                 <tr style="${index % 2 === 0 ? `background: ${colors.accent};` : ''} border-bottom: 1px solid #e9ecef;">
                   <td style="padding: 15px; font-size: 14px; color: #495057;">
                     ${item.description || 'Item'}
@@ -568,6 +579,31 @@ const CreateInvoice = () => {
         return;
       }
       
+      const normalizedLineItems = lineItems
+        .map((item) => {
+          const quantity = Number(item.quantity);
+          const rate = Number(item.rate);
+          const tax = Number(item.tax);
+          const safeQuantity = Number.isFinite(quantity) ? quantity : 0;
+          const safeRate = Number.isFinite(rate) ? rate : 0;
+          const safeTax = Number.isFinite(tax) ? tax : 0;
+          const computedAmount = Number(item.amount) || safeQuantity * safeRate * (1 + safeTax / 100);
+          return {
+            ...item,
+            description: (item.description || '').trim(),
+            quantity: safeQuantity,
+            rate: safeRate,
+            tax: safeTax,
+            amount: Number.isFinite(computedAmount) ? computedAmount : 0
+          };
+        })
+        .filter(item => item.description && item.quantity > 0 && Number.isFinite(item.rate));
+
+      if (normalizedLineItems.length === 0) {
+        addToast('Add at least one line item with a description and quantity greater than zero', 'error');
+        return;
+      }
+
       setIsSending(true);
       
       let customer = getSelectedCustomer();
@@ -581,8 +617,18 @@ const CreateInvoice = () => {
         throw new Error('Customer information is required');
       }
       
+      const sanitizedSubtotal = normalizedLineItems.reduce(
+        (sum, item) => sum + item.quantity * item.rate,
+        0
+      );
+      const sanitizedTotalTax = normalizedLineItems.reduce(
+        (sum, item) => sum + (item.quantity * item.rate * (item.tax / 100)),
+        0
+      );
+      const sanitizedTotalAmount = sanitizedSubtotal + sanitizedTotalTax;
+      
       // Generate PDF first
-      const pdf = await generatePDF(false);
+      const pdf = await generatePDF(false, normalizedLineItems);
       
       // Convert PDF to Blob for email attachment
       const pdfBlob = pdf.output('blob');
@@ -598,7 +644,7 @@ const CreateInvoice = () => {
         customer: customer.name,
         customerEmail: customer.email,
         customerId: customer.id,
-        lineItems: lineItems.map(item => ({
+        lineItems: normalizedLineItems.map(item => ({
           description: item.description,
           quantity: item.quantity,
           rate: item.rate,
@@ -607,11 +653,11 @@ const CreateInvoice = () => {
           productId: item.productId,
           sku: item.sku
         })),
-        items: lineItems.length,
-        amount: totalAmount,
-        totalAmount,
-        subtotal,
-        totalTax,
+        items: normalizedLineItems.length,
+        amount: sanitizedTotalAmount,
+        totalAmount: sanitizedTotalAmount,
+        subtotal: sanitizedSubtotal,
+        totalTax: sanitizedTotalTax,
         notes,
         terms,
         currency,
@@ -634,7 +680,7 @@ const CreateInvoice = () => {
           invoiceNumber: createdInvoice.invoiceNumber,
           invoiceId: createdInvoice.id,
           customer,
-          amount: totalAmount,
+          amount: sanitizedTotalAmount,
           frequency: recurringSettings.frequency,
           startDate: recurringSettings.startDate,
           endDate: recurringSettings.endDate,
@@ -642,7 +688,7 @@ const CreateInvoice = () => {
           totalCycles: recurringSettings.totalCycles,
           cyclesCompleted: 1,
           status: 'active',
-          lineItems: lineItems.map(item => ({
+          lineItems: normalizedLineItems.map(item => ({
             description: item.description,
             quantity: item.quantity,
             rate: item.rate,
@@ -664,10 +710,10 @@ INVOICE DETAILS
 Invoice #: ${invoiceNumber}
 Issue Date: ${new Date(issueDate).toLocaleDateString()}
 Due Date: ${new Date(dueDate).toLocaleDateString()}
-Total Amount: ${currency} ${totalAmount.toFixed(2)}
+Total Amount: ${currency} ${sanitizedTotalAmount.toFixed(2)}
 
 ITEMS:
-${lineItems.map(item => `- ${item.description}: ${item.quantity} × ${currency}${item.rate.toFixed(2)} = ${currency}${item.amount.toFixed(2)}`).join('\n')}
+${normalizedLineItems.map(item => `- ${item.description}: ${item.quantity} × ${currency}${item.rate.toFixed(2)} = ${currency}${item.amount.toFixed(2)}`).join('\n')}
 
 Thank you for your business!
 
@@ -701,7 +747,10 @@ This email was sent from Ledgerly Invoice System
       }, 2000);
       
     } catch (error) {
-      addToast('Error sending invoice: ' + error.message, 'error');
+      const errorMessage = typeof error === 'string'
+        ? error
+        : error?.message || 'Unable to send invoice';
+      addToast('Error sending invoice: ' + errorMessage, 'error');
     } finally {
       setIsSending(false);
     }

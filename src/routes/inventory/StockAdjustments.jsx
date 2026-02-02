@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { mapProductFromApi } from '../../utils/productAdapter';
-import { fetchProducts } from '../../store/slices/productSlide';
+import { fetchProducts, fetchStockAdjustments } from '../../store/slices/productSlide';
 
 const StockAdjustments = () => {
   const { isDarkMode } = useTheme();
@@ -21,10 +21,9 @@ const StockAdjustments = () => {
   const adjustments = stockAdjustments;
 
   useEffect(() => {
-    if (!rawProducts.length) {
-      dispatch(fetchProducts({ isActive: true }));
-    }
-  }, [dispatch, rawProducts.length]);
+    dispatch(fetchProducts({ isActive: true }));
+    dispatch(fetchStockAdjustments({ limit: 200 }));
+  }, [dispatch]);
 
   const getProductName = (productId) => {
     const product = products.find(p => p.id === productId);

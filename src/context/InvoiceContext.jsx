@@ -371,7 +371,11 @@ export const InvoiceProvider = ({ children }) => {
       if (showToast) {
         addToast('Payment recorded successfully', 'success');
       }
-      return updatedInvoice;
+      return {
+        invoice: updatedInvoice,
+        payment: result?.payment,
+        receipt: result?.receipt
+      };
     } catch (error) {
       if (showToast) {
         addToast(error?.message || 'Error recording payment', 'error');
