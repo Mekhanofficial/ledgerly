@@ -47,9 +47,18 @@ export const InvoiceProvider = ({ children }) => {
   const { customers: rawCustomers } = useSelector((state) => state.customers);
   const { products: rawProducts } = useSelector((state) => state.products);
 
-  const invoices = useMemo(() => rawInvoices.map((invoice) => mapInvoiceFromApi(invoice)), [rawInvoices]);
-  const customers = useMemo(() => rawCustomers.map((customer) => mapCustomerFromApi(customer)), [rawCustomers]);
-  const products = useMemo(() => rawProducts.map((product) => mapProductFromApi(product)), [rawProducts]);
+  const invoices = useMemo(() => {
+    const source = Array.isArray(rawInvoices) ? rawInvoices : [];
+    return source.map((invoice) => mapInvoiceFromApi(invoice));
+  }, [rawInvoices]);
+  const customers = useMemo(() => {
+    const source = Array.isArray(rawCustomers) ? rawCustomers : [];
+    return source.map((customer) => mapCustomerFromApi(customer));
+  }, [rawCustomers]);
+  const products = useMemo(() => {
+    const source = Array.isArray(rawProducts) ? rawProducts : [];
+    return source.map((product) => mapProductFromApi(product));
+  }, [rawProducts]);
 
   const [drafts, setDrafts] = useState([]);
   const [templates, setTemplates] = useState([]);

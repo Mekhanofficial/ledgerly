@@ -62,6 +62,14 @@ export const deleteCustomer = createAsyncThunk(
   }
 );
 
+const normalizeListPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+};
+
 const initialState = {
   customers: [],
   currentCustomer: null,
@@ -91,9 +99,11 @@ const customerSlice = createSlice({
       })
       .addCase(fetchCustomers.fulfilled, (state, action) => {
         state.loading = false;
-        state.customers = action.payload.data;
-        state.total = action.payload.total;
-        state.pages = action.payload.pages;
+        const payload = action.payload;
+        const data = normalizeListPayload(payload);
+        state.customers = data;
+        state.total = payload?.total ?? data.length;
+        state.pages = payload?.pages ?? 1;
       })
       .addCase(fetchCustomers.rejected, (state, action) => {
         state.loading = false;

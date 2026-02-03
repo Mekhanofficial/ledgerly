@@ -96,6 +96,14 @@ export const fetchStockAdjustments = createAsyncThunk(
   }
 );
 
+const normalizeListPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+};
+
 const initialState = {
   products: [],
   currentProduct: null,
@@ -132,9 +140,11 @@ const productSlice = createSlice({
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.products = action.payload.data;
-        state.total = action.payload.total;
-        state.pages = action.payload.pages;
+        const payload = action.payload;
+        const data = normalizeListPayload(payload);
+        state.products = data;
+        state.total = payload?.total ?? data.length;
+        state.pages = payload?.pages ?? 1;
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading = false;
@@ -238,9 +248,11 @@ const productSlice = createSlice({
       })
       .addCase(fetchStockAdjustments.fulfilled, (state, action) => {
         state.adjustmentsLoading = false;
-        state.stockAdjustments = action.payload?.data || [];
-        state.adjustmentsTotal = action.payload?.total || state.stockAdjustments.length;
-        state.adjustmentsPages = action.payload?.pages || 1;
+        const payload = action.payload;
+        const data = normalizeListPayload(payload);
+        state.stockAdjustments = data;
+        state.adjustmentsTotal = payload?.total ?? data.length;
+        state.adjustmentsPages = payload?.pages ?? 1;
       })
       .addCase(fetchStockAdjustments.rejected, (state, action) => {
         state.adjustmentsLoading = false;

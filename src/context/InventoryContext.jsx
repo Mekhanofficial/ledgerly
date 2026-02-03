@@ -38,7 +38,10 @@ export const InventoryProvider = ({ children }) => {
   const { products: rawProducts, stockAdjustments: storeAdjustments } = useSelector((state) => state.products);
   
   // State - EMPTY BY DEFAULT
-  const products = useMemo(() => rawProducts.map((product) => mapProductFromApi(product)), [rawProducts]);
+  const products = useMemo(() => {
+    const source = Array.isArray(rawProducts) ? rawProducts : [];
+    return source.map((product) => mapProductFromApi(product));
+  }, [rawProducts]);
   const stockAdjustments = storeAdjustments;
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);

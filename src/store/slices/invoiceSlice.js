@@ -98,6 +98,14 @@ export const fetchOutstandingInvoices = createAsyncThunk(
   }
 );
 
+const normalizeListPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+};
+
 const initialState = {
   invoices: [],
   currentInvoice: null,
@@ -134,10 +142,12 @@ const invoiceSlice = createSlice({
       })
       .addCase(fetchInvoices.fulfilled, (state, action) => {
         state.loading = false;
-        state.invoices = action.payload.data;
-        state.total = action.payload.total;
-        state.pages = action.payload.pages;
-        state.summary = action.payload.summary || state.summary;
+        const payload = action.payload;
+        const data = normalizeListPayload(payload);
+        state.invoices = data;
+        state.total = payload?.total ?? data.length;
+        state.pages = payload?.pages ?? 1;
+        state.summary = payload?.summary || state.summary;
       })
       .addCase(fetchInvoices.rejected, (state, action) => {
         state.loading = false;
@@ -219,7 +229,8 @@ const invoiceSlice = createSlice({
       })
       .addCase(fetchOutstandingInvoices.fulfilled, (state, action) => {
         state.loading = false;
-        state.outstandingInvoices = action.payload.data;
+        const payload = action.payload;
+        state.outstandingInvoices = normalizeListPayload(payload);
       })
       .addCase(fetchOutstandingInvoices.rejected, (state, action) => {
         state.loading = false;
