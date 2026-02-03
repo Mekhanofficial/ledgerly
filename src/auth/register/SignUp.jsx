@@ -183,7 +183,7 @@ const SignUpPage = () => {
           // Auto-redirect to dashboard after 3 seconds
           setTimeout(() => {
             navigate('/dashboard');
-          }, 3000);
+          }, 7000);
         } else {
           console.error('Registration failed:', result.payload);
         }

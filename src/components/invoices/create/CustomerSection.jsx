@@ -8,7 +8,8 @@ const CustomerSection = ({
   newCustomer,
   setNewCustomer,
   onAddCustomer,
-  getSelectedCustomer
+  getSelectedCustomer,
+  isAddingCustomer
 }) => {
   const selectedCustomerData = getSelectedCustomer();
 
@@ -73,10 +74,12 @@ const CustomerSection = ({
             />
           </div>
           <button
+            type="button"
             onClick={onAddCustomer}
-            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            disabled={isAddingCustomer}
+            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:bg-primary-400 disabled:cursor-not-allowed"
           >
-            Add Customer
+            {isAddingCustomer ? 'Adding customer...' : 'Add Customer'}
           </button>
         </div>
         

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import api from '../services/api';
+import { setUser } from '../store/slices/authSlice';
+import { getAvatarUrl } from '../utils/userDisplay';
 
 const STORAGE_KEY = 'ledgerly_account_info';
 const EMPTY_ACCOUNT_INFO = {
@@ -15,23 +17,32 @@ const EMPTY_ACCOUNT_INFO = {
   country: '',
   website: '',
   timezone: '',
-  currency: 'USD'
+  currency: 'USD',
+  profileImage: '',
+  avatarUrl: ''
 };
 
-const mapBusinessToAccount = (business = {}, user = {}) => ({
-  companyName: business.name || '',
-  contactName: user.name || business.owner?.name || '',
-  email: business.email || user.email || '',
-  phone: business.phone || '',
-  address: business.address?.street || '',
-  city: business.address?.city || '',
-  state: business.address?.state || '',
-  zipCode: business.address?.postalCode || '',
-  country: business.address?.country || '',
-  website: business.website || '',
-  timezone: business.timezone || '',
-  currency: business.currency || 'USD'
-});
+const mapBusinessToAccount = (business = {}, user = {}) => {
+  const resolvedProfile = user.profileImage || business.owner?.profileImage || '';
+  const avatarUrl = getAvatarUrl(user) || getAvatarUrl(business.owner);
+
+  return {
+    companyName: business.name || '',
+    contactName: user.name || business.owner?.name || '',
+    email: business.email || user.email || '',
+    phone: business.phone || '',
+    address: business.address?.street || '',
+    city: business.address?.city || '',
+    state: business.address?.state || '',
+    zipCode: business.address?.postalCode || '',
+    country: business.address?.country || '',
+    website: business.website || '',
+    timezone: business.timezone || '',
+    currency: business.currency || 'USD',
+    profileImage: resolvedProfile,
+    avatarUrl
+  };
+};
 
 const AccountContext = createContext();
 
@@ -45,6 +56,7 @@ export const useAccount = () => {
 
 export const AccountProvider = ({ children }) => {
   const authUser = useSelector((state) => state.auth.user);
+  const dispatch = useDispatch();
   const [accountInfo, setAccountInfo] = useState(EMPTY_ACCOUNT_INFO);
   const [loading, setLoading] = useState(false);
 
@@ -102,29 +114,29 @@ export const AccountProvider = ({ children }) => {
     };
   }, [authUser]);
 
-  const updateAccountInfo = useCallback(async (updates) => {
+  const updateAccountInfo = useCallback(async (updates, profileImageFile) => {
     if (!authUser) {
       throw new Error('Not authenticated');
     }
 
-    const payload = {};
+    const businessPayload = {};
     if (updates.companyName !== undefined) {
-      payload.name = updates.companyName;
+      businessPayload.name = updates.companyName;
     }
     if (updates.email !== undefined) {
-      payload.email = updates.email;
+      businessPayload.email = updates.email;
     }
     if (updates.phone !== undefined) {
-      payload.phone = updates.phone;
+      businessPayload.phone = updates.phone;
     }
     if (updates.website !== undefined) {
-      payload.website = updates.website;
+      businessPayload.website = updates.website;
     }
     if (updates.timezone !== undefined) {
-      payload.timezone = updates.timezone;
+      businessPayload.timezone = updates.timezone;
     }
     if (updates.currency !== undefined) {
-      payload.currency = updates.currency;
+      businessPayload.currency = updates.currency;
     }
 
     const addressFields = {
@@ -136,14 +148,52 @@ export const AccountProvider = ({ children }) => {
     };
 
     if (Object.values(addressFields).some(value => value !== undefined && value !== null && value !== '')) {
-      payload.address = addressFields;
+      businessPayload.address = addressFields;
     }
 
-    const response = await api.put('/business', payload);
-    const normalized = mapBusinessToAccount(response.data.data, authUser);
+    const userPayload = {};
+    if (updates.contactName !== undefined) {
+      userPayload.name = updates.contactName;
+    }
+    if (updates.email !== undefined) {
+      userPayload.email = updates.email;
+    }
+    if (updates.phone !== undefined) {
+      userPayload.phone = updates.phone;
+    }
+
+    let updatedUser = null;
+    if (profileImageFile || Object.keys(userPayload).length) {
+      if (profileImageFile) {
+        const formData = new FormData();
+        if (userPayload.name) formData.append('name', userPayload.name);
+        if (userPayload.email) formData.append('email', userPayload.email);
+        if (userPayload.phone) formData.append('phone', userPayload.phone);
+        formData.append('profileImage', profileImageFile);
+
+        const userResponse = await api.put('/auth/updatedetails', formData);
+        updatedUser = userResponse.data.data;
+      } else {
+        const userResponse = await api.put('/auth/updatedetails', userPayload);
+        updatedUser = userResponse.data.data;
+      }
+
+      dispatch(setUser(updatedUser));
+    }
+
+    let businessData;
+    if (Object.keys(businessPayload).length > 0) {
+      const response = await api.put('/business', businessPayload);
+      businessData = response.data.data;
+    } else {
+      const response = await api.get('/business');
+      businessData = response.data.data;
+    }
+
+    const normalized = mapBusinessToAccount(businessData, updatedUser || authUser);
     setAccountInfo(normalized);
     return normalized;
-  }, [authUser, accountInfo]);
+  }, [authUser, accountInfo, dispatch]);
 
   return (
     <AccountContext.Provider value={{ accountInfo, updateAccountInfo, loading }}>

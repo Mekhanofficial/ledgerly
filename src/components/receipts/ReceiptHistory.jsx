@@ -21,24 +21,6 @@ const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted }) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'Ledgerly_receipts' || e.type === 'receiptsUpdated') {
-        if (onRefresh) {
-          onRefresh();
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('receiptsUpdated', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('receiptsUpdated', handleStorageChange);
-    };
-  }, [onRefresh]);
-
   const handleReprint = (receipt) => {
     try {
     const pdfDoc = generateReceiptPDF(receipt, accountInfo);
@@ -98,25 +80,9 @@ Thank you for shopping with us!
     }
   };
 
-  const handleDeleteReceipt = (receiptId) => {
-    if (window.confirm('Are you sure you want to delete this receipt?')) {
-      try {
-        const currentReceipts = JSON.parse(localStorage.getItem('Ledgerly_receipts') || '[]');
-        const updatedReceipts = currentReceipts.filter(receipt => receipt.id !== receiptId);
-        localStorage.setItem('Ledgerly_receipts', JSON.stringify(updatedReceipts));
-        
-        window.dispatchEvent(new CustomEvent('receiptsUpdated'));
-        
-        if (onReceiptDeleted) {
-          onReceiptDeleted();
-        }
-        
-        addToast('Receipt deleted successfully', 'success');
-        setActionMenu(null);
-      } catch (error) {
-        addToast('Error deleting receipt', 'error');
-      }
-    }
+  const handleDeleteReceipt = () => {
+    addToast('Receipt deletion is disabled while using the backend history', 'info');
+    setActionMenu(null);
   };
 
   const getPaymentMethodColor = (method) => {

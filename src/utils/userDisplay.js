@@ -1,3 +1,5 @@
+import { resolveServerBaseUrl } from './apiConfig';
+
 const safeJsonParse = (value) => {
   try {
     return JSON.parse(value);
@@ -46,6 +48,20 @@ export const getUserEmail = (user) => {
 export const getUserRoleLabel = (user) => {
   if (!user) return 'Guest';
   return user.role === 'admin' ? 'Admin' : 'User';
+};
+
+const getServerBaseUrl = () => resolveServerBaseUrl();
+
+export const getAvatarUrl = (user) => {
+  const profileImage = user?.profileImage;
+  if (!profileImage) return null;
+  if (/^https?:\/\//i.test(profileImage)) {
+    return profileImage;
+  }
+  const base = getServerBaseUrl();
+  const normalized = profileImage.replace(/\\/g, '/');
+  const trimmed = normalized.replace(/^\/+/, '');
+  return `${base}/${trimmed}`;
 };
 
 export const getUserInitials = (user) => {

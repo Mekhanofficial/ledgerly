@@ -5,6 +5,7 @@ import SettingsSidebar from '../../components/settings/SettingsSidebar';
 import AccountSettings from '../../components/settings/AccountSettings';
 import NotificationSettings from '../../components/settings/NotificationSettings';
 import { useTheme } from '../../context/ThemeContext';
+import TeamManagementPanel from '../../components/team/TeamManagementPanel';
 
 const Settings = () => {
   const { isDarkMode } = useTheme();
@@ -73,24 +74,7 @@ const Settings = () => {
     </div>
   );
 
-  const TeamSettings = () => (
-    <div className={`border rounded-xl p-6 ${
-      isDarkMode 
-        ? 'bg-gray-800 border-gray-700' 
-        : 'bg-white border-gray-200'
-    }`}>
-      <h3 className={`text-lg font-semibold ${
-        isDarkMode ? 'text-white' : 'text-gray-900'
-      }`}>
-        Team Management
-      </h3>
-      <p className={`mt-1 ${
-        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-      }`}>
-        Add team members and manage permissions
-      </p>
-    </div>
-  );
+  const TeamSettings = () => <TeamManagementPanel />;
 
   const AppearanceSettings = () => (
     <div className={`border rounded-xl p-6 ${

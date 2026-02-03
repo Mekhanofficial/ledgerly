@@ -519,6 +519,10 @@ export const InvoiceProvider = ({ children }) => {
     }
   };
 
+  const refreshCustomers = useCallback(() => {
+    dispatch(fetchCustomers());
+  }, [dispatch]);
+
   const updateCustomer = async (id, updates) => {
     try {
       const payload = { ...updates };
@@ -851,6 +855,7 @@ export const InvoiceProvider = ({ children }) => {
     
     // Customer Functions
     addCustomer,
+    refreshCustomers,
     updateCustomer,
     deleteCustomer,
     getCustomerStats,

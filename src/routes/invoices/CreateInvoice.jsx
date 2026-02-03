@@ -61,6 +61,7 @@ const CreateInvoice = () => {
   const { 
     addInvoice, 
     addCustomer, 
+    refreshCustomers,
     saveDraft,
     customers,
     saveRecurringInvoice,
@@ -123,6 +124,7 @@ const CreateInvoice = () => {
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
@@ -267,13 +269,17 @@ const CreateInvoice = () => {
       return;
     }
     
+    setIsAddingCustomer(true);
     try {
       const addedCustomer = await addCustomer(newCustomer, { showNotificationToast: false });
       setSelectedCustomer(addedCustomer.id);
       setNewCustomer({ name: '', email: '', phone: '', address: '' });
+      refreshCustomers();
       addToast(`Customer "${addedCustomer.name}" added successfully!`, 'success');
     } catch (error) {
-      addToast('Error adding customer', 'error');
+      addToast(error?.message || 'Error adding customer', 'error');
+    } finally {
+      setIsAddingCustomer(false);
     }
   };
 
@@ -974,6 +980,7 @@ This email was sent from Ledgerly Invoice System
               setNewCustomer={setNewCustomer}
               onAddCustomer={handleAddCustomer}
               getSelectedCustomer={getSelectedCustomer}
+              isAddingCustomer={isAddingCustomer}
             />
             
             {/* Template Selection */}

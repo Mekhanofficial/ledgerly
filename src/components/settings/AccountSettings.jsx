@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { User, Mail, Building, MapPin, Save } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Mail, Building, MapPin, Save, Camera, Trash2 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAccount } from '../../context/AccountContext';
 import { useToast } from '../../context/ToastContext';
@@ -26,6 +26,11 @@ const AccountSettings = () => {
     ...accountInfo
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [profileImageFile, setProfileImageFile] = useState(null);
+  const [profilePreviewUrl, setProfilePreviewUrl] = useState('');
+  const fileInputRef = useRef(null);
+  const previewRef = useRef(null);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
 
   useEffect(() => {
     setFormData({
@@ -33,6 +38,71 @@ const AccountSettings = () => {
       ...accountInfo
     });
   }, [accountInfo]);
+
+  useEffect(() => {
+    return () => {
+      if (previewRef.current) {
+        URL.revokeObjectURL(previewRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!profileImageFile) {
+      setProfilePreviewUrl('');
+    }
+  }, [accountInfo.avatarUrl, profileImageFile]);
+
+  const rawAvatarUrl = profilePreviewUrl || accountInfo.avatarUrl || '';
+  const resolvedAvatarUrl = avatarLoadError ? '' : rawAvatarUrl;
+  const hasAvatar = Boolean(resolvedAvatarUrl);
+  const canRemovePhoto = Boolean(profileImageFile || accountInfo.avatarUrl);
+
+  useEffect(() => {
+    setAvatarLoadError(false);
+  }, [profilePreviewUrl, accountInfo.avatarUrl]);
+
+  const handleRemovePhoto = () => {
+    if (previewRef.current) {
+      URL.revokeObjectURL(previewRef.current);
+      previewRef.current = null;
+    }
+    setProfileImageFile(null);
+    setProfilePreviewUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleProfileImageChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      handleRemovePhoto();
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      addToast('Only image files are allowed for profile photos', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      addToast('Profile photo must be 10MB or smaller', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    if (previewRef.current) {
+      URL.revokeObjectURL(previewRef.current);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    previewRef.current = objectUrl;
+    setProfilePreviewUrl(objectUrl);
+    setProfileImageFile(file);
+  };
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,8 +113,9 @@ const AccountSettings = () => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      await updateAccountInfo(formData);
+      await updateAccountInfo(formData, profileImageFile);
       addToast('Account settings saved', 'success');
+      handleRemovePhoto();
     } catch (error) {
       addToast(error?.message || 'Failed to save account settings', 'error');
     } finally {
@@ -63,6 +134,75 @@ const AccountSettings = () => {
       }`}>
         Account Settings
       </h3>
+
+      <div className={`mb-6 border-b pb-6 ${
+        isDarkMode ? 'border-gray-700' : 'border-gray-200'
+      }`}>
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          <div className={`relative w-24 h-24 rounded-full border-2 overflow-hidden ${
+            isDarkMode ? 'border-gray-600' : 'border-gray-200'
+          }`}>
+            {hasAvatar ? (
+              <img
+                src={resolvedAvatarUrl}
+                alt="Profile photo"
+                className="w-full h-full object-cover"
+                onError={() => setAvatarLoadError(true)}
+              />
+            ) : (
+              <div className={`w-full h-full flex items-center justify-center ${
+                isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-500'
+              }`}>
+                <User className="w-8 h-8" />
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className={`text-sm font-semibold ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Profile photo
+            </div>
+            <p className={`text-xs ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-500'
+            }`}>
+              Upload a JPEG, PNG, or WEBP image (max 10MB).
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <label
+                htmlFor="profileImageUpload"
+                className={`inline-flex items-center px-3 py-1.5 rounded-lg border text-xs font-medium transition ${
+                  isDarkMode ? 'border-gray-600 text-white' : 'border-gray-200 text-gray-700'
+                } hover:bg-primary-50 dark:hover:bg-gray-700`}
+              >
+                <Camera className="w-4 h-4 mr-1" />
+                Change photo
+              </label>
+              {canRemovePhoto && (
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:text-red-700 transition"
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Remove
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-400">
+              Photos are stored on the Ledgerly backend and sync immediately.
+            </p>
+          </div>
+        </div>
+        <input
+          ref={fileInputRef}
+          id="profileImageUpload"
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          onChange={handleProfileImageChange}
+        />
+      </div>
       
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

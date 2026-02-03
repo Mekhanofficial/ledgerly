@@ -366,18 +366,31 @@ export const PaymentProvider = ({ children }) => {
   // Record a transaction (e.g., from receipts or manual entry)
   const recordTransaction = async (transactionData) => {
     try {
-      if (transactionData.type === 'receipt' && transactionData.receiptPayload?.items?.length) {
+      if (transactionData.type === 'receipt') {
+        const receiptPayload = transactionData.receiptPayload || {};
+        const items = (receiptPayload.items || []).map((item) => ({
+          description: item.description || item.name || 'Item',
+          quantity: Number(item.quantity ?? 1),
+          unitPrice: Number(item.unitPrice ?? item.price ?? 0),
+          taxRate: Number(item.taxRate ?? 0),
+          total: Number(item.total ?? ((item.unitPrice ?? item.price ?? 0) * (item.quantity ?? 1)))
+        }));
+
+        if (items.length === 0) {
+          throw new Error('Receipt must include at least one item');
+        }
+
         const payload = {
-          customer: transactionData.receiptPayload.customerId || transactionData.receiptPayload.customer,
-          customerEmail: transactionData.receiptPayload.customerEmail,
-          items: transactionData.receiptPayload.items,
-          paymentMethod: transactionData.receiptPayload.paymentMethod || transactionData.paymentMethod,
-          amountPaid: transactionData.receiptPayload.total || transactionData.amount,
-          subtotal: transactionData.receiptPayload.subtotal,
-          tax: transactionData.receiptPayload.tax,
-          notes: transactionData.receiptPayload.notes || transactionData.notes,
-          paymentReference: transactionData.receiptPayload.paymentReference || transactionData.paymentReference,
-          change: transactionData.receiptPayload.change
+          customer: receiptPayload.customerId || receiptPayload.customer || undefined,
+          customerEmail: receiptPayload.customerEmail,
+          items,
+          paymentMethod: receiptPayload.paymentMethod || transactionData.paymentMethod,
+          amountPaid: receiptPayload.amountPaid ?? receiptPayload.total ?? transactionData.amount,
+          subtotal: receiptPayload.subtotal,
+          tax: receiptPayload.tax,
+          notes: receiptPayload.notes || transactionData.notes,
+          paymentReference: receiptPayload.paymentReference || transactionData.paymentReference,
+          change: receiptPayload.change
         };
 
         await createReceipt(payload);
@@ -438,8 +451,9 @@ export const PaymentProvider = ({ children }) => {
       
       return newTransaction;
     } catch (error) {
-      console.error('Error recording transaction:', error);
-      addToast('Error recording transaction', 'error');
+      console.error('Error recording transaction:', error.response?.data || error.message);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+      addToast(`Error recording transaction: ${errorMessage}`, 'error');
       throw error;
     }
   };
@@ -957,7 +971,9 @@ export const PaymentProvider = ({ children }) => {
     
     // Utility Methods
     syncPayments,
-    exportTransactions
+    exportTransactions,
+    refreshTransactions,
+    refreshReceipts
   };
 
   return (

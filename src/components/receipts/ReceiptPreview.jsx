@@ -1,6 +1,7 @@
 import React from 'react';
 import { Printer, Mail, Trash2, Plus, Minus, CreditCard, Wallet, Smartphone, User, ShoppingCart } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAccount } from '../../context/AccountContext';
 import PaymentMethodDisplay from './PaymentMethodDisplay';
 
 const ReceiptPreview = ({ 
@@ -29,6 +30,7 @@ const ReceiptPreview = ({
   isProcessing
 }) => {
   const { isDarkMode } = useTheme();
+  const { accountInfo } = useAccount();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   
   // Calculate totals
@@ -57,6 +59,18 @@ const ReceiptPreview = ({
     }
     return paymentMethod === 'Card' ? 'Card payment' : 'Cash payment';
   };
+
+  const companyName = accountInfo?.companyName || accountInfo?.businessName || 'InvoiceFlow';
+  const locationParts = [
+    accountInfo?.address,
+    [accountInfo?.city, accountInfo?.state, accountInfo?.zipCode].filter(Boolean).join(', '),
+    accountInfo?.country
+  ].filter(Boolean);
+  const contactLine = [
+    accountInfo?.phone ? `Tel: ${accountInfo.phone}` : '',
+    accountInfo?.email || '',
+    accountInfo?.website || ''
+  ].filter(Boolean).join(' | ');
 
   return (
     <div className={`border rounded-xl p-4 sm:p-6 h-full flex flex-col ${isDarkMode 
@@ -87,15 +101,19 @@ const ReceiptPreview = ({
 
       {/* Header */}
       <div className="text-center mb-4 sm:mb-6">
-        <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          Legends
-        </div>
-        <div className={`text-xs sm:text-sm mt-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-          123 Business Street<br />
-          City, State 12345<br />
-          Tel: (555) 123-4567
-        </div>
+      <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+        {companyName}
       </div>
+      <div className={`text-xs sm:text-sm mt-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+        {locationParts.map((line, index) => (
+          <React.Fragment key={line}>
+            {line}
+            {index !== locationParts.length - 1 && <br />}
+          </React.Fragment>
+        ))}
+        {contactLine && <><br />{contactLine}</>}
+      </div>
+    </div>
 
       {/* Customer and Payment Method Summary */}
       <div className={`mb-4 p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-blue-50/30'}`}>

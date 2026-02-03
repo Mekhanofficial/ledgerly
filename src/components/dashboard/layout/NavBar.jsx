@@ -35,7 +35,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNotifications } from '../../../context/NotificationContext';
-import { getAvatarSeed, getUserDisplayName, getUserEmail, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
+import { getAvatarSeed, getAvatarUrl, getUserDisplayName, getUserEmail, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
 
 const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -50,6 +50,9 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   
   const authUser = useSelector((state) => state.auth?.user);
   const user = resolveAuthUser(authUser);
+  const dicebearAvatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${getAvatarSeed(user)}&backgroundColor=4f46e5&backgroundType=solid&hairColor=262626&mouth=smile&eyes=happy&eyebrows=raised`;
+  const computedAvatarUrl = getAvatarUrl(user) || dicebearAvatarUrl;
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   const invoices = useSelector((state) => state.invoices?.invoices || []);
   const customers = useSelector((state) => state.customers?.customers || []);
   
@@ -100,6 +103,12 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       searchInputRef.current.focus();
     }
   }, [isSearchOpen]);
+
+  useEffect(() => {
+    setAvatarLoadError(false);
+  }, [computedAvatarUrl]);
+
+  const showAvatarImage = Boolean(computedAvatarUrl) && !avatarLoadError;
 
   const formatRevenue = (value) => {
     if (!Number.isFinite(value) || value <= 0) {
@@ -594,18 +603,18 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                 aria-expanded={userMenuOpen}
               >
                 <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-primary-600 to-primary-800 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-gray-800">
-                  <img 
-                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${getAvatarSeed(user)}&backgroundColor=4f46e5&backgroundType=solid&hairColor=262626&mouth=smile&eyes=happy&eyebrows=raised`}
-                    alt="User avatar" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                  <div className="w-full h-full rounded-full bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center text-white font-bold hidden">
-                    <User className="w-4 h-4 sm:w-5 sm:h-5" />
-                  </div>
+                  {showAvatarImage ? (
+                    <img 
+                      src={computedAvatarUrl}
+                      alt="User avatar" 
+                      className="w-full h-full object-cover"
+                      onError={() => setAvatarLoadError(true)}
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center text-white font-bold">
+                      <User className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </div>
+                  )}
                 </div>
                 <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 ml-1 sm:ml-2 text-gray-500 dark:text-gray-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -615,19 +624,19 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                   {/* User Info Section */}
                   <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center space-x-3 sm:space-x-4">
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-primary-600 to-primary-800 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-gray-800">
-                        <img 
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${getAvatarSeed(user)}&backgroundColor=4f46e5&backgroundType=solid&hairColor=262626&mouth=smile&eyes=happy&eyebrows=raised`}
-                          alt="User avatar" 
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
-                          }}
-                        />
-                        <div className="w-full h-full rounded-full bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center text-white font-bold hidden">
-                          <User className="w-5 h-5 sm:w-6 sm:h-6" />
-                        </div>
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-primary-600 to-primary-800 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-gray-800">
+                          {showAvatarImage ? (
+                            <img 
+                              src={computedAvatarUrl}
+                              alt="User avatar" 
+                              className="w-full h-full object-cover"
+                              onError={() => setAvatarLoadError(true)}
+                            />
+                          ) : (
+                            <div className="w-full h-full rounded-full bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center text-white font-bold">
+                              <User className="w-5 h-5 sm:w-6 sm:h-6" />
+                            </div>
+                          )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-gray-900 dark:text-white truncate text-sm sm:text-base">
