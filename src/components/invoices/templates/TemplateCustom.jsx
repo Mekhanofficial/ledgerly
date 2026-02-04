@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Eye, Plus, Palette, Layout, FileText, Save, X } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useToast } from '../../../context/ToastContext';
-import { templateStorage } from '../../../utils/templateStorage';
+import { createCustomTemplate } from '../../../services/templateService';
 
 const TemplateCustom = ({ onTemplateCreated }) => {
   const { isDarkMode } = useTheme();
@@ -33,7 +33,7 @@ const TemplateCustom = ({ onTemplateCreated }) => {
     }
   ];
 
-  const handleSaveTemplate = () => {
+  const handleSaveTemplate = async () => {
     if (!templateName.trim()) {
       addToast('Please enter a template name', 'error');
       return;
@@ -41,17 +41,12 @@ const TemplateCustom = ({ onTemplateCreated }) => {
 
     try {
       const templateData = {
-        id: `template_${Date.now()}`,
         name: templateName,
         description: templateDescription || 'Custom invoice template',
-        category: 'custom',
-        isDefault: false,
-        isFavorite: false,
-        previewColor: 'bg-gradient-to-br from-primary-500 to-primary-600',
-        createdAt: new Date().toISOString()
+        previewColor: 'bg-gradient-to-br from-primary-500 to-primary-600'
       };
 
-      templateStorage.saveTemplate(templateData);
+      await createCustomTemplate(templateData);
       addToast('Custom template created successfully!', 'success');
       
       setTemplateName('');

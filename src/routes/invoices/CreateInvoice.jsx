@@ -35,8 +35,9 @@ const toCssColor = (colorValue, fallback) => {
   return colorValue || fallback;
 };
 
-const resolveTemplateColors = (templateId) => {
-  const template = templateStorage.getTemplate(templateId) || templateStorage.getTemplate('standard');
+const resolveTemplateColors = (templateId, templates = []) => {
+  const matchedTemplate = templates.find((item) => item.id === templateId);
+  const template = matchedTemplate || templateStorage.getTemplate(templateId) || templateStorage.getTemplate('standard');
   const palette = template?.colors || {};
   return {
     primary: toCssColor(palette.primary, TEMPLATE_COLOR_FALLBACK.primary),
@@ -167,6 +168,10 @@ const CreateInvoice = () => {
       const templates = dedupeTemplates(getAvailableTemplates());
       const template = templates.find(t => t.id === templateId);
       if (template) {
+        if (template.isPremium && !template.hasAccess) {
+          addToast(`"${template.name}" is a premium template. Purchase to use it.`, 'warning');
+          return;
+        }
         // Apply template settings
         if (template.lineItems && template.lineItems.length > 0) {
           setLineItems(template.lineItems.map(item => ({
@@ -193,6 +198,15 @@ const CreateInvoice = () => {
     } finally {
       setLoadingTemplate(false);
     }
+  };
+
+  const handleSelectTemplate = (template) => {
+    if (!template) return;
+    if (template.isPremium && !template.hasAccess) {
+      addToast(`"${template.name}" is a premium template. Purchase to use it.`, 'warning');
+      return;
+    }
+    setSelectedTemplate(template.id);
   };
 
   // Handler functions for line items
@@ -351,7 +365,7 @@ const CreateInvoice = () => {
       pdfContainer.style.padding = '40px';
       pdfContainer.style.fontFamily = 'Arial, sans-serif';
       
-      const colors = resolveTemplateColors(selectedTemplate);
+      const colors = resolveTemplateColors(selectedTemplate, availableTemplates);
       
       const companyName = accountInfo?.companyName || 'Ledgerly';
       const contactTitle = accountInfo?.contactName ? `Attn: ${accountInfo.contactName}` : '';
@@ -769,7 +783,7 @@ This email was sent from Ledgerly Invoice System
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
     const customer = getSelectedCustomer() || newCustomer;
-    const printColors = resolveTemplateColors(selectedTemplate);
+    const printColors = resolveTemplateColors(selectedTemplate, availableTemplates);
     
     const printContent = `
       <html>
@@ -995,12 +1009,19 @@ This email was sent from Ledgerly Invoice System
                 </label>
                 <select
                   value={selectedTemplate}
-                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                  onChange={(e) => {
+                    const template = availableTemplates.find(item => item.id === e.target.value);
+                    handleSelectTemplate(template);
+                  }}
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   {availableTemplates.map(template => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
+                    <option
+                      key={template.id}
+                      value={template.id}
+                      disabled={template.isPremium && !template.hasAccess}
+                    >
+                      {template.name}{template.isPremium && !template.hasAccess ? ' (Premium)' : ''}
                     </option>
                   ))}
                 </select>
@@ -1009,12 +1030,13 @@ This email was sent from Ledgerly Invoice System
                   {availableTemplates.map(template => (
                     <button
                       key={template.id}
-                      onClick={() => setSelectedTemplate(template.id)}
+                      onClick={() => handleSelectTemplate(template)}
+                      disabled={template.isPremium && !template.hasAccess}
                       className={`p-3 rounded-lg border transition-all duration-200 ${
                         selectedTemplate === template.id
                           ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20 shadow-md scale-105'
                           : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm'
-                      }`}
+                      } ${template.isPremium && !template.hasAccess ? 'opacity-60 cursor-not-allowed' : ''}`}
                       title={template.name}
                     >
                       <div className="flex flex-col items-center">
@@ -1034,6 +1056,11 @@ This email was sent from Ledgerly Invoice System
                         {template.isDefault && (
                           <span className="text-[10px] text-primary-600 dark:text-primary-400 mt-1">
                             Default
+                          </span>
+                        )}
+                        {template.isPremium && !template.hasAccess && (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                            Locked
                           </span>
                         )}
                       </div>

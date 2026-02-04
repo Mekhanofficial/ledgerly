@@ -37,21 +37,38 @@ const mapPaymentToTransaction = (payment = {}) => {
 const mapReceiptToUi = (receipt = {}) => {
   const invoice = receipt.invoice || {};
   const customer = receipt.customer || {};
-  const date = receipt.date || receipt.createdAt;
+  const rawDate = receipt.date || receipt.createdAt || new Date().toISOString();
+  const displayDate = rawDate ? new Date(rawDate).toLocaleString() : '';
+  const items = Array.isArray(receipt.items)
+    ? receipt.items.map((item) => ({
+        name: item.description || item.name || 'Item',
+        quantity: Number(item.quantity ?? 1),
+        price: Number(item.unitPrice ?? item.price ?? 0)
+      }))
+    : [];
+  const taxAmount = receipt.tax?.amount ?? receipt.tax ?? 0;
+
   return {
-    id: receipt._id || receipt.id,
+    id: receipt.receiptNumber || receipt._id || receipt.id,
+    recordId: receipt._id || receipt.id,
     receiptNumber: receipt.receiptNumber,
     invoiceId: invoice._id || invoice.id,
     invoiceNumber: invoice.invoiceNumber,
     customerId: customer._id || customer.id,
     customerName: customer.name || receipt.customerName || 'Customer',
-    customerEmail: customer.email,
-    total: receipt.total || 0,
-    amountPaid: receipt.amountPaid || receipt.total || 0,
-    change: receipt.change || 0,
-    paymentMethod: receipt.paymentMethod,
+    customerEmail: customer.email || receipt.customerEmail,
+    items,
+    subtotal: receipt.subtotal ?? 0,
+    tax: taxAmount ?? 0,
+    total: receipt.total ?? 0,
+    amountPaid: receipt.amountPaid ?? receipt.total ?? 0,
+    change: receipt.change ?? 0,
+    paymentMethod: receipt.paymentMethod || 'Cash',
+    paymentMethodDetails: receipt.paymentReference || receipt.paymentMethodDetails || '',
     paymentReference: receipt.paymentReference,
-    paymentDate: date,
+    paymentDate: rawDate,
+    date: displayDate,
+    savedAt: rawDate,
     status: receipt.isVoid ? 'void' : (receipt.status || 'completed'),
     metadata: receipt
   };
@@ -393,9 +410,10 @@ export const PaymentProvider = ({ children }) => {
           change: receiptPayload.change
         };
 
-        await createReceipt(payload);
+        const created = await createReceipt(payload);
+        const createdReceipt = created?.data || created?.receipt || created;
         await Promise.all([refreshTransactions(), refreshReceipts()]);
-        return null;
+        return createdReceipt ? mapReceiptToUi(createdReceipt) : null;
       }
 
       const newTransaction = {

@@ -17,7 +17,7 @@ const Receipts = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
   const { addNotification } = useNotifications();
-  const { recordTransaction, paymentMethods } = usePayments();
+  const { recordTransaction, paymentMethods, receipts, refreshReceipts } = usePayments();
   const { customers } = useInvoice();
   const { accountInfo } = useAccount();
   
@@ -31,14 +31,13 @@ const Receipts = () => {
   const [showMobileReceipt, setShowMobileReceipt] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [receipts, setReceipts] = useState([]);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
 
   // Load receipts on component mount
   useEffect(() => {
-    loadReceipts();
-  }, []);
+    refreshReceipts();
+  }, [refreshReceipts]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -49,15 +48,6 @@ const Receipts = () => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-
-  const loadReceipts = () => {
-    try {
-      const savedReceipts = JSON.parse(localStorage.getItem('Ledgerly_receipts') || '[]');
-      setReceipts(savedReceipts);
-    } catch (error) {
-      console.error('Error loading receipts:', error);
-    }
-  };
 
   const handleAddToCart = (product) => {
     setCartItems(prev => {
@@ -126,30 +116,6 @@ const Receipts = () => {
     return { subtotal, tax, total };
   };
 
-  const saveReceiptToHistory = (receiptData) => {
-    try {
-      const receipts = JSON.parse(localStorage.getItem('Ledgerly_receipts') || '[]');
-      const newReceipt = {
-        ...receiptData,
-        savedAt: new Date().toISOString(),
-        status: 'completed'
-      };
-      
-      receipts.unshift(newReceipt);
-      const updatedReceipts = receipts.slice(0, 50);
-      localStorage.setItem('Ledgerly_receipts', JSON.stringify(updatedReceipts));
-      
-      setReceipts(updatedReceipts);
-      
-      window.dispatchEvent(new CustomEvent('receiptsUpdated'));
-      
-      return true;
-    } catch (error) {
-      console.error('Error saving receipt:', error);
-      return false;
-    }
-  };
-
   const handleSelectCustomer = (customerId) => {
     const customer = customers.find(c => c.id === customerId);
     if (customer) {
@@ -179,50 +145,32 @@ const Receipts = () => {
 
     setIsProcessing(true);
     try {
-      const receiptId = `RCP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const { subtotal, tax, total } = calculateTotals();
-      
+
       const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
       const selectedPaymentMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
-      
-      const receiptData = {
-        id: receiptId,
-        date: new Date().toLocaleString(),
+      const paymentDetails = selectedPaymentMethod
+        ? `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4 || 'N/A'}`
+        : 'Cash';
+
+      const receiptPayload = {
+        customerId: selectedCustomerId || undefined,
+        customerEmail: customerEmail || selectedCustomer?.email || '',
+        customerName: customerName || selectedCustomer?.name || 'Walk-in Customer',
         items: [...cartItems],
+        paymentMethod,
+        amountPaid: total,
         subtotal,
         tax,
-        total,
-        customerName: customerName || (selectedCustomer?.name || 'Walk-in Customer'),
-        customerEmail: customerEmail || (selectedCustomer?.email || ''),
-        customerId: selectedCustomerId,
-        paymentMethod: paymentMethod,
-        paymentMethodId: selectedPaymentMethodId,
-        paymentMethodDetails: selectedPaymentMethod ? 
-          `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4 || 'N/A'}` : 
-          'Cash',
-        notes
+        notes,
+        paymentReference: paymentDetails
       };
 
-      // Save to receipt history
-      const saved = saveReceiptToHistory(receiptData);
-      
-      if (!saved) {
-        throw new Error('Failed to save receipt');
-      }
-
-      // Record transaction in PaymentContext
-      await recordTransaction({
-        id: `txn_${receiptId}`,
-        invoiceId: receiptId,
-        invoiceNumber: receiptId,
+      const createdReceipt = await recordTransaction({
         customerId: selectedCustomerId || 'walk-in',
         customerName: customerName || 'Walk-in Customer',
         amount: total,
         paymentMethod: paymentMethod.toLowerCase().replace(' ', '_'),
-        paymentMethodDetails: selectedPaymentMethod ? 
-          `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4}` : 
-          'Cash',
-        paymentMethodId: selectedPaymentMethodId,
         status: 'completed',
         type: 'receipt',
         notes: notes || 'Point of Sale Receipt',
@@ -230,32 +178,31 @@ const Receipts = () => {
           itemsCount: cartItems.length,
           subtotal,
           tax,
-          total,
-          receiptId
+          total
         },
-        receiptPayload: receiptData
+        receiptPayload
       });
 
-      // Generate PDF
-      const pdfDoc = generateReceiptPDF(receiptData, accountInfo);
-      
-      // Save PDF locally
-      pdfDoc.save(`${receiptData.id}.pdf`);
-      
-      // Add notification
+      if (!createdReceipt) {
+        throw new Error('Failed to create receipt');
+      }
+
+      const pdfDoc = generateReceiptPDF(createdReceipt, accountInfo);
+      pdfDoc.save(`${createdReceipt.id}.pdf`);
+
       addNotification({
         type: 'receipt',
         title: 'Receipt Generated',
-        description: `Receipt #${receiptId} for ${customerName || 'Walk-in Customer'}`,
-        details: `Total: $${total.toFixed(2)} | Payment: ${paymentMethod}`,
+        description: `Receipt #${createdReceipt.id} for ${createdReceipt.customerName || 'Walk-in Customer'}`,
+        details: `Total: $${(createdReceipt.total || total).toFixed(2)} | Payment: ${createdReceipt.paymentMethod || paymentMethod}`,
         time: 'Just now',
         action: 'View Receipt',
         color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
         link: '#',
         icon: 'Receipt'
       }, { showToast: false });
-      
-      addToast(`Receipt printed successfully (${receiptData.id})`, 'success');
+
+      addToast(`Receipt printed successfully (${createdReceipt.id})`, 'success');
       
       // Clear cart after successful print
       setCartItems([]);
@@ -286,50 +233,32 @@ const Receipts = () => {
 
     setIsProcessing(true);
     try {
-      const receiptId = `RCP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const { subtotal, tax, total } = calculateTotals();
-      
+
       const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
       const selectedPaymentMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
-      
-      const receiptData = {
-        id: receiptId,
-        date: new Date().toLocaleString(),
+      const paymentDetails = selectedPaymentMethod
+        ? `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4 || 'N/A'}`
+        : 'Cash';
+
+      const receiptPayload = {
+        customerId: selectedCustomerId || undefined,
+        customerEmail: customerEmail || selectedCustomer?.email || '',
+        customerName: customerName || selectedCustomer?.name || 'Walk-in Customer',
         items: [...cartItems],
+        paymentMethod,
+        amountPaid: total,
         subtotal,
         tax,
-        total,
-        customerName: customerName || (selectedCustomer?.name || 'Walk-in Customer'),
-        customerEmail: customerEmail || (selectedCustomer?.email || ''),
-        customerId: selectedCustomerId,
-        paymentMethod: paymentMethod,
-        paymentMethodId: selectedPaymentMethodId,
-        paymentMethodDetails: selectedPaymentMethod ? 
-          `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4 || 'N/A'}` : 
-          'Cash',
-        notes
+        notes,
+        paymentReference: paymentDetails
       };
 
-      // Save to receipt history
-      const saved = saveReceiptToHistory(receiptData);
-      
-      if (!saved) {
-        throw new Error('Failed to save receipt');
-      }
-
-      // Record transaction in PaymentContext
-      await recordTransaction({
-        id: `txn_${receiptId}`,
-        invoiceId: receiptId,
-        invoiceNumber: receiptId,
+      const createdReceipt = await recordTransaction({
         customerId: selectedCustomerId || 'walk-in',
         customerName: customerName || 'Walk-in Customer',
         amount: total,
         paymentMethod: paymentMethod.toLowerCase().replace(' ', '_'),
-        paymentMethodDetails: selectedPaymentMethod ? 
-          `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4}` : 
-          'Cash',
-        paymentMethodId: selectedPaymentMethodId,
         status: 'completed',
         type: 'receipt',
         notes: notes || 'Point of Sale Receipt',
@@ -337,24 +266,23 @@ const Receipts = () => {
           itemsCount: cartItems.length,
           subtotal,
           tax,
-          total,
-          receiptId
+          total
         },
-        receiptPayload: receiptData
+        receiptPayload
       });
 
-      // Generate PDF
-      const pdfDoc = generateReceiptPDF(receiptData, accountInfo);
-      
-      // Save PDF locally
-      pdfDoc.save(`${receiptData.id}.pdf`);
-      
-      // Add notification
+      if (!createdReceipt) {
+        throw new Error('Failed to create receipt');
+      }
+
+      const pdfDoc = generateReceiptPDF(createdReceipt, accountInfo);
+      pdfDoc.save(`${createdReceipt.id}.pdf`);
+
       addNotification({
         type: 'receipt',
         title: 'Receipt Sent',
-        description: `Receipt #${receiptId} sent to ${customerEmail || selectedCustomer?.email}`,
-        details: `Total: $${total.toFixed(2)} | Payment: ${paymentMethod}`,
+        description: `Receipt #${createdReceipt.id} sent to ${createdReceipt.customerEmail || customerEmail || selectedCustomer?.email}`,
+        details: `Total: $${(createdReceipt.total || total).toFixed(2)} | Payment: ${createdReceipt.paymentMethod || paymentMethod}`,
         time: 'Just now',
         action: 'View Receipt',
         color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',

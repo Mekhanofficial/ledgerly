@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useToast } from './ToastContext';
 import { useNotifications } from './NotificationContext';
 import templateStorage from '../utils/templateStorage';
+import { fetchTemplates } from '../services/templateService';
 import {
   fetchInvoices,
   createInvoice as createInvoiceThunk,
@@ -71,18 +72,42 @@ export const InvoiceProvider = ({ children }) => {
     dispatch(fetchProducts({ isActive: true }));
   }, [dispatch]);
 
-  useEffect(() => {
+  const refreshTemplates = useCallback(async () => {
     try {
-      setDrafts(draftStorage.getDrafts());
-      setTemplates(templateStorage.getAllTemplates());
-      setRecurringInvoices(recurringStorage.getRecurringInvoices());
+      const payload = await fetchTemplates();
+      const data = Array.isArray(payload?.data) ? payload.data : [];
+      setTemplates(data);
+      return data;
     } catch (error) {
-      console.error('Error loading invoice context data:', error);
-      addToast('Error loading invoice data', 'error');
-    } finally {
-      setLoading(false);
+      console.error('Error loading templates from backend:', error);
+      const fallback = templateStorage.getAllTemplates();
+      setTemplates(fallback);
+      return fallback;
     }
-  }, [addToast]);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const load = async () => {
+      try {
+        setDrafts(draftStorage.getDrafts());
+        setRecurringInvoices(recurringStorage.getRecurringInvoices());
+        await refreshTemplates();
+      } catch (error) {
+        console.error('Error loading invoice context data:', error);
+        addToast('Error loading invoice data', 'error');
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+    return () => {
+      isMounted = false;
+    };
+  }, [addToast, refreshTemplates]);
 
   const allowedInvoiceStatuses = useMemo(
     () => new Set(['draft', 'sent', 'viewed', 'partial', 'paid', 'overdue', 'cancelled', 'void']),
@@ -731,8 +756,11 @@ export const InvoiceProvider = ({ children }) => {
 
   // Template Functions
   const getAvailableTemplates = useCallback(() => {
+    if (templates.length > 0) {
+      return templates;
+    }
     return templateStorage.getAllTemplates();
-  }, []);
+  }, [templates]);
 
   // Export functions
   const exportInvoicesAsCSV = (invoiceIds = []) => {
@@ -885,6 +913,7 @@ export const InvoiceProvider = ({ children }) => {
     
     // Template Functions
     getAvailableTemplates,
+    refreshTemplates,
     
     // Recurring Functions
     saveRecurringInvoice
