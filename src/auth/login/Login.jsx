@@ -168,23 +168,6 @@ const Login = () => {
             </div>
           )}
 
-          {/* Demo Accounts Notice */}
-          <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-            <div className="flex items-start">
-              <div className="bg-blue-100 dark:bg-blue-800/50 rounded-full p-2 mr-3">
-                <DollarSign className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm text-blue-700 dark:text-blue-300 font-medium mb-1">
-                  Demo Accounts Available
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400">
-                  Use <strong>demo@invoiceflow.com</strong> / <strong>password123</strong> for testing
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Login Form */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
             <form onSubmit={handleSubmit} className="space-y-6">
