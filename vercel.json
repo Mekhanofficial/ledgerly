@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/v1/:path*",
-      "destination": "https://ledgerly-backend-29ak.onrender.com/api/v1/:path*"
+      "destination": "https://ledgerly-backend-iayk.onrender.com/api/v1/:path*"
     },
     { "source": "/(.*)", "destination": "/" }
   ]
