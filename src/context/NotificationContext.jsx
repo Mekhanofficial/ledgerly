@@ -1,6 +1,8 @@
 // src/context/NotificationContext.js - FIXED VERSION
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
+import { useSelector } from 'react-redux';
 import { useToast } from './ToastContext';
+import { resolveAuthUser } from '../utils/userDisplay';
 
 export const NotificationContext = createContext();
 
@@ -14,6 +16,11 @@ export const useNotifications = () => {
 
 export const NotificationProvider = ({ children }) => {
   const { addToast } = useToast();
+  const authUser = useSelector((state) => state.auth.user);
+  const resolvedUser = resolveAuthUser(authUser);
+  const userId = resolvedUser?.id || resolvedUser?._id || null;
+  const notificationsKey = userId ? `ledgerly_notifications_${userId}` : null;
+  const processedKey = userId ? `ledgerly_processed_items_${userId}` : null;
   
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -26,17 +33,29 @@ export const NotificationProvider = ({ children }) => {
   const prevReportsRef = useRef([]);
   const processedItemsRef = useRef(new Set());
 
-  // Load notifications from localStorage - only once on mount
+  // Load notifications from localStorage when user changes
   useEffect(() => {
     const loadData = () => {
+      setNotifications([]);
+      setUnreadCount(0);
+      processedItemsRef.current = new Set();
+      setInitialized(false);
+      setLoading(true);
+
+      if (!notificationsKey || !processedKey) {
+        setInitialized(true);
+        setLoading(false);
+        return;
+      }
+
       try {
-        const savedNotifications = JSON.parse(localStorage.getItem('ledgerly_notifications')) || [];
+        const savedNotifications = JSON.parse(localStorage.getItem(notificationsKey)) || [];
         setNotifications(savedNotifications);
         const unread = savedNotifications.filter(n => !n.read).length;
         setUnreadCount(unread);
         
         // Load processed items
-        const savedProcessed = JSON.parse(localStorage.getItem('ledgerly_processed_items')) || [];
+        const savedProcessed = JSON.parse(localStorage.getItem(processedKey)) || [];
         processedItemsRef.current = new Set(savedProcessed);
         
         setInitialized(true);
@@ -49,14 +68,14 @@ export const NotificationProvider = ({ children }) => {
 
     const timer = setTimeout(loadData, 100);
     return () => clearTimeout(timer);
-  }, []);
+  }, [notificationsKey, processedKey]);
 
   // Save notifications to localStorage when they change
   useEffect(() => {
-    if (!loading && initialized) {
+    if (!loading && initialized && notificationsKey && processedKey) {
       try {
-        localStorage.setItem('ledgerly_notifications', JSON.stringify(notifications));
-        localStorage.setItem('ledgerly_processed_items', JSON.stringify([...processedItemsRef.current]));
+        localStorage.setItem(notificationsKey, JSON.stringify(notifications));
+        localStorage.setItem(processedKey, JSON.stringify([...processedItemsRef.current]));
         const unread = notifications.filter(n => !n.read).length;
         setUnreadCount(unread);
       } catch (error) {

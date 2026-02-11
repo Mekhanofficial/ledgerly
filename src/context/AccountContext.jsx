@@ -59,30 +59,40 @@ export const AccountProvider = ({ children }) => {
   const dispatch = useDispatch();
   const [accountInfo, setAccountInfo] = useState(EMPTY_ACCOUNT_INFO);
   const [loading, setLoading] = useState(false);
+  const storageKey = authUser?.id || authUser?._id
+    ? `${STORAGE_KEY}_${authUser.id || authUser._id}`
+    : null;
 
   // Hydrate from storage on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!storageKey) {
+      setAccountInfo(EMPTY_ACCOUNT_INFO);
+      return;
+    }
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = localStorage.getItem(storageKey);
       if (stored) {
         const parsed = JSON.parse(stored);
         setAccountInfo(parsed);
+      } else {
+        setAccountInfo(EMPTY_ACCOUNT_INFO);
       }
     } catch (error) {
       console.error('Failed to load account settings:', error);
     }
-  }, []);
+  }, [storageKey]);
 
   // Persist updates
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!storageKey) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(accountInfo));
+      localStorage.setItem(storageKey, JSON.stringify(accountInfo));
     } catch (error) {
       console.error('Failed to save account settings:', error);
     }
-  }, [accountInfo]);
+  }, [accountInfo, storageKey]);
 
   useEffect(() => {
     let isActive = true;

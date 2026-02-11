@@ -4,6 +4,10 @@
       "source": "/api/v1/:path*",
       "destination": "https://ledgerly-backend-iayk.onrender.com/api/v1/:path*"
     },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://ledgerly-backend-iayk.onrender.com/uploads/:path*"
+    },
     { "source": "/(.*)", "destination": "/" }
   ]
 }
