@@ -30,6 +30,16 @@ import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter'
 import { draftStorage } from '../utils/draftStorage';
 import { recurringStorage } from '../utils/recurringStorage';
 
+const dedupeTemplates = (templates = []) => {
+  const map = new Map();
+  templates.forEach((template) => {
+    if (template?.id && !map.has(template.id)) {
+      map.set(template.id, template);
+    }
+  });
+  return Array.from(map.values());
+};
+
 export const InvoiceContext = createContext();
 
 export const useInvoice = () => {
@@ -47,6 +57,7 @@ export const InvoiceProvider = ({ children }) => {
   const { invoices: rawInvoices, loading: invoicesLoading } = useSelector((state) => state.invoices);
   const { customers: rawCustomers } = useSelector((state) => state.customers);
   const { products: rawProducts } = useSelector((state) => state.products);
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
 
   const invoices = useMemo(() => {
     const source = Array.isArray(rawInvoices) ? rawInvoices : [];
@@ -67,20 +78,22 @@ export const InvoiceProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     dispatch(fetchInvoices());
     dispatch(fetchCustomers());
     dispatch(fetchProducts({ isActive: true }));
-  }, [dispatch]);
+  }, [dispatch, isAuthenticated]);
 
   const refreshTemplates = useCallback(async () => {
     try {
       const payload = await fetchTemplates();
       const data = Array.isArray(payload?.data) ? payload.data : [];
-      setTemplates(data);
-      return data;
+      const uniqueTemplates = dedupeTemplates(data);
+      setTemplates(uniqueTemplates);
+      return uniqueTemplates;
     } catch (error) {
       console.error('Error loading templates from backend:', error);
-      const fallback = templateStorage.getAllTemplates();
+      const fallback = dedupeTemplates(templateStorage.getAllTemplates());
       setTemplates(fallback);
       return fallback;
     }
@@ -92,7 +105,12 @@ export const InvoiceProvider = ({ children }) => {
       try {
         setDrafts(draftStorage.getDrafts());
         setRecurringInvoices(recurringStorage.getRecurringInvoices());
-        await refreshTemplates();
+
+        if (isAuthenticated) {
+          await refreshTemplates();
+        } else {
+          setTemplates(dedupeTemplates(templateStorage.getAllTemplates()));
+        }
       } catch (error) {
         console.error('Error loading invoice context data:', error);
         addToast('Error loading invoice data', 'error');
@@ -107,7 +125,7 @@ export const InvoiceProvider = ({ children }) => {
     return () => {
       isMounted = false;
     };
-  }, [addToast, refreshTemplates]);
+  }, [addToast, refreshTemplates, isAuthenticated]);
 
   const allowedInvoiceStatuses = useMemo(
     () => new Set(['draft', 'sent', 'viewed', 'partial', 'paid', 'overdue', 'cancelled', 'void']),
@@ -757,9 +775,9 @@ export const InvoiceProvider = ({ children }) => {
   // Template Functions
   const getAvailableTemplates = useCallback(() => {
     if (templates.length > 0) {
-      return templates;
+      return dedupeTemplates(templates);
     }
-    return templateStorage.getAllTemplates();
+    return dedupeTemplates(templateStorage.getAllTemplates());
   }, [templates]);
 
   // Export functions

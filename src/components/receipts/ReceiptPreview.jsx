@@ -27,7 +27,10 @@ const ReceiptPreview = ({
   paymentMethods,
   notes,
   setNotes,
-  isProcessing
+  isProcessing,
+  availableTemplates = [],
+  selectedTemplateId,
+  onSelectTemplate
 }) => {
   const { isDarkMode } = useTheme();
   const { accountInfo } = useAccount();
@@ -226,6 +229,40 @@ const ReceiptPreview = ({
             )}
           </div>
         </div>
+      </div>
+
+      {/* Template Selection */}
+      <div className={`mb-4 p-3 sm:p-4 rounded-lg border ${
+        isDarkMode ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-blue-50/30'
+      }`}>
+        <div className="flex items-center justify-between mb-2">
+          <div className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            Receipt Template
+          </div>
+          <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+            Applies to PDF/Print
+          </div>
+        </div>
+        <select
+          value={selectedTemplateId || ''}
+          onChange={(e) => onSelectTemplate && onSelectTemplate(e.target.value)}
+          disabled={isProcessing || availableTemplates.length === 0}
+          className={`w-full px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+            isDarkMode
+              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+              : 'border-gray-300'
+          } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          {availableTemplates.map((template) => {
+            const isLocked = template.isPremium && !template.hasAccess;
+            const label = `${template.name}${isLocked ? ' (Premium)' : ''}`;
+            return (
+              <option key={template.id} value={template.id} disabled={isLocked}>
+                {label}
+              </option>
+            );
+          })}
+        </select>
       </div>
 
       {/* Receipt Info */}

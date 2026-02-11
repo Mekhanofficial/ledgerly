@@ -337,6 +337,90 @@ export const premiumTemplates = {
     popularity: 84,
     lastUpdated: '2024-02-02',
     tags: ['startup', 'modern', 'growth']
+  },
+  consultant: {
+    id: 'consultant',
+    name: 'Consultant',
+    description: 'Polished, client-ready template for consultants and agencies',
+    colors: {
+      primary: [45, 108, 223],
+      secondary: [63, 123, 236],
+      accent: [236, 244, 255],
+      text: [38, 50, 56]
+    },
+    fonts: {
+      title: 'helvetica-bold',
+      body: 'helvetica',
+      accent: 'helvetica-light'
+    },
+    layout: {
+      showLogo: true,
+      showWatermark: true,
+      watermarkText: 'CONSULTANT',
+      showHeaderBorder: true,
+      showFooter: true,
+      hasAnimations: true,
+      hasGradientEffects: true,
+      hasMultiLanguage: false,
+      hasDataTables: true
+    },
+    category: 'premium',
+    isPremium: true,
+    isDefault: false,
+    isFavorite: false,
+    price: 9.99,
+    features: [
+      'Client-ready Layout',
+      'Professional Accent Colors',
+      'Detailed Line Items',
+      'Priority Support',
+      'Custom Watermark'
+    ],
+    previewColor: 'bg-gradient-to-br from-blue-600 via-indigo-500 to-blue-700',
+    popularity: 86,
+    lastUpdated: '2024-02-06',
+    tags: ['consulting', 'agency', 'professional']
+  },
+  retail: {
+    id: 'retail',
+    name: 'Retail',
+    description: 'Bright retail template with item-forward layout for stores',
+    colors: {
+      primary: [244, 81, 30],
+      secondary: [255, 152, 0],
+      accent: [255, 248, 225],
+      text: [55, 71, 79]
+    },
+    fonts: {
+      title: 'helvetica-bold',
+      body: 'helvetica',
+      accent: 'helvetica-light'
+    },
+    layout: {
+      showLogo: true,
+      showWatermark: true,
+      watermarkText: 'RETAIL',
+      showHeaderBorder: true,
+      showFooter: true,
+      hasAnimations: true,
+      hasGradientEffects: true,
+      hasMultiLanguage: false
+    },
+    category: 'premium',
+    isPremium: true,
+    isDefault: false,
+    isFavorite: false,
+    price: 8.99,
+    features: [
+      'Itemized Layout',
+      'Retail-ready Styling',
+      'Bold Highlights',
+      'Priority Support'
+    ],
+    previewColor: 'bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600',
+    popularity: 83,
+    lastUpdated: '2024-02-06',
+    tags: ['retail', 'store', 'point-of-sale']
   }
 };
 
@@ -367,10 +451,10 @@ export const industryTemplates = {
       hasMultiLanguage: false
     },
     category: 'industry',
-    isPremium: false,
+    isPremium: true,
     isDefault: false,
     isFavorite: false,
-    price: 0,
+    price: 7.99,
     features: ['Medical Icons', 'HIPAA Compliant', 'Patient Focused'],
     previewColor: 'bg-gradient-to-br from-blue-400 to-cyan-400',
     popularity: 78,
@@ -401,10 +485,10 @@ export const industryTemplates = {
       hasMultiLanguage: false
     },
     category: 'industry',
-    isPremium: false,
+    isPremium: true,
     isDefault: false,
     isFavorite: false,
-    price: 0,
+    price: 7.99,
     features: ['Formal Layout', 'Legal Terminology', 'Document Numbering'],
     previewColor: 'bg-gradient-to-br from-emerald-400 to-green-400',
     popularity: 75,

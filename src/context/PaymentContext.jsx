@@ -1,9 +1,21 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { useSelector } from 'react-redux';
 import { useToast } from './ToastContext';
 import { useInvoice } from './InvoiceContext';
 import { useNotifications } from './NotificationContext';
 import { getPayments, refundPayment } from '../services/paymentService';
 import { getReceipts, createReceipt } from '../services/receiptService';
+
+const RECEIPT_TEMPLATE_STORAGE_KEY = 'receipt_template_preference';
+
+const getReceiptTemplatePreference = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(RECEIPT_TEMPLATE_STORAGE_KEY);
+  } catch (error) {
+    return null;
+  }
+};
 
 const mapPaymentToTransaction = (payment = {}) => {
   const invoice = payment.invoice || {};
@@ -70,6 +82,7 @@ const mapReceiptToUi = (receipt = {}) => {
     date: displayDate,
     savedAt: rawDate,
     status: receipt.isVoid ? 'void' : (receipt.status || 'completed'),
+    templateStyle: receipt.templateStyle || receipt.templateId,
     metadata: receipt
   };
 };
@@ -88,6 +101,7 @@ export const PaymentProvider = ({ children }) => {
   const { addToast } = useToast();
   const { invoices, updateInvoice, customers, updateStockOnPayment, markAsPaid } = useInvoice();
   const { addNotification } = useNotifications();
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -101,6 +115,10 @@ export const PaymentProvider = ({ children }) => {
   }, []);
 
   const refreshTransactions = useCallback(async (params = {}) => {
+    if (!isAuthenticated) {
+      setTransactions([]);
+      return [];
+    }
     try {
       const payload = await getPayments(params);
       const backendTransactions = payload?.data || [];
@@ -112,9 +130,13 @@ export const PaymentProvider = ({ children }) => {
       addToast('Unable to load payment history', 'error');
       return [];
     }
-  }, [addToast]);
+  }, [addToast, isAuthenticated]);
 
   const refreshReceipts = useCallback(async (params = {}) => {
+    if (!isAuthenticated) {
+      setReceipts([]);
+      return [];
+    }
     try {
       const payload = await getReceipts(params);
       const backendReceipts = payload?.data || [];
@@ -126,9 +148,17 @@ export const PaymentProvider = ({ children }) => {
       addToast('Unable to load receipt history', 'error');
       return [];
     }
-  }, [addToast]);
+  }, [addToast, isAuthenticated]);
 
   const loadPaymentData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setTransactions([]);
+      setReceipts([]);
+      setPendingPayments([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       await Promise.all([refreshTransactions(), refreshReceipts()]);
@@ -138,7 +168,7 @@ export const PaymentProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [refreshTransactions, refreshReceipts, addToast]);
+  }, [refreshTransactions, refreshReceipts, addToast, isAuthenticated]);
 
   useEffect(() => {
     loadPaymentData();
@@ -307,7 +337,8 @@ export const PaymentProvider = ({ children }) => {
         amount,
         paymentMethodId,
         customerId,
-        notes = ''
+        notes = '',
+        templateStyle
       } = paymentData;
 
       const invoice = invoices.find(inv => inv.id === invoiceId);
@@ -320,12 +351,14 @@ export const PaymentProvider = ({ children }) => {
       const methodType = paymentMethod?.type || paymentData.paymentMethod || 'manual';
       const customer = customers.find(c => c.id === customerId) || {};
 
+      const resolvedTemplateStyle = templateStyle || getReceiptTemplatePreference();
       const result = await markAsPaid(invoiceId, {
         amount,
         paymentMethod: methodType,
         paymentReference: paymentMethod?.id || paymentData.paymentReference,
         paymentGateway: paymentData.paymentGateway,
-        notes
+        notes,
+        templateStyle: resolvedTemplateStyle
       }, { showToast: false });
 
       const recordedInvoice = result?.invoice;
@@ -407,7 +440,8 @@ export const PaymentProvider = ({ children }) => {
           tax: receiptPayload.tax,
           notes: receiptPayload.notes || transactionData.notes,
           paymentReference: receiptPayload.paymentReference || transactionData.paymentReference,
-          change: receiptPayload.change
+          change: receiptPayload.change,
+          templateStyle: receiptPayload.templateStyle || receiptPayload.templateId
         };
 
         const created = await createReceipt(payload);

@@ -10,7 +10,7 @@ const AlertsNotifications = () => {
   const invoices = useSelector((state) => state.invoices?.invoices || []);
   const customers = useSelector((state) => state.customers?.customers || []);
   const { notifications, getRecentNotifications } = useNotifications();
-  const { transactions, getPaymentStats } = usePayments(); // Added payment context
+  const { transactions, getPaymentStats, receipts } = usePayments(); // Added payment context
   
   const [alerts, setAlerts] = useState([]);
   const [previousInvoiceCount, setPreviousInvoiceCount] = useState(invoices.length);
@@ -240,51 +240,53 @@ const AlertsNotifications = () => {
       });
     }
 
-    // Check for recent receipts from localStorage
-    try {
-      const savedReceipts = JSON.parse(localStorage.getItem('Ledgerly_receipts') || '[]');
-      const recentReceipts = savedReceipts.filter(receipt => {
-        const savedAt = new Date(receipt.savedAt || receipt.date || Date.now());
+    // Check for recent receipts from backend history
+    const recentReceipts = receipts
+      .filter((receipt) => {
+        const savedAt = new Date(receipt.savedAt || receipt.paymentDate || receipt.date || Date.now());
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         return savedAt > oneDayAgo;
-      }).slice(0, 3); // Show max 3 recent receipts
+      })
+      .sort((a, b) => {
+        const aTime = new Date(a.savedAt || a.paymentDate || a.date || 0).getTime();
+        const bTime = new Date(b.savedAt || b.paymentDate || b.date || 0).getTime();
+        return bTime - aTime;
+      })
+      .slice(0, 3); // Show max 3 recent receipts
 
-      if (recentReceipts.length > 0) {
-        const totalReceiptAmount = recentReceipts.reduce((sum, receipt) => sum + (receipt.total || 0), 0);
-        
-        if (recentReceipts.length === 1) {
-          const receipt = recentReceipts[0];
-          ongoingAlerts.push({
-            type: 'receipt',
-            icon: Receipt,
-            title: 'Recent Receipt',
-            description: `Receipt #${receipt.id} generated`,
-            details: `Amount: $${(receipt.total || 0).toFixed(2)}`,
-            time: 'Today',
-            action: 'View Receipts',
-            color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
-            link: '/receipts',
-            timestamp: new Date(receipt.savedAt || receipt.date || Date.now()).getTime(),
-            sortPriority: 2
-          });
-        } else {
-          ongoingAlerts.push({
-            type: 'receipt',
-            icon: Receipt,
-            title: 'Recent Receipts',
-            description: `${recentReceipts.length} receipts generated today`,
-            details: `Total amount: $${totalReceiptAmount.toFixed(2)}`,
-            time: 'Today',
-            action: 'View Receipts',
-            color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
-            link: '/receipts',
-            timestamp: Date.now(),
-            sortPriority: 2
-          });
-        }
+    if (recentReceipts.length > 0) {
+      const totalReceiptAmount = recentReceipts.reduce((sum, receipt) => sum + (receipt.total || 0), 0);
+      
+      if (recentReceipts.length === 1) {
+        const receipt = recentReceipts[0];
+        ongoingAlerts.push({
+          type: 'receipt',
+          icon: Receipt,
+          title: 'Recent Receipt',
+          description: `Receipt #${receipt.id} generated`,
+          details: `Amount: $${(receipt.total || 0).toFixed(2)}`,
+          time: 'Today',
+          action: 'View Receipts',
+          color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+          link: '/receipts',
+          timestamp: new Date(receipt.savedAt || receipt.paymentDate || receipt.date || Date.now()).getTime(),
+          sortPriority: 2
+        });
+      } else {
+        ongoingAlerts.push({
+          type: 'receipt',
+          icon: Receipt,
+          title: 'Recent Receipts',
+          description: `${recentReceipts.length} receipts generated today`,
+          details: `Total amount: $${totalReceiptAmount.toFixed(2)}`,
+          time: 'Today',
+          action: 'View Receipts',
+          color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+          link: '/receipts',
+          timestamp: Date.now(),
+          sortPriority: 2
+        });
       }
-    } catch (error) {
-      console.error('Error checking receipts:', error);
     }
 
     // Check for processing reports
@@ -501,7 +503,7 @@ const AlertsNotifications = () => {
     }
 
     return ongoingAlerts;
-  }, [invoices, reports, transactions, paymentStats, getInvoiceTotal]);
+  }, [invoices, reports, transactions, receipts, paymentStats, getInvoiceTotal]);
 
   // Combine notifications and ongoing alerts
   useEffect(() => {

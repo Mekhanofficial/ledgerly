@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
 import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
 
-const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted }) => {
+const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted, defaultTemplateId }) => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
   const { accountInfo } = useAccount();
@@ -23,7 +23,7 @@ const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted }) => {
 
   const handleReprint = (receipt) => {
     try {
-    const pdfDoc = generateReceiptPDF(receipt, accountInfo);
+      const pdfDoc = generateReceiptPDF(receipt, accountInfo, defaultTemplateId);
       pdfDoc.save(`${receipt.id}-reprint.pdf`);
       addToast(`Receipt ${receipt.id} reprinted`, 'success');
       setActionMenu(null);
@@ -71,7 +71,7 @@ Thank you for shopping with us!
 
   const handleDownloadPDF = (receipt) => {
     try {
-      const pdfDoc = generateReceiptPDF(receipt, accountInfo);
+      const pdfDoc = generateReceiptPDF(receipt, accountInfo, defaultTemplateId);
       pdfDoc.save(`${receipt.id}.pdf`);
       addToast(`Receipt ${receipt.id} downloaded`, 'success');
       setActionMenu(null);
@@ -119,7 +119,7 @@ Thank you for shopping with us!
 
   const handleViewReceipt = (receipt) => {
     try {
-      const pdfDoc = generateReceiptPDF(receipt, accountInfo);
+      const pdfDoc = generateReceiptPDF(receipt, accountInfo, defaultTemplateId);
       const pdfBlob = pdfDoc.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, '_blank');

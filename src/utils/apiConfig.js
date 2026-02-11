@@ -1,5 +1,6 @@
 const LOCAL_API_FALLBACK = 'http://localhost:7000/api/v1';
 const LOCAL_SERVER_FALLBACK = 'http://localhost:7000';
+const PROD_API_FALLBACK = 'https://ledgerly-backend-29ak.onrender.com/api/v1';
 
 const isBrowser = typeof window !== 'undefined';
 
@@ -28,7 +29,7 @@ export const resolveApiBaseUrl = () => {
   }
 
   if (isBrowser && !isLocalhost()) {
-    return `${window.location.origin}/api/v1`;
+    return PROD_API_FALLBACK;
   }
 
   return LOCAL_API_FALLBACK;

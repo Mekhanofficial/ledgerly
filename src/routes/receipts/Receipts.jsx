@@ -10,7 +10,7 @@ import { useToast } from '../../context/ToastContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { usePayments } from '../../context/PaymentContext';
 import { useInvoice } from '../../context/InvoiceContext';
-import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
+import { generateReceiptPDF, getReceiptTemplatePreference, setReceiptTemplatePreference } from '../../utils/receiptPdfGenerator';
 import { useAccount } from '../../context/AccountContext';
 
 const Receipts = () => {
@@ -18,7 +18,7 @@ const Receipts = () => {
   const { addToast } = useToast();
   const { addNotification } = useNotifications();
   const { recordTransaction, paymentMethods, receipts, refreshReceipts } = usePayments();
-  const { customers } = useInvoice();
+  const { customers, getAvailableTemplates } = useInvoice();
   const { accountInfo } = useAccount();
   
   const [cartItems, setCartItems] = useState([]);
@@ -33,11 +33,36 @@ const Receipts = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [availableTemplates, setAvailableTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
   // Load receipts on component mount
   useEffect(() => {
     refreshReceipts();
   }, [refreshReceipts]);
+
+  useEffect(() => {
+    if (!getAvailableTemplates) return;
+    const templates = getAvailableTemplates() || [];
+    setAvailableTemplates(templates);
+
+    const savedTemplateId = getReceiptTemplatePreference();
+    const resolvedTemplate = templates.find(t => t.id === savedTemplateId)
+      || templates.find(t => t.isDefault)
+      || templates.find(t => t.id === 'standard')
+      || templates[0];
+
+    const isResolvedLocked = resolvedTemplate?.isPremium && !resolvedTemplate?.hasAccess;
+    const fallbackTemplate = templates.find(t => t.id === 'standard')
+      || templates.find(t => !t.isPremium)
+      || templates[0];
+
+    const finalTemplate = isResolvedLocked ? fallbackTemplate : resolvedTemplate;
+
+    if (finalTemplate?.id) {
+      setSelectedTemplateId(finalTemplate.id);
+    }
+  }, [getAvailableTemplates]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -137,6 +162,19 @@ const Receipts = () => {
     }
   };
 
+  const handleSelectTemplate = (templateId) => {
+    const template = availableTemplates.find(t => t.id === templateId);
+    if (template?.isPremium && !template?.hasAccess) {
+      addToast(`"${template.name}" is a premium template. Purchase to use it.`, 'warning');
+      return;
+    }
+    setSelectedTemplateId(templateId);
+    setReceiptTemplatePreference(templateId);
+    if (template?.name) {
+      addToast(`Receipt template set to ${template.name}`, 'success');
+    }
+  };
+
   const handlePrintReceipt = async () => {
     if (cartItems.length === 0) {
       addToast('Add items to cart before printing receipt', 'warning');
@@ -163,7 +201,8 @@ const Receipts = () => {
         subtotal,
         tax,
         notes,
-        paymentReference: paymentDetails
+        paymentReference: paymentDetails,
+        templateStyle: selectedTemplateId
       };
 
       const createdReceipt = await recordTransaction({
@@ -187,7 +226,7 @@ const Receipts = () => {
         throw new Error('Failed to create receipt');
       }
 
-      const pdfDoc = generateReceiptPDF(createdReceipt, accountInfo);
+      const pdfDoc = generateReceiptPDF(createdReceipt, accountInfo, selectedTemplateId);
       pdfDoc.save(`${createdReceipt.id}.pdf`);
 
       addNotification({
@@ -251,7 +290,8 @@ const Receipts = () => {
         subtotal,
         tax,
         notes,
-        paymentReference: paymentDetails
+        paymentReference: paymentDetails,
+        templateStyle: selectedTemplateId
       };
 
       const createdReceipt = await recordTransaction({
@@ -275,7 +315,7 @@ const Receipts = () => {
         throw new Error('Failed to create receipt');
       }
 
-      const pdfDoc = generateReceiptPDF(createdReceipt, accountInfo);
+      const pdfDoc = generateReceiptPDF(createdReceipt, accountInfo, selectedTemplateId);
       pdfDoc.save(`${createdReceipt.id}.pdf`);
 
       addNotification({
@@ -295,20 +335,20 @@ const Receipts = () => {
 Thank you for your purchase!
 
 Receipt Details:
-Receipt #: ${receiptData.id}
-Date: ${receiptData.date}
-Customer: ${receiptData.customerName}
-Payment Method: ${receiptData.paymentMethod}
-${receiptData.paymentMethodDetails ? `Payment Details: ${receiptData.paymentMethodDetails}` : ''}
+Receipt #: ${createdReceipt.id}
+Date: ${createdReceipt.date}
+Customer: ${createdReceipt.customerName}
+Payment Method: ${createdReceipt.paymentMethod}
+${createdReceipt.paymentMethodDetails ? `Payment Details: ${createdReceipt.paymentMethodDetails}` : ''}
 
 Items Purchased:
-${cartItems.map(item => 
-  `- ${item.name}: ${item.quantity} × $${item.price.toFixed(2)} = $${(item.price * item.quantity).toFixed(2)}`
-).join('\n')}
+${createdReceipt.items?.map(item => 
+  `- ${item.name}: ${item.quantity} x $${Number(item.price || 0).toFixed(2)} = $${(Number(item.price || 0) * item.quantity).toFixed(2)}`
+).join('\n') || 'No items found'}
 
-Subtotal: $${receiptData.subtotal.toFixed(2)}
-Tax (8.5%): $${receiptData.tax.toFixed(2)}
-Total: $${receiptData.total.toFixed(2)}
+Subtotal: $${(createdReceipt.subtotal || 0).toFixed(2)}
+Tax: $${(createdReceipt.tax || 0).toFixed(2)}
+Total: $${(createdReceipt.total || 0).toFixed(2)}
 
 ${notes ? `\nNotes: ${notes}` : ''}
 
@@ -316,7 +356,7 @@ Thank you for shopping with us!
       `;
       
       // Create mailto link
-      const subject = encodeURIComponent(`Your Receipt ${receiptData.id} from Legends`);
+      const subject = encodeURIComponent(`Your Receipt ${createdReceipt.id} from Legends`);
       const body = encodeURIComponent(emailBody);
       const emailTo = customerEmail || selectedCustomer?.email;
       const mailtoLink = `mailto:${emailTo}?subject=${subject}&body=${body}`;
@@ -353,109 +393,103 @@ Thank you for shopping with us!
       return;
     }
 
-    const receiptId = `RCP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const { subtotal, tax, total } = calculateTotals();
-    
-    const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
-    const selectedPaymentMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
-    
-    const receiptData = {
-      id: receiptId,
-      date: new Date().toLocaleString(),
-      items: [...cartItems],
-      subtotal,
-      tax,
-      total,
-      customerName: customerName || (selectedCustomer?.name || 'Walk-in Customer'),
-      customerEmail: customerEmail || (selectedCustomer?.email || ''),
-      customerId: selectedCustomerId,
-      paymentMethod: paymentMethod,
-      paymentMethodId: selectedPaymentMethodId,
-      paymentMethodDetails: selectedPaymentMethod ? 
-        `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4 || 'N/A'}` : 
-        'Cash',
-      notes,
-      savedAt: new Date().toISOString(),
-      status: 'completed'
-    };
+    setIsProcessing(true);
+    try {
+      const { subtotal, tax, total } = calculateTotals();
 
-    // Save receipt to history
-    saveReceiptToHistory(receiptData);
+      const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+      const selectedPaymentMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
+      const paymentDetails = selectedPaymentMethod
+        ? `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4 || 'N/A'}`
+        : 'Cash';
 
-    // Record transaction in PaymentContext
-    await recordTransaction({
-      id: `txn_${receiptId}`,
-      invoiceId: receiptId,
-      invoiceNumber: receiptId,
-      customerId: selectedCustomerId || 'walk-in',
-      customerName: customerName || 'Walk-in Customer',
-      amount: total,
-      paymentMethod: paymentMethod.toLowerCase().replace(' ', '_'),
-      paymentMethodDetails: selectedPaymentMethod ? 
-        `${selectedPaymentMethod.type} ending in ${selectedPaymentMethod.last4}` : 
-        'Cash',
-      paymentMethodId: selectedPaymentMethodId,
-      status: 'completed',
-      type: 'receipt',
-      notes: notes || 'Point of Sale Receipt',
-      metadata: {
-        itemsCount: cartItems.length,
+      const receiptPayload = {
+        customerId: selectedCustomerId || undefined,
+        customerEmail: customerEmail || selectedCustomer?.email || '',
+        customerName: customerName || selectedCustomer?.name || 'Walk-in Customer',
+        items: [...cartItems],
+        paymentMethod,
+        amountPaid: total,
         subtotal,
         tax,
-        total,
-        receiptId
-      },
-      receiptPayload: receiptData
-    });
+        notes,
+        paymentReference: paymentDetails,
+        templateStyle: selectedTemplateId
+      };
 
-    // Add notification
-    addNotification({
-      type: 'receipt',
-      title: 'Receipt Emailed',
-      description: `Receipt #${receiptId} emailed to ${customerEmail || selectedCustomer?.email}`,
-      details: `Total: $${total.toFixed(2)} | Payment: ${paymentMethod}`,
-      time: 'Just now',
-      action: 'View Receipt',
-      color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
-      link: '#',
-      icon: 'Receipt'
-    }, { showToast: false });
+      const createdReceipt = await recordTransaction({
+        customerId: selectedCustomerId || 'walk-in',
+        customerName: customerName || 'Walk-in Customer',
+        amount: total,
+        paymentMethod: paymentMethod.toLowerCase().replace(' ', '_'),
+        status: 'completed',
+        type: 'receipt',
+        notes: notes || 'Point of Sale Receipt',
+        metadata: {
+          itemsCount: cartItems.length,
+          subtotal,
+          tax,
+          total
+        },
+        receiptPayload
+      });
 
-    const emailBody = `
+      if (!createdReceipt) {
+        throw new Error('Failed to create receipt');
+      }
+
+      addNotification({
+        type: 'receipt',
+        title: 'Receipt Emailed',
+        description: `Receipt #${createdReceipt.id} emailed to ${createdReceipt.customerEmail || customerEmail || selectedCustomer?.email}`,
+        details: `Total: $${(createdReceipt.total || total).toFixed(2)} | Payment: ${createdReceipt.paymentMethod || paymentMethod}`,
+        time: 'Just now',
+        action: 'View Receipt',
+        color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
+        link: '#',
+        icon: 'Receipt'
+      }, { showToast: false });
+
+      const emailBody = `
 Thank you for your purchase!
 
 Receipt Details:
-Receipt #: ${receiptData.id}
-Date: ${receiptData.date}
-Customer: ${receiptData.customerName}
-Payment Method: ${receiptData.paymentMethod}
-${receiptData.paymentMethodDetails ? `Payment Details: ${receiptData.paymentMethodDetails}` : ''}
+Receipt #: ${createdReceipt.id}
+Date: ${createdReceipt.date}
+Customer: ${createdReceipt.customerName}
+Payment Method: ${createdReceipt.paymentMethod}
+${createdReceipt.paymentMethodDetails ? `Payment Details: ${createdReceipt.paymentMethodDetails}` : ''}
 
 Items Purchased:
-${cartItems.map(item => 
-  `- ${item.name}: ${item.quantity} × $${item.price.toFixed(2)} = $${(item.price * item.quantity).toFixed(2)}`
-).join('\n')}
+${createdReceipt.items?.map(item => 
+  `- ${item.name}: ${item.quantity} x $${Number(item.price || 0).toFixed(2)} = $${(Number(item.price || 0) * item.quantity).toFixed(2)}`
+).join('\n') || 'No items found'}
 
-Subtotal: $${receiptData.subtotal.toFixed(2)}
-Tax (8.5%): $${receiptData.tax.toFixed(2)}
-Total: $${receiptData.total.toFixed(2)}
+Subtotal: $${(createdReceipt.subtotal || 0).toFixed(2)}
+Tax: $${(createdReceipt.tax || 0).toFixed(2)}
+Total: $${(createdReceipt.total || 0).toFixed(2)}
 
 ${notes ? `\nNotes: ${notes}` : ''}
 
 Thank you for shopping with us!
     `;
 
-    const subject = encodeURIComponent(`Your Receipt ${receiptData.id} from Legends`);
-    const body = encodeURIComponent(emailBody);
-    const emailTo = customerEmail || selectedCustomer?.email;
-    const mailtoLink = `mailto:${emailTo}?subject=${subject}&body=${body}`;
-    
-    window.open(mailtoLink, '_blank');
-    addToast('Email opened with receipt details', 'success');
+      const subject = encodeURIComponent(`Your Receipt ${createdReceipt.id} from Legends`);
+      const body = encodeURIComponent(emailBody);
+      const emailTo = customerEmail || selectedCustomer?.email;
+      const mailtoLink = `mailto:${emailTo}?subject=${subject}&body=${body}`;
+
+      window.open(mailtoLink, '_blank');
+      addToast('Email opened with receipt details', 'success');
+    } catch (error) {
+      addToast('Error sending receipt email: ' + error.message, 'error');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleRefreshHistory = () => {
-    loadReceipts();
+  const handleRefreshHistory = async () => {
+    await refreshReceipts();
     addToast('Receipt history refreshed', 'success');
   };
 
@@ -636,6 +670,9 @@ Thank you for shopping with us!
                   notes={notes}
                   setNotes={setNotes}
                   isProcessing={isProcessing}
+                  availableTemplates={availableTemplates}
+                  selectedTemplateId={selectedTemplateId}
+                  onSelectTemplate={handleSelectTemplate}
                 />
               </div>
             </div>
@@ -656,7 +693,8 @@ Thank you for shopping with us!
               <ReceiptHistory 
                 receipts={receipts}
                 onRefresh={handleRefreshHistory}
-                onReceiptDeleted={loadReceipts}
+                onReceiptDeleted={refreshReceipts}
+                defaultTemplateId={selectedTemplateId}
               />
             </div>
           </div>

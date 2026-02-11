@@ -231,6 +231,72 @@ const premiumTemplates = {
       dynamicLayout: true,
       growthVisuals: true
     }
+  },
+  consultant: {
+    id: 'consultant',
+    name: 'Consultant',
+    colors: {
+      primary: [45, 108, 223],
+      secondary: [63, 123, 236],
+      accent: [236, 244, 255],
+      background: [255, 255, 255],
+      text: [38, 50, 56],
+      border: [191, 210, 245]
+    },
+    fonts: {
+      title: 'helvetica-bold',
+      subtitle: 'helvetica',
+      body: 'helvetica',
+      accent: 'helvetica-light',
+      numbers: 'courier'
+    },
+    layout: {
+      showLogo: true,
+      showWatermark: true,
+      watermarkText: 'CONSULTANT',
+      showHeaderBorder: true,
+      showFooter: true,
+      hasDataTables: true,
+      headerStyle: 'corporate'
+    },
+    effects: {
+      professionalSpacing: true,
+      cleanLines: true,
+      dataTableStripes: true
+    }
+  },
+  retail: {
+    id: 'retail',
+    name: 'Retail',
+    colors: {
+      primary: [244, 81, 30],
+      secondary: [255, 152, 0],
+      accent: [255, 248, 225],
+      background: [255, 255, 255],
+      text: [55, 71, 79],
+      border: [255, 204, 128]
+    },
+    fonts: {
+      title: 'helvetica-bold',
+      subtitle: 'helvetica',
+      body: 'helvetica',
+      accent: 'helvetica-light',
+      numbers: 'courier'
+    },
+    layout: {
+      showLogo: true,
+      showWatermark: true,
+      watermarkText: 'RETAIL',
+      showHeaderBorder: true,
+      showFooter: true,
+      hasGradientEffects: true,
+      modernLayout: true
+    },
+    effects: {
+      vibrantColors: true,
+      modernElements: true,
+      dynamicLayout: true
+    }
   }
 };
 
@@ -1281,6 +1347,8 @@ const getPreviewColor = (templateId) => {
     techModern: 'bg-gradient-to-br from-cyan-500 via-teal-500 to-green-500',
     elegant: 'bg-gradient-to-br from-amber-800 via-amber-700 to-amber-900',
     startup: 'bg-gradient-to-br from-emerald-500 via-green-500 to-emerald-600',
+    consultant: 'bg-gradient-to-br from-blue-600 via-indigo-500 to-blue-700',
+    retail: 'bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600',
     medical: 'bg-gradient-to-br from-blue-400 to-cyan-400',
     legal: 'bg-gradient-to-br from-emerald-400 to-green-400'
   };

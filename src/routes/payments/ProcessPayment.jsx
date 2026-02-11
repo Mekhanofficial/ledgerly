@@ -21,7 +21,7 @@ import { useToast } from '../../context/ToastContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { usePayments } from '../../context/PaymentContext';
 import { useAccount } from '../../context/AccountContext';
-import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
+import { generateReceiptPDF, getReceiptTemplatePreference } from '../../utils/receiptPdfGenerator';
 
 const ProcessPayment = () => {
   const { isDarkMode } = useTheme();
@@ -124,7 +124,8 @@ const ProcessPayment = () => {
 
       // Generate receipt PDF
       if (paymentResult.receipt) {
-        const pdfDoc = generateReceiptPDF(paymentResult.receipt, accountInfo);
+        const receiptTemplateId = getReceiptTemplatePreference();
+        const pdfDoc = generateReceiptPDF(paymentResult.receipt, accountInfo, receiptTemplateId);
         pdfDoc.save(`${paymentResult.receipt.id}.pdf`);
       }
 

@@ -35,6 +35,7 @@ export const InventoryProvider = ({ children }) => {
   const { addToast } = useToast();
   const { addNotification } = useNotifications();
   const dispatch = useDispatch();
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const { products: rawProducts, stockAdjustments: storeAdjustments } = useSelector((state) => state.products);
   
   // State - EMPTY BY DEFAULT
@@ -68,6 +69,13 @@ export const InventoryProvider = ({ children }) => {
   }, [addToast]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      setCategories([]);
+      setSuppliers([]);
+      return;
+    }
+
     const initialize = async () => {
       setLoading(true);
       try {
@@ -86,7 +94,7 @@ export const InventoryProvider = ({ children }) => {
     };
 
     initialize();
-  }, [dispatch, loadCategories, loadSuppliers, addToast]);
+  }, [dispatch, loadCategories, loadSuppliers, addToast, isAuthenticated]);
 
   // Helper function to parse numeric values safely
   const parseNumber = (value, defaultValue = 0) => {
