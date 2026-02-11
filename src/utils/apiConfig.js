@@ -1,6 +1,6 @@
 const LOCAL_API_FALLBACK = 'http://localhost:7000/api/v1';
 const LOCAL_SERVER_FALLBACK = 'http://localhost:7000';
-const PROD_API_FALLBACK = 'https://ledgerly-backend-spxf.onrender.com/api/v1';
+const PROD_API_FALLBACK = 'https://ledgerly-backend-iayk.onrender.com/api/v1';
 
 const isBrowser = typeof window !== 'undefined';
 
