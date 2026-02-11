@@ -23,7 +23,7 @@ export const resolveApiBaseUrl = () => {
   if (rawUrl) {
     const normalized = normalizeBaseUrl(rawUrl);
     if (!isLocalhost() && /localhost|127\.0\.0\.1/i.test(normalized)) {
-      return `${window.location.origin}/api/v1`;
+      return PROD_API_FALLBACK;
     }
     return normalized;
   }
