@@ -2,7 +2,34 @@ import React from 'react';
 import { Printer, Mail, Trash2, Plus, Minus, CreditCard, Wallet, Smartphone, User, ShoppingCart } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAccount } from '../../context/AccountContext';
+import templateStorage from '../../utils/templateStorage';
 import PaymentMethodDisplay from './PaymentMethodDisplay';
+
+const TEMPLATE_COLOR_FALLBACK = {
+  primary: '#2980b9',
+  secondary: '#3498db',
+  accent: '#f8f9fa',
+  text: '#2c3e50'
+};
+
+const toCssColor = (colorValue, fallback) => {
+  if (Array.isArray(colorValue)) {
+    return `rgb(${colorValue.join(',')})`;
+  }
+  return colorValue || fallback;
+};
+
+const resolveTemplatePalette = (templateId, templates = []) => {
+  const matchedTemplate = templates.find((item) => item.id === templateId);
+  const template = matchedTemplate || templateStorage.getTemplate(templateId) || templateStorage.getTemplate('standard');
+  const palette = template?.colors || {};
+  return {
+    primary: toCssColor(palette.primary, TEMPLATE_COLOR_FALLBACK.primary),
+    secondary: toCssColor(palette.secondary, TEMPLATE_COLOR_FALLBACK.secondary),
+    accent: toCssColor(palette.accent, TEMPLATE_COLOR_FALLBACK.accent),
+    text: toCssColor(palette.text, TEMPLATE_COLOR_FALLBACK.text)
+  };
+};
 
 const ReceiptPreview = ({ 
   items, 
@@ -74,12 +101,19 @@ const ReceiptPreview = ({
     accountInfo?.email || '',
     accountInfo?.website || ''
   ].filter(Boolean).join(' | ');
+  const templatePalette = React.useMemo(
+    () => resolveTemplatePalette(selectedTemplateId, availableTemplates),
+    [selectedTemplateId, availableTemplates]
+  );
 
   return (
-    <div className={`border rounded-xl p-4 sm:p-6 h-full flex flex-col ${isDarkMode 
-      ? 'bg-gray-800 border-gray-700' 
-      : 'bg-white border-gray-200'
-    }`}>
+    <div
+      className={`border rounded-xl p-4 sm:p-6 h-full flex flex-col ${isDarkMode 
+        ? 'bg-gray-800 border-gray-700' 
+        : 'bg-white border-gray-200'
+      }`}
+      style={{ borderTop: `4px solid ${templatePalette.primary}` }}
+    >
       {/* Collapsible Header for Mobile */}
       {isMobile && (
         <button
@@ -104,19 +138,23 @@ const ReceiptPreview = ({
 
       {/* Header */}
       <div className="text-center mb-4 sm:mb-6">
-      <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-        {companyName}
+        <div
+          className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+          style={{ color: templatePalette.primary }}
+        >
+          {companyName}
+        </div>
+        <div className={`text-xs sm:text-sm mt-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          {locationParts.map((line, index) => (
+            <React.Fragment key={line}>
+              {line}
+              {index !== locationParts.length - 1 && <br />}
+            </React.Fragment>
+          ))}
+          {contactLine && <><br />{contactLine}</>}
+        </div>
+        <div className="mx-auto mt-3 h-1 w-12 rounded-full" style={{ background: templatePalette.secondary }} />
       </div>
-      <div className={`text-xs sm:text-sm mt-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-        {locationParts.map((line, index) => (
-          <React.Fragment key={line}>
-            {line}
-            {index !== locationParts.length - 1 && <br />}
-          </React.Fragment>
-        ))}
-        {contactLine && <><br />{contactLine}</>}
-      </div>
-    </div>
 
       {/* Customer and Payment Method Summary */}
       <div className={`mb-4 p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-blue-50/30'}`}>
@@ -239,8 +277,15 @@ const ReceiptPreview = ({
           <div className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
             Receipt Template
           </div>
-          <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-            Applies to PDF/Print
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ background: templatePalette.primary }} />
+              <span className="w-2.5 h-2.5 rounded-full" style={{ background: templatePalette.secondary }} />
+              <span className="w-2.5 h-2.5 rounded-full border" style={{ background: templatePalette.accent }} />
+            </div>
+            <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+              Applies to PDF/Print
+            </div>
           </div>
         </div>
         <select
@@ -372,7 +417,10 @@ const ReceiptPreview = ({
           <span className={`font-bold text-lg sm:text-xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Total:
           </span>
-          <span className={`font-bold text-lg sm:text-xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          <span
+            className={`font-bold text-lg sm:text-xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+            style={{ color: templatePalette.primary }}
+          >
             ${total.toFixed(2)}
           </span>
         </div>

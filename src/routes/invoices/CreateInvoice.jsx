@@ -18,6 +18,7 @@ import { useInvoice } from '../../context/InvoiceContext';
 import { useInventory } from '../../context/InventoryContext';
 import { useAccount } from '../../context/AccountContext';
 import templateStorage from '../../utils/templateStorage';
+import { resolveTemplateStyleVariant } from '../../utils/templateStyleVariants';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -56,6 +57,82 @@ const dedupeTemplates = (templates = []) => {
   });
   return Array.from(map.values());
 };
+
+const buildTemplateDecorations = (variant, colors) => {
+  const primary = colors.primary;
+  const secondary = colors.secondary;
+  const accent = colors.accent;
+
+  if (variant === 'classic') {
+    return { headerHtml: '', footerHtml: '', paddingTop: 40, paddingBottom: 40 };
+  }
+
+  if (variant === 'panel') {
+    const headerHeight = 120;
+    const footerHeight = 70;
+    const headerHtml = `
+      <div style="position:absolute; top:0; left:0; width:100%; height:${headerHeight}px; background: linear-gradient(135deg, ${primary} 0%, ${secondary} 100%); z-index:1;"></div>
+      <svg viewBox="0 0 100 25" preserveAspectRatio="none" style="position:absolute; top:${headerHeight - 35}px; left:0; width:100%; height:35px; z-index:1;">
+        <path d="M0,0 H100 V12 Q70,25 0,18 Z" fill="${accent}" />
+      </svg>
+    `;
+    const footerHtml = `
+      <div style="position:absolute; bottom:0; left:0; width:42%; height:${footerHeight}px; background:${primary}; z-index:1;"></div>
+    `;
+    return { headerHtml, footerHtml, paddingTop: 110, paddingBottom: 70 };
+  }
+
+  if (variant === 'stripe') {
+    const headerHeight = 95;
+    const footerHeight = 60;
+    const headerHtml = `
+      <div style="position:absolute; top:0; left:0; width:100%; height:${headerHeight}px; background: repeating-linear-gradient(135deg, ${primary} 0, ${primary} 14px, ${secondary} 14px, ${secondary} 28px); z-index:1;"></div>
+    `;
+    const footerHtml = `
+      <div style="position:absolute; bottom:0; right:0; width:70%; height:${footerHeight}px; background: linear-gradient(135deg, ${secondary} 0%, ${primary} 100%); z-index:1;"></div>
+      <div style="position:absolute; bottom:0; left:0; width:30%; height:${footerHeight - 12}px; background:${primary}; transform: skewX(-18deg); transform-origin: left bottom; z-index:1;"></div>
+    `;
+    return { headerHtml, footerHtml, paddingTop: 100, paddingBottom: 65 };
+  }
+
+  if (variant === 'angled') {
+    const headerHeight = 105;
+    const footerHeight = 70;
+    const headerHtml = `
+      <svg viewBox="0 0 100 30" preserveAspectRatio="none" style="position:absolute; top:0; left:0; width:100%; height:${headerHeight}px; z-index:1;">
+        <polygon points="0,0 100,0 68,30 0,30" fill="${primary}" />
+        <polygon points="36,0 100,0 100,22 62,22" fill="${secondary}" />
+      </svg>
+    `;
+    const footerHtml = `
+      <svg viewBox="0 0 100 24" preserveAspectRatio="none" style="position:absolute; bottom:0; left:0; width:100%; height:${footerHeight}px; z-index:1;">
+        <polygon points="0,24 100,24 100,0 48,24" fill="${primary}" />
+        <polygon points="0,24 70,0 0,0" fill="${secondary}" opacity="0.9" />
+      </svg>
+    `;
+    return { headerHtml, footerHtml, paddingTop: 95, paddingBottom: 70 };
+  }
+
+  const headerHeight = 110;
+  const footerHeight = 80;
+  const headerHtml = `
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" style="position:absolute; top:0; left:0; width:100%; height:${headerHeight}px; z-index:1;">
+      <path d="M0,0 H100 V18 Q70,30 0,22 Z" fill="${primary}" />
+      <path d="M0,0 H100 V14 Q70,26 0,20 Z" fill="${secondary}" opacity="0.9" />
+    </svg>
+  `;
+  const footerHtml = `
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" style="position:absolute; bottom:0; left:0; width:100%; height:${footerHeight}px; z-index:1;">
+      <path d="M0,30 H100 V12 Q70,2 0,10 Z" fill="${primary}" opacity="0.95" />
+      <path d="M0,30 H100 V18 Q70,8 0,14 Z" fill="${secondary}" opacity="0.85" />
+    </svg>
+  `;
+  return { headerHtml, footerHtml, paddingTop: 95, paddingBottom: 70 };
+};
+
+const filterAccessibleTemplates = (templates = []) => (
+  templates.filter((template) => !template.isPremium || template.hasAccess)
+);
 
 const CreateInvoice = () => {
   const { addToast } = useToast();
@@ -135,10 +212,11 @@ const CreateInvoice = () => {
   // Load templates
   useEffect(() => {
     const templates = dedupeTemplates(getAvailableTemplates());
-    setAvailableTemplates(templates);
+    const accessibleTemplates = filterAccessibleTemplates(templates);
+    setAvailableTemplates(accessibleTemplates);
     
     // Set initial template data if available
-    const defaultTemplate = templates.find(t => t.id === 'standard');
+    const defaultTemplate = accessibleTemplates.find(t => t.id === 'standard') || accessibleTemplates[0];
     if (defaultTemplate) {
       setNotes(defaultTemplate.notes || '');
       setTerms(defaultTemplate.terms || '');
@@ -148,6 +226,14 @@ const CreateInvoice = () => {
       setPaymentTerms(defaultTemplate.paymentTerms || 'net-30');
     }
   }, [getAvailableTemplates]);
+
+  useEffect(() => {
+    if (availableTemplates.length === 0) return;
+    const hasSelected = availableTemplates.some((template) => template.id === selectedTemplate);
+    if (!hasSelected) {
+      setSelectedTemplate(availableTemplates[0].id);
+    }
+  }, [availableTemplates]);
 
   // Load products from inventory
   useEffect(() => {
@@ -362,10 +448,14 @@ const CreateInvoice = () => {
       pdfContainer.style.top = '-9999px';
       pdfContainer.style.width = '800px';
       pdfContainer.style.backgroundColor = 'white';
-      pdfContainer.style.padding = '40px';
+      pdfContainer.style.padding = '0px';
       pdfContainer.style.fontFamily = 'Arial, sans-serif';
       
       const colors = resolveTemplateColors(selectedTemplate, availableTemplates);
+      const templateMeta = availableTemplates.find((item) => item.id === selectedTemplate)
+        || templateStorage.getTemplate(selectedTemplate);
+      const templateVariant = resolveTemplateStyleVariant(selectedTemplate, templateMeta);
+      const { headerHtml, footerHtml, paddingTop, paddingBottom } = buildTemplateDecorations(templateVariant, colors);
       
       const companyName = accountInfo?.companyName || 'Ledgerly';
       const contactTitle = accountInfo?.contactName ? `Attn: ${accountInfo.contactName}` : '';
@@ -430,7 +520,10 @@ const CreateInvoice = () => {
       }
       
       const htmlContent = `
-        <div id="invoice-content" style="max-width: 800px; margin: 0 auto;">
+        <div id="invoice-content" style="max-width: 800px; margin: 0 auto; position: relative; overflow: hidden; background: white; border-radius: 12px;">
+          ${headerHtml}
+          ${footerHtml}
+          <div style="position: relative; z-index: 2; padding: ${paddingTop}px 40px ${paddingBottom}px 40px;">
           <!-- Header -->
           <div style="border-bottom: 3px solid ${colors.primary}; padding-bottom: 30px; margin-bottom: 30px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -542,6 +635,7 @@ const CreateInvoice = () => {
           <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #dee2e6; text-align: center; color: #6c757d; font-size: 12px;">
             <div>Thank you for your business!</div>
             <div style="margin-top: 5px;">Generated by Ledgerly Invoice System • ${selectedTemplate.charAt(0).toUpperCase() + selectedTemplate.slice(1)} Template</div>
+          </div>
           </div>
         </div>
       `;
@@ -784,6 +878,10 @@ This email was sent from Ledgerly Invoice System
     const printWindow = window.open('', '_blank');
     const customer = getSelectedCustomer() || newCustomer;
     const printColors = resolveTemplateColors(selectedTemplate, availableTemplates);
+    const templateMeta = availableTemplates.find((item) => item.id === selectedTemplate)
+      || templateStorage.getTemplate(selectedTemplate);
+    const templateVariant = resolveTemplateStyleVariant(selectedTemplate, templateMeta);
+    const { headerHtml, footerHtml, paddingTop, paddingBottom } = buildTemplateDecorations(templateVariant, printColors);
     
     const printContent = `
       <html>
@@ -802,7 +900,10 @@ This email was sent from Ledgerly Invoice System
           </style>
         </head>
         <body>
-          <div style="max-width: 800px; margin: 0 auto; padding: 30px; border: 1px solid #ddd; background: white;">
+          <div style="max-width: 800px; margin: 0 auto; position: relative; overflow: hidden; border: 1px solid #ddd; border-radius: 12px; background: white;">
+            ${headerHtml}
+            ${footerHtml}
+            <div style="position: relative; z-index: 2; padding: ${paddingTop}px 30px ${paddingBottom}px 30px;">
             <div style="border-bottom: 3px solid ${printColors.primary}; padding-bottom: 30px; margin-bottom: 30px;">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
@@ -902,6 +1003,7 @@ This email was sent from Ledgerly Invoice System
               <button onclick="window.close()" style="padding: 12px 24px; background: #666; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">
                 Close Window
               </button>
+            </div>
             </div>
           </div>
         </body>
@@ -1025,6 +1127,16 @@ This email was sent from Ledgerly Invoice System
                     </option>
                   ))}
                 </select>
+
+                <div className="mt-2 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/invoices/templates')}
+                    className="text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    View more templates
+                  </button>
+                </div>
                 
                 <div className="mt-4 grid grid-cols-5 gap-2">
                   {availableTemplates.map(template => (

@@ -9,7 +9,8 @@ import TemplateCustom from '../../components/invoices/templates/TemplateCustom';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useInvoice } from '../../context/InvoiceContext';
-import { purchaseTemplate } from '../../services/templateService';
+import { purchaseTemplate as purchaseTemplateApi } from '../../services/templateService';
+import { purchaseTemplate as purchaseTemplateLocal } from '../../utils/templateStorage';
 
 const InvoiceTemplates = () => {
   const { isDarkMode } = useTheme();
@@ -86,13 +87,21 @@ const InvoiceTemplates = () => {
 
   const handlePurchaseTemplate = async (templateId) => {
     try {
-      await purchaseTemplate(templateId, { paymentMethod: 'manual' });
+      await purchaseTemplateApi(templateId, { paymentMethod: 'manual' });
       await loadTemplates();
       addToast('Template unlocked successfully!', 'success');
     } catch (error) {
-      console.error('Error purchasing template:', error);
-      addToast('Unable to purchase template', 'error');
-      throw error;
+      console.error('Error purchasing template via API:', error);
+      try {
+        await purchaseTemplateLocal(templateId, 'manual');
+        await loadTemplates();
+        addToast('Template unlocked successfully!', 'success');
+        return;
+      } catch (fallbackError) {
+        console.error('Error purchasing template locally:', fallbackError);
+        addToast('Unable to purchase template', 'error');
+        throw fallbackError;
+      }
     }
   };
 

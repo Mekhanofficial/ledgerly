@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, useEffect, useCallback, use
 import { useDispatch, useSelector } from 'react-redux';
 import { useToast } from './ToastContext';
 import { useNotifications } from './NotificationContext';
-import templateStorage from '../utils/templateStorage';
+import templateStorage, { hasTemplateAccess } from '../utils/templateStorage';
 import { fetchTemplates } from '../services/templateService';
 import {
   fetchInvoices,
@@ -88,14 +88,31 @@ export const InvoiceProvider = ({ children }) => {
     try {
       const payload = await fetchTemplates();
       const data = Array.isArray(payload?.data) ? payload.data : [];
-      const uniqueTemplates = dedupeTemplates(data);
-      setTemplates(uniqueTemplates);
-      return uniqueTemplates;
+      const fallback = dedupeTemplates(templateStorage.getAllTemplates());
+      const uniqueTemplates = dedupeTemplates([...data, ...fallback]);
+      const resolvedTemplates = uniqueTemplates.map((template) => {
+        const isPremium = Boolean(template?.isPremium);
+        if (!isPremium) {
+          return { ...template, hasAccess: true };
+        }
+        const localAccess = hasTemplateAccess(template.id);
+        const apiAccess = typeof template?.hasAccess === 'boolean' ? template.hasAccess : false;
+        return { ...template, hasAccess: apiAccess || localAccess };
+      });
+      setTemplates(resolvedTemplates);
+      return resolvedTemplates;
     } catch (error) {
       console.error('Error loading templates from backend:', error);
       const fallback = dedupeTemplates(templateStorage.getAllTemplates());
-      setTemplates(fallback);
-      return fallback;
+      const resolvedFallback = fallback.map((template) => {
+        const isPremium = Boolean(template?.isPremium);
+        if (!isPremium) {
+          return { ...template, hasAccess: true };
+        }
+        return { ...template, hasAccess: hasTemplateAccess(template.id) };
+      });
+      setTemplates(resolvedFallback);
+      return resolvedFallback;
     }
   }, []);
 
@@ -109,7 +126,14 @@ export const InvoiceProvider = ({ children }) => {
         if (isAuthenticated) {
           await refreshTemplates();
         } else {
-          setTemplates(dedupeTemplates(templateStorage.getAllTemplates()));
+          const fallbackTemplates = dedupeTemplates(templateStorage.getAllTemplates()).map((template) => {
+            const isPremium = Boolean(template?.isPremium);
+            if (!isPremium) {
+              return { ...template, hasAccess: true };
+            }
+            return { ...template, hasAccess: hasTemplateAccess(template.id) };
+          });
+          setTemplates(fallbackTemplates);
         }
       } catch (error) {
         console.error('Error loading invoice context data:', error);

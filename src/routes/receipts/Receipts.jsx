@@ -44,20 +44,21 @@ const Receipts = () => {
   useEffect(() => {
     if (!getAvailableTemplates) return;
     const templates = getAvailableTemplates() || [];
-    setAvailableTemplates(templates);
+    const accessibleTemplates = templates.filter(t => !t.isPremium || t.hasAccess);
+    const templatesToUse = accessibleTemplates.length > 0 ? accessibleTemplates : templates;
+    setAvailableTemplates(templatesToUse);
 
     const savedTemplateId = getReceiptTemplatePreference();
-    const resolvedTemplate = templates.find(t => t.id === savedTemplateId)
-      || templates.find(t => t.isDefault)
-      || templates.find(t => t.id === 'standard')
-      || templates[0];
+    const resolvedTemplate = templatesToUse.find(t => t.id === savedTemplateId)
+      || templatesToUse.find(t => t.isDefault)
+      || templatesToUse.find(t => t.id === 'standard')
+      || templatesToUse[0];
 
-    const isResolvedLocked = resolvedTemplate?.isPremium && !resolvedTemplate?.hasAccess;
-    const fallbackTemplate = templates.find(t => t.id === 'standard')
-      || templates.find(t => !t.isPremium)
-      || templates[0];
+    const fallbackTemplate = templatesToUse.find(t => t.id === 'standard')
+      || templatesToUse.find(t => !t.isPremium)
+      || templatesToUse[0];
 
-    const finalTemplate = isResolvedLocked ? fallbackTemplate : resolvedTemplate;
+    const finalTemplate = resolvedTemplate || fallbackTemplate;
 
     if (finalTemplate?.id) {
       setSelectedTemplateId(finalTemplate.id);
