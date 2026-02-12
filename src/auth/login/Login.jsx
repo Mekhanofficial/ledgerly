@@ -64,7 +64,7 @@ const Login = () => {
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm">
               <FileText className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold mb-2">InvoiceFlow</h1>
+            <h1 className="text-4xl font-bold mb-2">LEDGERLY</h1>
             <p className="text-primary-100 text-lg">
               Professional Invoicing & Inventory Management
             </p>
@@ -103,7 +103,7 @@ const Login = () => {
           </div>
 
           <div className="mt-8 border-t border-primary-400 pt-6">
-            <p className="text-sm text-primary-200">Join thousands of businesses using InvoiceFlow</p>
+            <p className="text-sm text-primary-200">Join thousands of businesses using Ledgerly</p>
             <div className="flex items-center mt-3 space-x-4">
               <div className="flex -space-x-2">
                 {[1, 2, 3, 4].map((i) => (
@@ -126,7 +126,7 @@ const Login = () => {
             </div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome Back</h1>
             <p className="text-gray-600 dark:text-gray-300 mt-2">
-              Sign in to your InvoiceFlow account
+              Sign in to your Ledgerly account
             </p>
           </div>
 
@@ -267,7 +267,7 @@ const Login = () => {
                   className="inline-block w-full py-3 border border-primary-600 dark:border-primary-500 text-primary-600 dark:text-primary-400 rounded-xl font-medium hover:bg-primary-50 dark:hover:bg-primary-900/20 transition text-center"
                   onClick={clearErrors}
                 >
-                  Create InvoiceFlow Account
+                  Create Ledgerly Account
                 </Link>
               </div>
             </div>

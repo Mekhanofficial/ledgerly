@@ -204,7 +204,7 @@ const SignUpPage = () => {
             </div>
             
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              Welcome to InvoiceFlow!
+              Welcome to LEDGERLY!
             </h2>
             
             <p className="text-gray-600 dark:text-gray-300 mb-6">
@@ -290,7 +290,7 @@ const SignUpPage = () => {
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm">
               <FileText className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold mb-2">InvoiceFlow</h1>
+            <h1 className="text-4xl font-bold mb-2">Ledgerly</h1>
             <p className="text-primary-100 text-lg">
               Professional Invoicing & Inventory Management
             </p>
@@ -329,7 +329,7 @@ const SignUpPage = () => {
           </div>
 
           <div className="mt-8 border-t border-primary-400 pt-6">
-            <p className="text-sm text-primary-200 mb-3">Join thousands of businesses using InvoiceFlow</p>
+            <p className="text-sm text-primary-200 mb-3">Join thousands of businesses using Ledgerly</p>
             <div className="flex items-center space-x-4">
               <div className="flex -space-x-2">
                 {[1, 2, 3, 4].map((i) => (
@@ -706,7 +706,7 @@ const SignUpPage = () => {
                 </div>
 
                 <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">InvoiceFlow Features:</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Ledgerly Features:</h4>
                   <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                     <li className="flex items-center">
                       <CheckCircle className="w-4 h-4 text-emerald-500 mr-2" />
@@ -754,7 +754,7 @@ const SignUpPage = () => {
                       and{" "}
                       <a href="/privacy" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">
                         Privacy Policy
-                      </a>. I understand that InvoiceFlow will process my data in accordance with these terms.
+                      </a>. I understand that Ledgerly will process my data in accordance with these terms.
                     </span>
                   </label>
                   {errors.acceptTerms && (

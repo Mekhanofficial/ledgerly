@@ -90,7 +90,7 @@ const ReceiptPreview = ({
     return paymentMethod === 'Card' ? 'Card payment' : 'Cash payment';
   };
 
-  const companyName = accountInfo?.companyName || accountInfo?.businessName || 'InvoiceFlow';
+  const companyName = accountInfo?.companyName || accountInfo?.businessName || 'Ledgerly';
   const locationParts = [
     accountInfo?.address,
     [accountInfo?.city, accountInfo?.state, accountInfo?.zipCode].filter(Boolean).join(', '),
