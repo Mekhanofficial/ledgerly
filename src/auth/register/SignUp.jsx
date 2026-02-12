@@ -290,7 +290,7 @@ const SignUpPage = () => {
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm">
               <FileText className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold mb-2">Ledgerly</h1>
+            <h1 className="text-4xl font-bold mb-2">LEDGERLY</h1>
             <p className="text-primary-100 text-lg">
               Professional Invoicing & Inventory Management
             </p>
