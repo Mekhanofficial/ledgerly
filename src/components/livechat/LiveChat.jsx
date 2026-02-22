@@ -14,7 +14,9 @@ import { useInventory } from '../../context/InventoryContext';
 import { usePayments } from '../../context/PaymentContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useUser } from '../../context/UserContext';
+import { useAccount } from '../../context/AccountContext';
 import { generateReportData } from '../../utils/reportGenerator';
+import { formatCurrency } from '../../utils/currency';
 
 const LiveChat = () => {
   const navigate = useNavigate();
@@ -45,6 +47,9 @@ const LiveChat = () => {
     getNotificationStats
   } = useNotifications();
   const { user } = useUser();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || user?.currencyCode || 'USD';
+  const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
   
   // State
   const [isOpen, setIsOpen] = useState(false);
@@ -165,7 +170,7 @@ const LiveChat = () => {
         `Here is your dashboard summary:\n\n` +
         `Invoices: ${invoiceStats.totalInvoices || 0} total, ${overdueCount} overdue\n` +
         `Inventory: ${inventoryStats.totalProducts || 0} products, ${lowStockCount} low stock\n` +
-        `Payments: ${paymentStats.todayCount || 0} today, $${(paymentStats.processedToday || 0).toLocaleString()} revenue\n` +
+        `Payments: ${paymentStats.todayCount || 0} today, ${formatMoney(paymentStats.processedToday || 0, baseCurrency)} revenue\n` +
         `Notifications: ${notificationStats.unread || 0} unread\n\n` +
         `What would you like to focus on?`,
         ['View invoices', 'Check inventory', 'See payments', 'View notifications']
@@ -191,7 +196,7 @@ const LiveChat = () => {
           ]);
         }
         return createBotResponse(
-          `You have ${overdue.length} overdue invoices totaling $${overdue.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0).toLocaleString()}. Would you like to:`,
+          `You have ${overdue.length} overdue invoices totaling ${formatMoney(overdue.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0), baseCurrency)}. Would you like to:`,
           ['Send reminders', 'View overdue list', 'Set up payment plans']
         );
       }
@@ -233,7 +238,7 @@ const LiveChat = () => {
       // Default inventory response
       return createBotResponse(
         `Inventory Summary:\n${inventoryStats.totalProducts || 0} total products\n` +
-        `Total value: $${(inventoryStats.totalValue || 0).toLocaleString()}\n` +
+        `Total value: ${formatMoney(inventoryStats.totalValue || 0, baseCurrency)}\n` +
         `${getLowStockProducts().length} low stock items\n\nWhat would you like to do?`,
         ['View inventory', 'Add product', 'Stock adjustments', 'Inventory report']
       );
@@ -255,9 +260,9 @@ const LiveChat = () => {
       }
       // Default payment response
       return createBotResponse(
-        `Payment Summary:\nToday: $${(paymentStats.processedToday || 0).toLocaleString()}\n` +
-        `This month: $${(paymentStats.totalRevenue || 0).toLocaleString()}\n` +
-        `Pending: $${(paymentStats.pendingPayments || 0).toLocaleString()}\n\nWhat would you like to do?`,
+        `Payment Summary:\nToday: ${formatMoney(paymentStats.processedToday || 0, baseCurrency)}\n` +
+        `This month: ${formatMoney(paymentStats.totalRevenue || 0, baseCurrency)}\n` +
+        `Pending: ${formatMoney(paymentStats.pendingPayments || 0, baseCurrency)}\n\nWhat would you like to do?`,
         ['Process payment', 'View transactions', 'Payment report', 'Add payment method']
       );
     }
@@ -273,7 +278,7 @@ const LiveChat = () => {
       return createBotResponse(
         `You have ${customers?.length || 0} customers.\n` +
         `${customerStats[0]?.value || 0} active customers\n` +
-        `Total outstanding: ${customerStats[2]?.value || '$0'}\n\nWhat would you like to do?`,
+        `Total outstanding: ${customerStats[2]?.value || formatMoney(0, baseCurrency)}\n\nWhat would you like to do?`,
         ['Add customer', 'View customers', 'Customer reports', 'Send promotions']
       );
     }
@@ -413,7 +418,7 @@ const LiveChat = () => {
               type: 'invoice',
               title: 'Payment Reminder Sent',
               description: `Reminder sent for Invoice #${invoice.number || invoice.invoiceNumber}`,
-              details: `Amount: $${(invoice.totalAmount || invoice.amount || 0).toLocaleString()}`,
+              details: `Amount: ${formatMoney(invoice.totalAmount || invoice.amount || 0, invoice.currency || baseCurrency)}`,
               time: 'Just now',
               action: 'View Invoice',
               color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
@@ -430,7 +435,7 @@ const LiveChat = () => {
               type: 'invoice',
               title: 'Payment Reminder Sent',
               description: `Reminder sent for Invoice #${selectedInvoice.number || selectedInvoice.invoiceNumber}`,
-              details: `Amount: $${(selectedInvoice.totalAmount || selectedInvoice.amount || 0).toLocaleString()}`,
+              details: `Amount: ${formatMoney(selectedInvoice.totalAmount || selectedInvoice.amount || 0, selectedInvoice.currency || baseCurrency)}`,
               time: 'Just now',
               action: 'View Invoice',
               color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
@@ -514,7 +519,7 @@ const LiveChat = () => {
             type: 'revenue',
             format: 'json'
           });
-          response = `Generated revenue report. Total: $${(paymentData.totalRevenue || 0).toLocaleString()}`;
+          response = `Generated revenue report. Total: ${formatMoney(paymentData.totalRevenue || 0, baseCurrency)}`;
           newNotification = {
             type: 'report',
             title: 'Revenue Report Generated',
@@ -548,7 +553,7 @@ const LiveChat = () => {
           response = `Dashboard Overview:\n\n` +
             `**Invoices:** ${stats.totalInvoices || 0} total, ${getOverdueInvoices().length} overdue\n` +
             `**Inventory:** ${inventoryStatsData.totalProducts || 0} products, ${getLowStockProducts().length} low stock\n` +
-            `**Revenue:** $${(getPaymentStats?.()?.processedToday || 0).toLocaleString()} today\n` +
+            `**Revenue:** ${formatMoney(getPaymentStats?.()?.processedToday || 0, baseCurrency)} today\n` +
             `**Customers:** ${customers?.length || 0} active`;
           break;
         }
@@ -671,7 +676,7 @@ const LiveChat = () => {
           generateReceipt: true
         }).then(result => {
           setMessages(prev => [...prev, createBotResponse(
-            `Payment of $${(invoice.totalAmount || invoice.amount || 0).toLocaleString()} processed successfully.\nReceipt: ${result.receipt?.id || 'Generated'}`,
+            `Payment of ${formatMoney(invoice.totalAmount || invoice.amount || 0, invoice.currency || baseCurrency)} processed successfully.\nReceipt: ${result.receipt?.id || 'Generated'}`,
             ['View receipt', 'Next invoice']
           )]);
         }).catch(error => {
@@ -685,7 +690,7 @@ const LiveChat = () => {
           `Invoice Details:\n\n` +
           `Number: ${invoice.invoiceNumber || invoice.number}\n` +
           `Customer: ${invoice.customer || 'Unknown'}\n` +
-          `Amount: $${(invoice.totalAmount || invoice.amount || 0).toLocaleString()}\n` +
+          `Amount: ${formatMoney(invoice.totalAmount || invoice.amount || 0, invoice.currency || baseCurrency)}\n` +
           `Status: ${invoice.status}\n` +
           `Due Date: ${invoice.dueDate || 'Not set'}\n\n` +
           `What would you like to do?`,
@@ -723,8 +728,8 @@ const LiveChat = () => {
         `Name: ${customer.name}\n` +
         `Email: ${customer.email || 'Not provided'}\n` +
         `Phone: ${customer.phone || 'Not provided'}\n` +
-        `Total Spent: $${(customer.totalSpent || 0).toLocaleString()}\n` +
-        `Outstanding: $${(customer.outstanding || 0).toLocaleString()}\n\n` +
+        `Total Spent: ${formatMoney(customer.totalSpent || 0, baseCurrency)}\n` +
+        `Outstanding: ${formatMoney(customer.outstanding || 0, baseCurrency)}\n\n` +
         `What would you like to do?`,
         ['Create invoice', 'View history', 'Send email', 'Update details']
       )]);
@@ -1121,7 +1126,7 @@ const LiveChat = () => {
                             </div>
                             <div className="text-right pl-2 flex-shrink-0">
                               <div className="font-medium whitespace-nowrap">
-                                ${(invoice.totalAmount || invoice.amount || 0).toLocaleString()}
+                                {formatMoney(invoice.totalAmount || invoice.amount || 0, invoice.currency || baseCurrency)}
                               </div>
                               <div className={`px-2 py-1 rounded text-xs mt-1 ${
                                 invoice.status === 'paid' 
@@ -1164,7 +1169,7 @@ const LiveChat = () => {
                             </div>
                             <div className="text-right pl-2 flex-shrink-0">
                               <div className="text-sm">
-                                ${(customer.totalSpent || 0).toLocaleString()}
+                                {formatMoney(customer.totalSpent || 0, baseCurrency)}
                               </div>
                               <div className="text-xs opacity-70 mt-1">
                                 {customer.transactions || 0} trans

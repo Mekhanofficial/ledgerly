@@ -12,6 +12,8 @@ import { usePayments } from '../../context/PaymentContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { generateReceiptPDF, getReceiptTemplatePreference, setReceiptTemplatePreference } from '../../utils/receiptPdfGenerator';
 import { useAccount } from '../../context/AccountContext';
+import { hasTemplateAccess } from '../../utils/templateStorage';
+import { formatCurrency } from '../../utils/currency';
 
 const Receipts = () => {
   const { isDarkMode } = useTheme();
@@ -20,6 +22,8 @@ const Receipts = () => {
   const { recordTransaction, paymentMethods, receipts, refreshReceipts } = usePayments();
   const { customers, getAvailableTemplates } = useInvoice();
   const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
   
   const [cartItems, setCartItems] = useState([]);
   const [customerEmail, setCustomerEmail] = useState('');
@@ -36,6 +40,16 @@ const Receipts = () => {
   const [availableTemplates, setAvailableTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
+  const resolveTemplateAccess = (template) => {
+    if (typeof template?.hasAccess === 'boolean') {
+      return template.hasAccess;
+    }
+    if (!template?.id) {
+      return false;
+    }
+    return hasTemplateAccess(template.id);
+  };
+
   // Load receipts on component mount
   useEffect(() => {
     refreshReceipts();
@@ -44,7 +58,7 @@ const Receipts = () => {
   useEffect(() => {
     if (!getAvailableTemplates) return;
     const templates = getAvailableTemplates() || [];
-    const accessibleTemplates = templates.filter(t => !t.isPremium || t.hasAccess);
+    const accessibleTemplates = templates.filter(t => resolveTemplateAccess(t));
     const templatesToUse = accessibleTemplates.length > 0 ? accessibleTemplates : templates;
     setAvailableTemplates(templatesToUse);
 
@@ -55,7 +69,7 @@ const Receipts = () => {
       || templatesToUse[0];
 
     const fallbackTemplate = templatesToUse.find(t => t.id === 'standard')
-      || templatesToUse.find(t => !t.isPremium)
+      || templatesToUse.find(t => resolveTemplateAccess(t))
       || templatesToUse[0];
 
     const finalTemplate = resolvedTemplate || fallbackTemplate;
@@ -165,8 +179,9 @@ const Receipts = () => {
 
   const handleSelectTemplate = (templateId) => {
     const template = availableTemplates.find(t => t.id === templateId);
-    if (template?.isPremium && !template?.hasAccess) {
-      addToast(`"${template.name}" is a premium template. Purchase to use it.`, 'warning');
+    if (template && !resolveTemplateAccess(template)) {
+      const requiredPlan = template.requiredPlan ? `Upgrade to ${template.requiredPlan}` : 'Upgrade your plan';
+      addToast(`"${template.name}" is locked. ${requiredPlan} or purchase to use it.`, 'warning');
       return;
     }
     setSelectedTemplateId(templateId);
@@ -234,7 +249,7 @@ const Receipts = () => {
         type: 'receipt',
         title: 'Receipt Generated',
         description: `Receipt #${createdReceipt.id} for ${createdReceipt.customerName || 'Walk-in Customer'}`,
-        details: `Total: $${(createdReceipt.total || total).toFixed(2)} | Payment: ${createdReceipt.paymentMethod || paymentMethod}`,
+        details: `Total: ${formatMoney(createdReceipt.total || total, baseCurrency)} | Payment: ${createdReceipt.paymentMethod || paymentMethod}`,
         time: 'Just now',
         action: 'View Receipt',
         color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
@@ -318,12 +333,13 @@ const Receipts = () => {
 
       const pdfDoc = generateReceiptPDF(createdReceipt, accountInfo, selectedTemplateId);
       pdfDoc.save(`${createdReceipt.id}.pdf`);
+      const receiptCurrency = createdReceipt.currency || baseCurrency;
 
       addNotification({
         type: 'receipt',
         title: 'Receipt Sent',
         description: `Receipt #${createdReceipt.id} sent to ${createdReceipt.customerEmail || customerEmail || selectedCustomer?.email}`,
-        details: `Total: $${(createdReceipt.total || total).toFixed(2)} | Payment: ${createdReceipt.paymentMethod || paymentMethod}`,
+        details: `Total: ${formatMoney(createdReceipt.total || total, receiptCurrency)} | Payment: ${createdReceipt.paymentMethod || paymentMethod}`,
         time: 'Just now',
         action: 'View Receipt',
         color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
@@ -344,12 +360,12 @@ ${createdReceipt.paymentMethodDetails ? `Payment Details: ${createdReceipt.payme
 
 Items Purchased:
 ${createdReceipt.items?.map(item => 
-  `- ${item.name}: ${item.quantity} x $${Number(item.price || 0).toFixed(2)} = $${(Number(item.price || 0) * item.quantity).toFixed(2)}`
+  `- ${item.name}: ${item.quantity} x ${formatMoney(Number(item.price || 0), receiptCurrency)} = ${formatMoney(Number(item.price || 0) * item.quantity, receiptCurrency)}`
 ).join('\n') || 'No items found'}
 
-Subtotal: $${(createdReceipt.subtotal || 0).toFixed(2)}
-Tax: $${(createdReceipt.tax || 0).toFixed(2)}
-Total: $${(createdReceipt.total || 0).toFixed(2)}
+Subtotal: ${formatMoney(createdReceipt.subtotal || 0, receiptCurrency)}
+Tax: ${formatMoney(createdReceipt.tax || 0, receiptCurrency)}
+Total: ${formatMoney(createdReceipt.total || 0, receiptCurrency)}
 
 ${notes ? `\nNotes: ${notes}` : ''}
 
@@ -439,11 +455,12 @@ Thank you for shopping with us!
         throw new Error('Failed to create receipt');
       }
 
+      const receiptCurrency = createdReceipt.currency || baseCurrency;
       addNotification({
         type: 'receipt',
         title: 'Receipt Emailed',
         description: `Receipt #${createdReceipt.id} emailed to ${createdReceipt.customerEmail || customerEmail || selectedCustomer?.email}`,
-        details: `Total: $${(createdReceipt.total || total).toFixed(2)} | Payment: ${createdReceipt.paymentMethod || paymentMethod}`,
+        details: `Total: ${formatMoney(createdReceipt.total || total, receiptCurrency)} | Payment: ${createdReceipt.paymentMethod || paymentMethod}`,
         time: 'Just now',
         action: 'View Receipt',
         color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
@@ -463,12 +480,12 @@ ${createdReceipt.paymentMethodDetails ? `Payment Details: ${createdReceipt.payme
 
 Items Purchased:
 ${createdReceipt.items?.map(item => 
-  `- ${item.name}: ${item.quantity} x $${Number(item.price || 0).toFixed(2)} = $${(Number(item.price || 0) * item.quantity).toFixed(2)}`
+  `- ${item.name}: ${item.quantity} x ${formatMoney(Number(item.price || 0), receiptCurrency)} = ${formatMoney(Number(item.price || 0) * item.quantity, receiptCurrency)}`
 ).join('\n') || 'No items found'}
 
-Subtotal: $${(createdReceipt.subtotal || 0).toFixed(2)}
-Tax: $${(createdReceipt.tax || 0).toFixed(2)}
-Total: $${(createdReceipt.total || 0).toFixed(2)}
+Subtotal: ${formatMoney(createdReceipt.subtotal || 0, receiptCurrency)}
+Tax: ${formatMoney(createdReceipt.tax || 0, receiptCurrency)}
+Total: ${formatMoney(createdReceipt.total || 0, receiptCurrency)}
 
 ${notes ? `\nNotes: ${notes}` : ''}
 
@@ -904,7 +921,7 @@ Thank you for shopping with us!
               <div className="flex flex-col items-start">
                 <span className="text-sm font-medium">View Receipt</span>
                 <span className="text-xs opacity-90">
-                  ${calculateTotals().total.toFixed(2)}
+                  {formatMoney(calculateTotals().total, baseCurrency)}
                   <span className="ml-1">({cartItems.length} items)</span>
                 </span>
               </div>

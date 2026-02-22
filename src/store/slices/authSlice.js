@@ -48,12 +48,20 @@ export const logout = createAsyncThunk(
       await api.get('/auth/logout');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('premium_templates_access');
+      localStorage.removeItem('template_purchases');
+      localStorage.removeItem('template_access_owner');
+      localStorage.removeItem('subscription');
       return null;
     } catch (error) {
       console.error('Logout error:', error);
       // Clear local storage anyway
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('premium_templates_access');
+      localStorage.removeItem('template_purchases');
+      localStorage.removeItem('template_access_owner');
+      localStorage.removeItem('subscription');
       return rejectWithValue(error.message);
     }
   }

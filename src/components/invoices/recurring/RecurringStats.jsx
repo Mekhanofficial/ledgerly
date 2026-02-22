@@ -2,9 +2,14 @@
 import React from 'react';
 import { Play, DollarSign, Users, Calendar, Clock } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
+import { useAccount } from '../../../context/AccountContext';
+import { formatCurrency } from '../../../utils/currency';
 
 const RecurringStats = ({ invoices = [] }) => {
   const { isDarkMode } = useTheme();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value) => formatCurrency(value, baseCurrency);
   
   const activeInvoices = invoices.filter(inv => inv.status === 'active');
   const totalValue = activeInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
@@ -25,7 +30,7 @@ const RecurringStats = ({ invoices = [] }) => {
     },
     { 
       label: 'Total Value', 
-      value: `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}/mo`, 
+      value: `${formatMoney(totalValue)}/mo`, 
       icon: DollarSign, 
       color: 'bg-blue-500' 
     },

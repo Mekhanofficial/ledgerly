@@ -12,13 +12,16 @@ const Pricing = () => {
       popular: false,
       icon: <Zap className="w-6 h-6 text-primary-600 dark:text-primary-400" />,
       features: [
-        '50 invoices/month',
+        '100 invoices/month',
         'Unlimited receipts',
         'Basic reporting',
         'Email support',
         'Single user',
         'Mobile app access',
-        'Custom invoice templates'
+        'Access to 5 Standard templates only',
+        'No recurring invoices',
+        'No API access',
+        'No team access'
       ],
       ctaText: 'Get Started',
       ctaLink: '/dashboard'
@@ -32,16 +35,17 @@ const Pricing = () => {
       icon: <Users className="w-6 h-6 text-primary-600 dark:text-primary-400" />,
       features: [
         'Unlimited invoices',
-        'Advanced reports & analytics',
+        'Advanced reporting',
         'Team access (5 users)',
         'Priority support',
         'Recurring invoices',
         'Inventory management',
         'Customer database',
-        'Multi-currency support',
-        'API access'
+        'Multi-currency',
+        'API access (limited)',
+        'Access to ALL Standard + Premium templates'
       ],
-      ctaText: 'Start Free Trial',
+      ctaText: 'Upgrade to Professional',
       ctaLink: '/dashboard'
     },
     {
@@ -55,13 +59,11 @@ const Pricing = () => {
         'Everything in Professional',
         'Team access (20 users)',
         'Full API access',
-        'Custom integrations',
-        'Dedicated account manager',
         'White-label branding',
-        'Advanced analytics dashboard',
         'Custom workflows',
+        'Dedicated manager',
         'SLA guarantee',
-        'Onboarding assistance'
+        'Access to ALL templates including Elite'
       ],
       ctaText: 'Contact Sales',
       ctaLink: '/contact'
@@ -110,7 +112,7 @@ const Pricing = () => {
                   </div>
                   {plan.popular && (
                     <div className="text-xs font-semibold bg-primary-100 dark:bg-primary-900/50 text-primary-800 dark:text-primary-300 px-3 py-1 rounded-full">
-                      Save 40%
+                      Save 2 months yearly
                     </div>
                   )}
                 </div>
@@ -166,7 +168,7 @@ const Pricing = () => {
         {/* Annual billing option */}
         <div className="mt-12 text-center">
           <div className="inline-flex items-center bg-primary-50 dark:bg-primary-900/20 rounded-full px-4 py-2">
-            <span className="text-sm text-gray-700 dark:text-gray-300 mr-2">💸 Save 20% with annual billing</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300 mr-2">Save 2 months with annual billing</span>
             <div className="text-xs font-semibold bg-primary-600 dark:bg-primary-500 text-white px-2 py-1 rounded-full">
               Recommended
             </div>

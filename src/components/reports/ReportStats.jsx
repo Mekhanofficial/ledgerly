@@ -3,10 +3,16 @@ import React from 'react';
 import { TrendingUp, DollarSign, ShoppingCart, Users, BarChart3 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../context/InvoiceContext';
+import { useAccount } from '../../context/AccountContext';
+import { formatCurrency } from '../../utils/currency';
 
 const ReportStats = () => {
   const { isDarkMode } = useTheme();
   const { invoices, customers } = useInvoice();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, options = {}) =>
+    formatCurrency(value, baseCurrency, options);
   
   // Calculate real stats from invoices and customers
   const calculateStats = () => {
@@ -42,7 +48,7 @@ const ReportStats = () => {
     
     return {
       totalRevenue: {
-        value: `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        value: formatMoney(totalRevenue),
         change: calculateChange(totalRevenue, previousRevenue),
         raw: totalRevenue
       },
@@ -57,7 +63,7 @@ const ReportStats = () => {
         raw: newCustomers
       },
       avgOrderValue: {
-        value: `$${avgOrderValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        value: formatMoney(avgOrderValue),
         change: calculateChange(avgOrderValue, previousAvgOrder),
         raw: avgOrderValue
       }
@@ -117,7 +123,7 @@ const ReportStats = () => {
       change: statsData.avgOrderValue.change,
       icon: TrendingUp,
       color: 'bg-amber-500',
-      description: `Highest: $${Math.max(...invoices.map(inv => inv.totalAmount || inv.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      description: `Highest: ${formatMoney(Math.max(...invoices.map(inv => inv.totalAmount || inv.amount || 0), 0))}`,
       rawValue: statsData.avgOrderValue.raw
     }
   ];
@@ -183,7 +189,9 @@ const ReportStats = () => {
                       This month
                     </span>
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
-                      {stat.label === 'Total Revenue' ? 'Target: $150,000' : 'Target: $300'}
+                      {stat.label === 'Total Revenue'
+                        ? `Target: ${formatMoney(150000, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                        : `Target: ${formatMoney(300, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                     </span>
                   </div>
                   <div className={`h-1.5 rounded-full overflow-hidden ${
@@ -268,10 +276,10 @@ const ReportStats = () => {
             <div className={`text-xs ${
               isDarkMode ? 'text-gray-400' : 'text-gray-500'
             }`}>
-              ${invoices
+              {formatMoney(invoices
                 .filter(inv => inv.status === 'overdue')
                 .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0)
-                .toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              )}
             </div>
           </div>
           

@@ -9,6 +9,9 @@ import { useTheme } from '../../context/ThemeContext';
 import { usePayments } from '../../context/PaymentContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useToast } from '../../context/ToastContext';
+import { useAccount } from '../../context/AccountContext';
+import { useSelector } from 'react-redux';
+import { formatCurrency } from '../../utils/currency';
 
 const Payments = () => {
   const { isDarkMode } = useTheme();
@@ -24,6 +27,11 @@ const Payments = () => {
   } = usePayments();
   const { invoices } = useInvoice();
   const { addToast } = useToast();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
+  const authUser = useSelector((state) => state.auth?.user);
+  const isClient = authUser?.role === 'client';
   
   const [filter, setFilter] = useState('all');
   const [dateRange, setDateRange] = useState('today');
@@ -111,7 +119,7 @@ const Payments = () => {
     }
     
     const confirmRefund = window.confirm(
-      `Refund $${transaction.amount} to ${transaction.customerName}?`
+      `Refund ${formatMoney(transaction.amount, transaction.currency || baseCurrency)} to ${transaction.customerName}?`
     );
     
     if (confirmRefund) {
@@ -218,7 +226,7 @@ const Payments = () => {
       return {
         method: methodName,
         percentage,
-        amount: `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        amount: formatMoney(amount, baseCurrency),
         color: colors[methodName] || 'bg-gray-500',
         count: methodCounts[method] || 0
       };
@@ -262,27 +270,29 @@ const Payments = () => {
                 Payments
               </h1>
               <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Manage payments
+                {isClient ? 'View payment history' : 'Manage payments'}
               </p>
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setShowMobileActions(!showMobileActions)}
-                className={`p-2 rounded-lg border ${
-                  isDarkMode 
-                    ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-              <Link
-                to="/payments/process"
-                className="p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-              >
-                <Plus className="w-5 h-5" />
-              </Link>
-            </div>
+            {!isClient && (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowMobileActions(!showMobileActions)}
+                  className={`p-2 rounded-lg border ${
+                    isDarkMode 
+                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                <Link
+                  to="/payments/process"
+                  className="p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  <Plus className="w-5 h-5" />
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
@@ -294,42 +304,44 @@ const Payments = () => {
                 Payments
               </h1>
               <p className={`mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Manage and track customer payments
+                {isClient ? 'View payment history and invoice status' : 'Manage and track customer payments'}
               </p>
             </div>
-            <div className="flex items-center space-x-3 mt-4 md:mt-0">
-              <button 
-                onClick={handleSyncPayments}
-                disabled={isSyncing}
-                className={`flex items-center px-4 py-2 border rounded-lg transition-colors ${
-                  isDarkMode 
-                    ? 'border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50' 
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50'
-                }`}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? 'Syncing...' : 'Sync Payments'}
-              </button>
-              <Link
-                to="/payments/process"
-                className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Process Payment
-              </Link>
-              <button 
-                onClick={handleRecordPayment}
-                className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Record Payment
-              </button>
-            </div>
+            {!isClient && (
+              <div className="flex items-center space-x-3 mt-4 md:mt-0">
+                <button 
+                  onClick={handleSyncPayments}
+                  disabled={isSyncing}
+                  className={`flex items-center px-4 py-2 border rounded-lg transition-colors ${
+                    isDarkMode 
+                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50' 
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50'
+                  }`}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                  {isSyncing ? 'Syncing...' : 'Sync Payments'}
+                </button>
+                <Link
+                  to="/payments/process"
+                  className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Process Payment
+                </Link>
+                <button 
+                  onClick={handleRecordPayment}
+                  className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Record Payment
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Mobile Actions Dropdown */}
-        {isMobile && showMobileActions && (
+        {!isClient && isMobile && showMobileActions && (
           <div className={`border rounded-lg mb-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
             <div className="space-y-1 p-2">
               <button 
@@ -437,7 +449,7 @@ const Payments = () => {
                       </button>
                     ))}
                   </div>
-                  {transactions && transactions.length > 0 && (
+                  {!isClient && transactions && transactions.length > 0 && (
                     <button
                       onClick={() => setShowDeleteConfirm(true)}
                       className={`flex items-center px-3 py-2 border rounded-lg transition-colors ${
@@ -491,29 +503,33 @@ const Payments = () => {
                     <Filter className="w-3 h-3 mr-1.5" />
                     More
                   </button>
-                  <button className={`flex items-center justify-center flex-1 px-3 py-2 border rounded-lg text-xs ${
-                    isDarkMode 
-                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}>
-                    <Download className="w-3 h-3 mr-1.5" />
-                    Export
-                  </button>
-                  {transactions && transactions.length > 0 && (
-                    <button
-                      onClick={() => {
-                        setShowDeleteConfirm(true);
-                        setShowMobileFilters(false);
-                      }}
-                      className={`flex items-center justify-center flex-1 px-3 py-2 border rounded-lg text-xs ${
+                  {!isClient && (
+                    <>
+                      <button className={`flex items-center justify-center flex-1 px-3 py-2 border rounded-lg text-xs ${
                         isDarkMode 
-                          ? 'border-red-600 text-red-400 hover:bg-red-900/20' 
-                          : 'border-red-300 text-red-600 hover:bg-red-50'
-                      }`}
-                    >
-                      <Trash2 className="w-3 h-3 mr-1.5" />
-                      Clear
-                    </button>
+                          ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}>
+                        <Download className="w-3 h-3 mr-1.5" />
+                        Export
+                      </button>
+                      {transactions && transactions.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setShowDeleteConfirm(true);
+                            setShowMobileFilters(false);
+                          }}
+                          className={`flex items-center justify-center flex-1 px-3 py-2 border rounded-lg text-xs ${
+                            isDarkMode 
+                              ? 'border-red-600 text-red-400 hover:bg-red-900/20' 
+                              : 'border-red-300 text-red-600 hover:bg-red-50'
+                          }`}
+                        >
+                          <Trash2 className="w-3 h-3 mr-1.5" />
+                          Clear
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -593,22 +609,26 @@ const Payments = () => {
               </h3>
               {!isMobile && (
                 <div className="flex items-center space-x-3">
-                  <button className={`flex items-center px-3 py-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}>
-                    <Filter className="w-4 h-4 mr-2" />
-                    More Filters
-                  </button>
-                  <button className={`flex items-center px-3 py-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </button>
+                  {!isClient && (
+                    <>
+                      <button className={`flex items-center px-3 py-2 border rounded-lg ${
+                        isDarkMode 
+                          ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}>
+                        <Filter className="w-4 h-4 mr-2" />
+                        More Filters
+                      </button>
+                      <button className={`flex items-center px-3 py-2 border rounded-lg ${
+                        isDarkMode 
+                          ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}>
+                        <Download className="w-4 h-4 mr-2" />
+                        Export
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -616,8 +636,9 @@ const Payments = () => {
               <PaymentTable
                 payments={paymentsForTable}
                 onViewDetails={handleViewDetails}
-                onProcess={handleProcessPayment}
-                onRefund={handleRefund}
+                onProcess={isClient ? null : handleProcessPayment}
+                onRefund={isClient ? null : handleRefund}
+                readOnly={isClient}
                 isMobile={isMobile}
               />
             </div>
@@ -639,34 +660,38 @@ const Payments = () => {
             <p className={`mb-6 text-sm md:text-base ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              No payment records found. Process payments or sync with your payment gateway to see transactions here.
+              {isClient
+                ? 'No payment records found for your account yet.'
+                : 'No payment records found. Process payments or sync with your payment gateway to see transactions here.'}
             </p>
-            <div className={`flex ${isMobile ? 'flex-col space-y-3' : 'justify-center space-x-3'}`}>
-              <Link
-                to="/payments/process"
-                className={`flex items-center justify-center ${isMobile ? 'w-full' : 'px-4'} py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm`}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Process Payment
-              </Link>
-              <button 
-                onClick={handleSyncPayments}
-                disabled={isSyncing}
-                className={`flex items-center justify-center ${isMobile ? 'w-full' : 'px-4'} py-2 border rounded-lg transition-colors text-sm ${
-                  isDarkMode 
-                    ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                Sync Payments
-              </button>
-            </div>
+            {!isClient && (
+              <div className={`flex ${isMobile ? 'flex-col space-y-3' : 'justify-center space-x-3'}`}>
+                <Link
+                  to="/payments/process"
+                  className={`flex items-center justify-center ${isMobile ? 'w-full' : 'px-4'} py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm`}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Process Payment
+                </Link>
+                <button 
+                  onClick={handleSyncPayments}
+                  disabled={isSyncing}
+                  className={`flex items-center justify-center ${isMobile ? 'w-full' : 'px-4'} py-2 border rounded-lg transition-colors text-sm ${
+                    isDarkMode 
+                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                  Sync Payments
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Payment Methods Overview - Responsive Grid */}
-        {transactions && transactions.length > 0 && (
+        {!isClient && transactions && transactions.length > 0 && (
           <div className={`grid ${isMobile ? 'grid-cols-1 gap-4' : 'grid-cols-1 md:grid-cols-3 gap-6'}`}>
             {/* Payment Methods Card */}
             <div className={`border rounded-xl ${isMobile ? 'p-4' : 'p-6'} ${

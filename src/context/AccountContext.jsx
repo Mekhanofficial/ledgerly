@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useSelector, useDispatch } from 'react-redux';
 import api from '../services/api';
 import { setUser } from '../store/slices/authSlice';
-import { getAvatarUrl } from '../utils/userDisplay';
+import { getAvatarUrl, resolveAuthUser } from '../utils/userDisplay';
+import { isAccessDeniedError } from '../utils/accessControl';
 
 const STORAGE_KEY = 'ledgerly_account_info';
 const EMPTY_ACCOUNT_INFO = {
@@ -18,6 +19,10 @@ const EMPTY_ACCOUNT_INFO = {
   website: '',
   timezone: '',
   currency: 'USD',
+  plan: 'starter',
+  subscriptionStatus: 'active',
+  trialEndsAt: null,
+  subscriptionEndsAt: null,
   profileImage: '',
   avatarUrl: ''
 };
@@ -39,6 +44,10 @@ const mapBusinessToAccount = (business = {}, user = {}) => {
     website: business.website || '',
     timezone: business.timezone || '',
     currency: business.currency || 'USD',
+    plan: business.subscription?.plan || 'starter',
+    subscriptionStatus: business.subscription?.status || 'active',
+    trialEndsAt: business.subscription?.trialEndsAt || null,
+    subscriptionEndsAt: business.subscription?.currentPeriodEnd || null,
     profileImage: resolvedProfile,
     avatarUrl
   };
@@ -56,9 +65,15 @@ export const useAccount = () => {
 
 export const AccountProvider = ({ children }) => {
   const authUser = useSelector((state) => state.auth.user);
+  const resolvedUser = resolveAuthUser(authUser);
   const dispatch = useDispatch();
   const [accountInfo, setAccountInfo] = useState(EMPTY_ACCOUNT_INFO);
   const [loading, setLoading] = useState(false);
+  const normalizedRole = String(resolvedUser?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const canUpdateBusiness = normalizedRole === 'super_admin';
   const storageKey = authUser?.id || authUser?._id
     ? `${STORAGE_KEY}_${authUser.id || authUser._id}`
     : null;
@@ -125,7 +140,7 @@ export const AccountProvider = ({ children }) => {
   }, [authUser]);
 
   const updateAccountInfo = useCallback(async (updates, profileImageFile) => {
-    if (!authUser) {
+    if (!resolvedUser) {
       throw new Error('Not authenticated');
     }
 
@@ -174,36 +189,73 @@ export const AccountProvider = ({ children }) => {
 
     let updatedUser = null;
     if (profileImageFile || Object.keys(userPayload).length) {
-      if (profileImageFile) {
-        const formData = new FormData();
-        if (userPayload.name) formData.append('name', userPayload.name);
-        if (userPayload.email) formData.append('email', userPayload.email);
-        if (userPayload.phone) formData.append('phone', userPayload.phone);
-        formData.append('profileImage', profileImageFile);
+      try {
+        if (profileImageFile) {
+          const formData = new FormData();
+          if (userPayload.name) formData.append('name', userPayload.name);
+          if (userPayload.email) formData.append('email', userPayload.email);
+          if (userPayload.phone) formData.append('phone', userPayload.phone);
+          formData.append('profileImage', profileImageFile);
 
-        const userResponse = await api.put('/auth/updatedetails', formData);
-        updatedUser = userResponse.data.data;
-      } else {
-        const userResponse = await api.put('/auth/updatedetails', userPayload);
-        updatedUser = userResponse.data.data;
+          const userResponse = await api.put('/auth/updatedetails', formData);
+          updatedUser = userResponse.data.data;
+        } else {
+          const userResponse = await api.put('/auth/updatedetails', userPayload);
+          updatedUser = userResponse.data.data;
+        }
+
+        dispatch(setUser(updatedUser));
+      } catch (error) {
+        if (!isAccessDeniedError(error)) {
+          throw error;
+        }
       }
-
-      dispatch(setUser(updatedUser));
     }
 
     let businessData;
-    if (Object.keys(businessPayload).length > 0) {
-      const response = await api.put('/business', businessPayload);
-      businessData = response.data.data;
-    } else {
-      const response = await api.get('/business');
-      businessData = response.data.data;
+    if (Object.keys(businessPayload).length > 0 && canUpdateBusiness) {
+      try {
+        const response = await api.put('/business', businessPayload);
+        businessData = response.data.data;
+      } catch (error) {
+        if (!isAccessDeniedError(error)) {
+          throw error;
+        }
+      }
     }
 
-    const normalized = mapBusinessToAccount(businessData, updatedUser || authUser);
-    setAccountInfo(normalized);
-    return normalized;
-  }, [authUser, accountInfo, dispatch]);
+    if (!businessData) {
+      try {
+        const response = await api.get('/business');
+        businessData = response.data.data;
+      } catch (error) {
+        if (!isAccessDeniedError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    if (businessData) {
+      const normalized = mapBusinessToAccount(businessData, updatedUser || resolvedUser);
+      setAccountInfo(normalized);
+      return normalized;
+    }
+
+    const fallback = {
+      ...accountInfo,
+      contactName: updates.contactName ?? accountInfo.contactName,
+      email: updates.email ?? accountInfo.email,
+      phone: updates.phone ?? accountInfo.phone
+    };
+    if (updatedUser?.profileImage) {
+      fallback.profileImage = updatedUser.profileImage;
+    }
+    if (updatedUser?.avatarUrl) {
+      fallback.avatarUrl = updatedUser.avatarUrl;
+    }
+    setAccountInfo(fallback);
+    return fallback;
+  }, [resolvedUser, accountInfo, dispatch, canUpdateBusiness]);
 
   return (
     <AccountContext.Provider value={{ accountInfo, updateAccountInfo, loading }}>

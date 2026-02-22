@@ -7,6 +7,7 @@ import {
   Users, 
   BarChart3, 
   Settings, 
+  ShieldCheck,
   ChevronLeft, 
   ChevronRight,
   LogOut,
@@ -22,20 +23,41 @@ import { useSelector } from 'react-redux';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNotifications } from '../../../context/NotificationContext'; // Add this import
 import { getUserDisplayName, getUserInitials, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
+import logo from '../../../assets/icons/ledgerly-logo.png';
 
 const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const { unreadCount } = useNotifications(); // Get unread notification count
   const authUser = useSelector((state) => state.auth?.user);
   const user = resolveAuthUser(authUser);
+  const normalizedRole = String(user?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const isSuperAdmin = normalizedRole === 'super_admin';
+  const isClient = normalizedRole === 'client';
+  const canAccessReports = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canAccessPayments = ['admin', 'accountant', 'client', 'super_admin'].includes(normalizedRole);
+  const canAccessReceipts = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canManageInventory = ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
+  const canManageInventoryAdmin = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canAccessSettings = ['admin', 'super_admin'].includes(normalizedRole);
   
   useTheme();
 
-  const menuItems = [
+  const inventorySubmenu = [
+    { label: 'Dashboard', path: '/inventory' },
+    { label: 'Products', path: '/inventory/products' },
+    { label: 'Categories', path: '/inventory/categories' },
+    ...(canManageInventoryAdmin ? [{ label: 'Stock Adjustments', path: '/inventory/stock-adjustments' }] : []),
+    { label: 'Suppliers', path: '/inventory/suppliers' }
+  ];
+
+  const businessMenuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', badge: null },
-    { 
-      icon: FileText, 
-      label: 'Invoices', 
+    {
+      icon: FileText,
+      label: 'Invoices',
       path: null,
       submenu: [
         { label: 'All Invoices', path: '/invoices' },
@@ -44,35 +66,64 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         { label: 'Templates', path: '/invoices/templates' }
       ]
     },
-    { icon: Receipt, label: 'Receipts', path: '/receipts' },
-    { 
-      icon: Package, 
-      label: 'Inventory', 
-      path: '/inventory',
-      submenu: [
-        { label: 'Dashboard', path: '/inventory' },
-        { label: 'Products', path: '/inventory/products' },
-        { label: 'Categories', path: '/inventory/categories' },
-        { label: 'Stock Adjustments', path: '/inventory/stock-adjustments' },
-        { label: 'Suppliers', path: '/inventory/suppliers' }
-      ]
-    },
+    ...(canAccessReceipts ? [{ icon: Receipt, label: 'Receipts', path: '/receipts' }] : []),
+    { icon: FileArchive, label: 'Documents', path: '/documents' },
+    ...(canManageInventory
+      ? [{
+          icon: Package,
+          label: 'Inventory',
+          path: '/inventory',
+          submenu: inventorySubmenu
+        }]
+      : []),
     { icon: Users, label: 'Customers', path: '/customers' },
-    { icon: BarChart3, label: 'Reports', path: '/reports' },
-    { icon: CreditCard, label: 'Payments', path: '/payments' },
+    ...(canAccessReports ? [{ icon: BarChart3, label: 'Reports', path: '/reports' }] : []),
+    ...(canAccessPayments ? [{ icon: CreditCard, label: 'Payments', path: '/payments' }] : [])
   ];
 
-  // Update bottom menu items to show notification count
-  const bottomMenuItems = [
-    { icon: HelpCircle, label: 'Help & Support', path: '/support' },
-    { icon: Settings, label: 'Settings', path: '/settings' },
-    { 
-      icon: Bell, 
-      label: 'Notifications', 
-      path: '/notifications', 
-      badge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount.toString()) : null 
-    },
+  const clientMenuItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+    { icon: FileText, label: 'My Invoices', path: '/invoices' },
+    { icon: CreditCard, label: 'Payments', path: '/payments' }
   ];
+
+  const menuItems = isSuperAdmin
+    ? [{ icon: ShieldCheck, label: 'Super Admin', path: '/super-admin' }]
+    : isClient
+      ? clientMenuItems
+      : businessMenuItems;
+
+  // Update bottom menu items to show notification count
+  const bottomMenuItems = isSuperAdmin
+    ? [
+        { icon: HelpCircle, label: 'Help & Support', path: '/support' },
+        {
+          icon: Bell,
+          label: 'Notifications',
+          path: '/notifications',
+          badge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount.toString()) : null
+        }
+      ]
+    : isClient
+      ? [
+          { icon: HelpCircle, label: 'Help & Support', path: '/support' },
+          {
+            icon: Bell,
+            label: 'Notifications',
+            path: '/notifications',
+            badge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount.toString()) : null
+          }
+        ]
+      : [
+          { icon: HelpCircle, label: 'Help & Support', path: '/support' },
+          ...(canAccessSettings ? [{ icon: Settings, label: 'Settings', path: '/settings' }] : []),
+          {
+            icon: Bell,
+            label: 'Notifications',
+            path: '/notifications',
+            badge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount.toString()) : null
+          }
+        ];
 
   const toggleSubmenu = (label) => {
     setActiveSubmenu(activeSubmenu === label ? null : label);
@@ -166,13 +217,9 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         {/* Logo */}
         <div className="flex items-center h-16 px-4 border-b border-gray-200 dark:border-gray-800">
           <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center flex-shrink-0">
-            <FileText className="w-6 h-6 text-white" />
+            <img src={logo} alt="Ledgerly logo" className="w-6 h-6 object-contain" />
           </div>
-          {isOpen && (
-            <div className="ml-3">
-              <h1 className="text-lg font-bold text-gray-900 dark:text-white">ledgerly</h1>
-            </div>
-          )}
+          {isOpen && <span className="sr-only">Ledgerly</span>}
         </div>
 
         {/* Main Menu */}
@@ -220,11 +267,9 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center">
             <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center">
-              <FileText className="w-6 h-6 text-white" />
+              <img src={logo} alt="Ledgerly logo" className="w-6 h-6 object-contain" />
             </div>
-            <div className="ml-3">
-              <h1 className="text-lg font-bold text-gray-900 dark:text-white">ledgerly</h1>
-            </div>
+            <span className="sr-only">Ledgerly</span>
           </div>
           <button
             onClick={onMobileToggle}

@@ -3,8 +3,10 @@ import { useSelector } from 'react-redux';
 import { useToast } from './ToastContext';
 import { useInvoice } from './InvoiceContext';
 import { useNotifications } from './NotificationContext';
+import { useAccount } from './AccountContext';
 import { getPayments, refundPayment } from '../services/paymentService';
 import { getReceipts, createReceipt } from '../services/receiptService';
+import { formatCurrency } from '../utils/currency';
 
 const RECEIPT_TEMPLATE_STORAGE_KEY = 'receipt_template_preference';
 
@@ -23,6 +25,7 @@ const mapPaymentToTransaction = (payment = {}) => {
   const processedAt = payment.paymentDate || payment.createdAt || new Date().toISOString();
   const refundAmount = payment.refundAmount || 0;
   const amount = Number(payment.amount ?? 0);
+  const currency = payment.currency || invoice.currency || payment.currencyCode;
   return {
     id: payment._id || payment.id,
     invoiceId: invoice._id || invoice.id || payment.invoiceId,
@@ -31,6 +34,7 @@ const mapPaymentToTransaction = (payment = {}) => {
     customerName: customer.name || payment.customerName || 'Customer',
     customerEmail: customer.email || payment.customerEmail,
     amount: refundAmount > 0 ? amount - refundAmount : amount,
+    currency,
     paymentMethod: payment.paymentMethod || 'manual',
     paymentMethodDetails: payment.paymentGateway
       ? `${payment.paymentMethod || 'payment'} via ${payment.paymentGateway}`
@@ -59,6 +63,7 @@ const mapReceiptToUi = (receipt = {}) => {
       }))
     : [];
   const taxAmount = receipt.tax?.amount ?? receipt.tax ?? 0;
+  const currency = receipt.currency || invoice.currency || receipt.currencyCode;
 
   return {
     id: receipt.receiptNumber || receipt._id || receipt.id,
@@ -75,6 +80,7 @@ const mapReceiptToUi = (receipt = {}) => {
     total: receipt.total ?? 0,
     amountPaid: receipt.amountPaid ?? receipt.total ?? 0,
     change: receipt.change ?? 0,
+    currency,
     paymentMethod: receipt.paymentMethod || 'Cash',
     paymentMethodDetails: receipt.paymentReference || receipt.paymentMethodDetails || '',
     paymentReference: receipt.paymentReference,
@@ -101,13 +107,75 @@ export const PaymentProvider = ({ children }) => {
   const { addToast } = useToast();
   const { invoices, updateInvoice, customers, updateStockOnPayment, markAsPaid } = useInvoice();
   const { addNotification } = useNotifications();
+  const { accountInfo } = useAccount();
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  const authUser = useSelector((state) => state.auth?.user);
+  const normalizedRole = String(authUser?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const canAccessPayments = ['admin', 'accountant', 'client', 'super_admin'].includes(normalizedRole);
+  const canAccessReceipts = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = useCallback(
+    (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency),
+    [baseCurrency]
+  );
   
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [receipts, setReceipts] = useState([]);
   const [pendingPayments, setPendingPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const normalizeListPayload = useCallback((payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.data?.data)) return payload.data.data;
+    if (Array.isArray(payload?.items)) return payload.items;
+    return [];
+  }, []);
+
+  const fetchAllPages = useCallback(async (fetchFn, params = {}, pageSize = 200) => {
+    const limit = params.limit ?? pageSize;
+    let page = params.page ?? 1;
+    let combined = [];
+    let lastPayload = null;
+    let resolvedPages = 1;
+
+    for (let guard = 0; guard < 200; guard += 1) {
+      const payload = await fetchFn({ ...params, page, limit });
+      lastPayload = payload;
+      const data = normalizeListPayload(payload);
+      combined = combined.concat(data);
+
+      const hasPagination = payload?.pages !== undefined || payload?.total !== undefined;
+      if (!hasPagination) {
+        return payload;
+      }
+
+      resolvedPages = payload?.pages ?? Math.ceil((payload?.total ?? combined.length) / limit);
+      if (data.length === 0 || page >= resolvedPages) {
+        return {
+          ...payload,
+          data: combined,
+          count: combined.length,
+          total: payload?.total ?? combined.length,
+          pages: resolvedPages
+        };
+      }
+
+      page += 1;
+    }
+
+    return {
+      ...lastPayload,
+      data: combined,
+      count: combined.length,
+      total: lastPayload?.total ?? combined.length,
+      pages: resolvedPages
+    };
+  }, [normalizeListPayload]);
   
   useEffect(() => {
     const savedMethods = JSON.parse(localStorage.getItem('ledgerly_payment_methods')) || getDefaultPaymentMethods();
@@ -115,7 +183,7 @@ export const PaymentProvider = ({ children }) => {
   }, []);
 
   const refreshTransactions = useCallback(async (params = {}) => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !canAccessPayments) {
       setTransactions([]);
       return [];
     }
@@ -127,31 +195,35 @@ export const PaymentProvider = ({ children }) => {
       return mapped;
     } catch (error) {
       console.error('Failed to refresh transactions:', error);
-      addToast('Unable to load payment history', 'error');
+      if (![401, 403].includes(error?.response?.status)) {
+        addToast('Unable to load payment history', 'error');
+      }
       return [];
     }
-  }, [addToast, isAuthenticated]);
+  }, [addToast, isAuthenticated, canAccessPayments]);
 
   const refreshReceipts = useCallback(async (params = {}) => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !canAccessReceipts) {
       setReceipts([]);
       return [];
     }
     try {
-      const payload = await getReceipts(params);
+      const payload = await fetchAllPages(getReceipts, params, 200);
       const backendReceipts = payload?.data || [];
       const mapped = backendReceipts.map(mapReceiptToUi);
       setReceipts(mapped);
       return mapped;
     } catch (error) {
       console.error('Failed to refresh receipts:', error);
-      addToast('Unable to load receipt history', 'error');
+      if (![401, 403].includes(error?.response?.status)) {
+        addToast('Unable to load receipt history', 'error');
+      }
       return [];
     }
-  }, [addToast, isAuthenticated]);
+  }, [addToast, isAuthenticated, canAccessReceipts, fetchAllPages]);
 
   const loadPaymentData = useCallback(async () => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !canAccessPayments) {
       setTransactions([]);
       setReceipts([]);
       setPendingPayments([]);
@@ -164,11 +236,13 @@ export const PaymentProvider = ({ children }) => {
       await Promise.all([refreshTransactions(), refreshReceipts()]);
     } catch (error) {
       console.error('Error loading payment data:', error);
-      addToast('Unable to load payment data', 'error');
+      if (![401, 403].includes(error?.response?.status)) {
+        addToast('Unable to load payment data', 'error');
+      }
     } finally {
       setLoading(false);
     }
-  }, [refreshTransactions, refreshReceipts, addToast, isAuthenticated]);
+  }, [refreshTransactions, refreshReceipts, addToast, isAuthenticated, canAccessPayments]);
 
   useEffect(() => {
     loadPaymentData();
@@ -383,11 +457,12 @@ export const PaymentProvider = ({ children }) => {
 
       const customerName = customer.name || recordedInvoice?.customer?.name || 'Customer';
       const displayAmount = Number(payment?.amount ?? amount) || 0;
+      const displayCurrency = payment?.currency || recordedInvoice?.currency || baseCurrency;
 
       addNotification({
         type: 'payment',
         title: 'Payment Processed',
-        description: `$${displayAmount.toLocaleString()} from ${customerName}`,
+        description: `${formatMoney(displayAmount, displayCurrency)} from ${customerName}`,
         details: `Invoice #${recordedInvoice.invoiceNumber || recordedInvoice.number}`,
         time: 'Just now',
         action: receipt ? 'View Receipt' : 'View Invoice',
@@ -399,7 +474,7 @@ export const PaymentProvider = ({ children }) => {
         receiptId: receipt?.id
       }, { showToast: false });
 
-      addToast(`Payment of $${displayAmount.toLocaleString()} processed successfully!`, 'success');
+      addToast(`Payment of ${formatMoney(displayAmount, displayCurrency)} processed successfully!`, 'success');
 
       return {
         transaction: payment ? mapPaymentToTransaction(payment) : null,
@@ -476,7 +551,7 @@ export const PaymentProvider = ({ children }) => {
           type: 'receipt',
           title: 'Receipt Generated',
           description: `Receipt #${transactionData.invoiceNumber} for ${transactionData.customerName}`,
-          details: `Amount: $${transactionData.amount.toFixed(2)} | Payment: ${transactionData.paymentMethod}`,
+          details: `Amount: ${formatMoney(transactionData.amount, transactionData.currency || baseCurrency)} | Payment: ${transactionData.paymentMethod}`,
           time: 'Just now',
           action: 'View Receipt',
           color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
@@ -488,7 +563,7 @@ export const PaymentProvider = ({ children }) => {
         addNotification({
           type: 'payment',
           title: 'Payment Recorded',
-          description: `$${Math.abs(transactionData.amount).toLocaleString()} ${transactionData.type || 'payment'}`,
+          description: `${formatMoney(Math.abs(transactionData.amount), transactionData.currency || baseCurrency)} ${transactionData.type || 'payment'}`,
           details: `From: ${transactionData.customerName || 'Customer'}`,
           time: 'Just now',
           action: 'View Details',
@@ -519,11 +594,12 @@ export const PaymentProvider = ({ children }) => {
 
       const refundAmount = Number(refundData.amount || refundedPayment?.refundAmount || 0);
       const customerName = refundedPayment?.customer?.name || refundedPayment?.customerName || 'Customer';
+      const refundCurrency = refundedPayment?.currency || refundedPayment?.invoice?.currency || baseCurrency;
 
       addNotification({
         type: 'refund',
         title: 'Refund Processed',
-        description: `$${Math.abs(refundAmount).toLocaleString()} refunded to ${customerName}`,
+        description: `${formatMoney(Math.abs(refundAmount), refundCurrency)} refunded to ${customerName}`,
         details: `Original invoice #${refundedPayment?.invoiceNumber || refundedPayment?.invoice?.invoiceNumber || ''}`,
         time: 'Just now',
         action: 'View Payment',
@@ -533,7 +609,7 @@ export const PaymentProvider = ({ children }) => {
         transactionId
       }, { showToast: false });
 
-      addToast(`Refund of $${Math.abs(refundAmount).toLocaleString()} processed successfully!`, 'success');
+      addToast(`Refund of ${formatMoney(Math.abs(refundAmount), refundCurrency)} processed successfully!`, 'success');
 
       return mapPaymentToTransaction(refundedPayment);
     } catch (error) {
@@ -843,7 +919,7 @@ export const PaymentProvider = ({ children }) => {
           new Date(t.processedAt).toLocaleDateString(),
           t.customerName,
           t.invoiceNumber || 'N/A',
-          `$${Math.abs(t.amount).toFixed(2)}`,
+          formatMoney(Math.abs(t.amount), t.currency || baseCurrency),
           t.paymentMethod,
           t.status,
           t.type,

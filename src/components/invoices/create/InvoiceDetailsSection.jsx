@@ -7,6 +7,9 @@ const InvoiceDetailsSection = ({
   setInvoiceNumber,
   currency,
   setCurrency,
+  isMultiCurrencyAllowed = true,
+  baseCurrency = 'USD',
+  currencyOptions: customCurrencyOptions,
   issueDate,
   setIssueDate,
   dueDate,
@@ -22,13 +25,26 @@ const InvoiceDetailsSection = ({
     { id: 'due-on-receipt', label: 'Due on Receipt' }
   ];
 
-  const currencyOptions = [
+  const defaultCurrencyOptions = [
     { value: 'USD', label: 'USD ($)' },
     { value: 'EUR', label: 'EUR (€)' },
     { value: 'GBP', label: 'GBP (£)' },
     { value: 'CAD', label: 'CAD (C$)' },
     { value: 'AUD', label: 'AUD (A$)' }
   ];
+
+  const resolvedCurrencyOptions = (customCurrencyOptions && customCurrencyOptions.length > 0)
+    ? customCurrencyOptions
+    : defaultCurrencyOptions;
+
+  const availableCurrencyOptions = isMultiCurrencyAllowed
+    ? resolvedCurrencyOptions
+    : [
+        {
+          value: baseCurrency,
+          label: baseCurrency
+        }
+      ];
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
@@ -53,18 +69,24 @@ const InvoiceDetailsSection = ({
           <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
             Currency
           </label>
-          <select
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            {currencyOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              disabled={!isMultiCurrencyAllowed}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              {availableCurrencyOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {!isMultiCurrencyAllowed && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                Multi-currency is available on Professional and Enterprise plans.
+              </p>
+            )}
+          </div>
         
         <div>
           <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
@@ -118,3 +140,4 @@ const InvoiceDetailsSection = ({
 };
 
 export default InvoiceDetailsSection;
+

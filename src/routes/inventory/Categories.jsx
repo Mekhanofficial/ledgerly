@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Tag, Plus, Search, Package, DollarSign, Edit, ArrowRight, Folder, BarChart, TrendingUp } from 'lucide-react';
+import { Tag, Plus, Search, Package, DollarSign, Edit, ArrowRight, Folder, BarChart, FileText, Palette, ShoppingCart, Users, Truck, Building, Receipt } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useInventory } from '../../context/InventoryContext';
+import { useAccount } from '../../context/AccountContext';
 
 const Categories = () => {
   const { isDarkMode } = useTheme();
   const { categories, products, getCategoryStats } = useInventory();
+  const { accountInfo } = useAccount();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryStats, setCategoryStats] = useState([]);
   const [overallStats, setOverallStats] = useState({
@@ -16,22 +18,38 @@ const Categories = () => {
     totalValue: 0,
     avgProductsPerCategory: 0
   });
+  const currencyCode = (accountInfo?.currency || 'USD').toUpperCase();
+  const formatCurrency = (amount) => {
+    const value = Number.isFinite(amount) ? amount : 0;
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currencyCode,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(value);
+    } catch (error) {
+      return `${currencyCode} ${value.toFixed(2)}`;
+    }
+  };
 
   useEffect(() => {
     // Calculate category stats
-    const stats = categories.map(category => {
+    const stats = categories.map((category, index) => {
       const categoryProducts = products.filter(p => p.categoryId === category.id);
       const totalValue = categoryProducts.reduce((sum, product) => {
         const productValue = (product.price || 0) * (product.stock || product.quantity || 0);
         return sum + productValue;
       }, 0);
       
+      const fallbackIcon = getDefaultIcon(category?.id ?? index);
+      const iconId = resolveIconId(category.icon, fallbackIcon);
       return {
         ...category,
         productCount: categoryProducts.length,
         totalValue: totalValue,
-        color: category.color || getDefaultColor(category.id),
-        icon: category.icon || getDefaultIcon(category.id)
+        color: category.color || getDefaultColor(category?.id ?? index),
+        icon: iconId
       };
     });
 
@@ -57,16 +75,37 @@ const Categories = () => {
       'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 
       'bg-pink-500', 'bg-red-500', 'bg-indigo-500', 'bg-teal-500'
     ];
-    return colors[id % colors.length];
+    const numericId = Number(id);
+    const safeIndex = Number.isFinite(numericId) ? numericId : 0;
+    return colors[safeIndex % colors.length];
   };
 
+  const iconOptions = [
+    { id: 'package', Icon: Package },
+    { id: 'tag', Icon: Tag },
+    { id: 'folder', Icon: Folder },
+    { id: 'file-text', Icon: FileText },
+    { id: 'palette', Icon: Palette },
+    { id: 'shopping-cart', Icon: ShoppingCart },
+    { id: 'dollar-sign', Icon: DollarSign },
+    { id: 'bar-chart', Icon: BarChart },
+    { id: 'users', Icon: Users },
+    { id: 'truck', Icon: Truck },
+    { id: 'building', Icon: Building },
+    { id: 'receipt', Icon: Receipt }
+  ];
+
+  const iconMap = iconOptions.reduce((acc, option) => {
+    acc[option.id] = option.Icon;
+    return acc;
+  }, {});
+
   const getDefaultIcon = (id) => {
-    const icons = [
-      '💻', '📝', '🪑', '👕', '🎒', '📱', '💡', '🔧', '🎨',
-      '📊', '💰', '🚚', '🏢', '🏭', '🔌', '💎', '🍎', '☕', '🎯'
-    ];
-    return icons[id % icons.length];
+    const numericId = Number(id);
+    const safeIndex = Number.isFinite(numericId) ? numericId : 0;
+    return iconOptions[safeIndex % iconOptions.length]?.id || iconOptions[0].id;
   };
+  const resolveIconId = (value, fallbackId) => (iconMap[value] ? value : fallbackId);
 
   const filteredCategories = categoryStats.filter(category =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -170,50 +209,52 @@ const Categories = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCategories.map((category) => (
-              <div key={category.id} className={`border rounded-xl overflow-hidden hover:shadow-lg transition-shadow ${
-                isDarkMode 
-                  ? 'bg-gray-800 border-gray-700 hover:border-primary-500' 
-                  : 'bg-white border-gray-200 hover:border-primary-300'
-              }`}>
-                <div className={`h-2 ${category.color}`}></div>
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center">
-                      <div 
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3`}
-                        style={{ 
-                          backgroundColor: category.color?.startsWith('#') ? category.color : undefined 
-                        }}
-                      >
-                        <span className="text-lg">{category.icon}</span>
-                      </div>
-                      <div>
-                        <h3 className={`font-semibold text-lg ${
-                          isDarkMode ? 'text-white' : 'text-gray-900'
-                        }`}>
-                          {category.name}
-                        </h3>
-                        {category.description && (
-                          <p className={`text-sm mt-1 ${
-                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            {filteredCategories.map((category) => {
+              const Icon = iconMap[category.icon] || Package;
+              return (
+                <div key={category.id} className={`border rounded-xl overflow-hidden hover:shadow-lg transition-shadow ${
+                  isDarkMode 
+                    ? 'bg-gray-800 border-gray-700 hover:border-primary-500' 
+                    : 'bg-white border-gray-200 hover:border-primary-300'
+                }`}>
+                  <div className={`h-2 ${category.color}`}></div>
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center">
+                        <div 
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3`}
+                          style={{ 
+                            backgroundColor: category.color?.startsWith('#') ? category.color : undefined 
+                          }}
+                        >
+                          <Icon className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className={`font-semibold text-lg ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
                           }`}>
-                            {category.description}
-                          </p>
-                        )}
+                            {category.name}
+                          </h3>
+                          {category.description && (
+                            <p className={`text-sm mt-1 ${
+                              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              {category.description}
+                            </p>
+                          )}
+                        </div>
                       </div>
+                      <Link
+                        to={`/inventory/categories/edit/${category.id}`}
+                        className={`p-1.5 rounded-lg ${
+                          isDarkMode 
+                            ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700' 
+                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Link>
                     </div>
-                    <Link
-                      to={`/inventory/categories/edit/${category.id}`}
-                      className={`p-1.5 rounded-lg ${
-                        isDarkMode 
-                          ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700' 
-                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Link>
-                  </div>
                   
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -243,7 +284,7 @@ const Categories = () => {
                       <span className={`font-bold ${
                         isDarkMode ? 'text-white' : 'text-gray-900'
                       }`}>
-                        ${category.totalValue.toFixed(2)}
+                        {formatCurrency(category.totalValue)}
                       </span>
                     </div>
                   </div>
@@ -265,7 +306,8 @@ const Categories = () => {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -315,7 +357,7 @@ const Categories = () => {
               <div className={`text-2xl font-bold ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                ${overallStats.totalValue.toFixed(2)}
+                {formatCurrency(overallStats.totalValue)}
               </div>
               <div className={`text-sm mt-1 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'

@@ -15,6 +15,11 @@ export const purchaseTemplate = async (templateId, payload = {}) => {
   return response.data;
 };
 
+export const purchaseTemplateBundle = async (payload = {}) => {
+  const response = await api.post('/templates/bundle/purchase', payload);
+  return response.data;
+};
+
 export const getTemplatePurchases = async () => {
   const response = await api.get('/templates/purchases');
   return response.data;

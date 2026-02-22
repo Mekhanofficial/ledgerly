@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { login, clearError } from '../../store/slices/authSlice';
 import { 
-  FileText, 
   Mail, 
   Lock, 
   ArrowRight, 
@@ -13,6 +12,7 @@ import {
   BarChart3,
   Users
 } from 'lucide-react';
+import logo from '../../assets/icons/ledgerly-logo.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -62,11 +62,11 @@ const Login = () => {
         <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-primary-600 to-primary-800 p-8 text-white">
           <div>
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm">
-              <FileText className="h-8 w-8 text-white" />
+              <img src={logo} alt="Ledgerly logo" className="h-9 w-9 object-contain" />
             </div>
-            <h1 className="text-4xl font-bold mb-2">LEDGERLY</h1>
+            <h1 className="text-4xl font-bold mb-2">Invoicing & Inventory</h1>
             <p className="text-primary-100 text-lg">
-              Professional Invoicing & Inventory Management
+              Professional tools for billing, payments, and stock
             </p>
           </div>
 
@@ -122,7 +122,7 @@ const Login = () => {
         <div className="w-full lg:w-1/2 p-8 md:p-12">
           <div className="text-center mb-8">
             <div className="lg:hidden w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-800 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary-500/20">
-              <FileText className="w-8 h-8 text-white" />
+              <img src={logo} alt="Ledgerly logo" className="w-8 h-8 object-contain" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome Back</h1>
             <p className="text-gray-600 dark:text-gray-300 mt-2">

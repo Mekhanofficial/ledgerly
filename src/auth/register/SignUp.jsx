@@ -19,6 +19,7 @@ import {
   Shield,
   TrendingUp
 } from 'lucide-react';
+import logo from '../../assets/icons/ledgerly-logo.png';
 
 const SignUpPage = () => {
   const [formData, setFormData] = useState({
@@ -166,6 +167,7 @@ const SignUpPage = () => {
           password: formData.password,
           phone: formData.phone.trim(),
           businessName: formData.businessName.trim(),
+          currencyCode: formData.currencyCode,
           // Only these fields are expected by backend register function
           // Remove other fields that backend doesn't accept
         };
@@ -288,11 +290,11 @@ const SignUpPage = () => {
         <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-primary-600 to-primary-800 p-8 text-white">
           <div>
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm">
-              <FileText className="h-8 w-8 text-white" />
+              <img src={logo} alt="Ledgerly logo" className="h-9 w-9 object-contain" />
             </div>
-            <h1 className="text-4xl font-bold mb-2">LEDGERLY</h1>
+            <h1 className="text-4xl font-bold mb-2">Invoicing & Inventory</h1>
             <p className="text-primary-100 text-lg">
-              Professional Invoicing & Inventory Management
+              Professional tools for billing, payments, and stock
             </p>
           </div>
 

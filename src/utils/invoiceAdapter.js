@@ -35,7 +35,9 @@ export const mapInvoiceFromApi = (invoice = {}) => {
   }));
 
   const subtotal = toNumber(invoice.subtotal);
-  const totalTax = toNumber(invoice.tax?.amount ?? invoice.taxAmount ?? invoice.tax);
+  const totalTax = toNumber(invoice.taxAmount ?? invoice.tax?.amount ?? invoice.tax);
+  const taxRateUsed = toNumber(invoice.taxRateUsed ?? invoice.tax?.percentage ?? 0);
+  const taxName = invoice.taxName || invoice.tax?.description || 'Tax';
   const totalAmount = toNumber(invoice.total ?? invoice.totalAmount ?? invoice.amount);
   const amountPaid = toNumber(invoice.amountPaid);
   const balance = toNumber(invoice.balance ?? (totalAmount - amountPaid));
@@ -58,6 +60,10 @@ export const mapInvoiceFromApi = (invoice = {}) => {
     items,
     subtotal,
     totalTax,
+    taxRateUsed,
+    taxName,
+    taxAmount: totalTax,
+    isTaxOverridden: Boolean(invoice.isTaxOverridden),
     totalAmount,
     amountPaid,
     balance,
@@ -97,10 +103,6 @@ export const buildInvoicePayload = (invoiceData = {}) => {
     };
   });
 
-  const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-  const totalTax = items.reduce((sum, item) => sum + (item.unitPrice * item.quantity * (item.taxRate / 100)), 0);
-  const total = subtotal + totalTax;
-  const taxPercentage = subtotal > 0 ? (totalTax / subtotal) * 100 : 0;
   const sentDateSource = invoiceData.sentDate || invoiceData.sentAt;
   const shouldSetSentDate = invoiceData.status === 'sent' || Boolean(sentDateSource);
   const sentDate = shouldSetSentDate
@@ -121,12 +123,10 @@ export const buildInvoicePayload = (invoiceData = {}) => {
     notes: invoiceData.notes || '',
     terms: invoiceData.terms || '',
     items,
-    subtotal,
-    tax: {
-      percentage: taxPercentage,
-      amount: totalTax,
-      description: invoiceData.taxDescription || ''
-    },
+    taxRateUsed: toNumber(invoiceData.taxRateUsed ?? invoiceData.taxRate, undefined),
+    taxAmount: toNumber(invoiceData.taxAmount, undefined),
+    taxName: invoiceData.taxName || invoiceData.taxDescription || undefined,
+    isTaxOverridden: invoiceData.isTaxOverridden ?? undefined,
     discount: {
       amount: toNumber(invoiceData.discountAmount ?? 0, 0),
       percentage: toNumber(invoiceData.discountPercentage ?? 0, 0),
@@ -137,9 +137,7 @@ export const buildInvoicePayload = (invoiceData = {}) => {
       amount: toNumber(invoiceData.shippingAmount ?? 0, 0),
       description: invoiceData.shippingDescription || ''
     },
-    total,
     amountPaid: toNumber(invoiceData.amountPaid ?? 0, 0),
-    balance: toNumber(invoiceData.balance ?? total, total),
     status: invoiceData.status || 'draft'
   };
 

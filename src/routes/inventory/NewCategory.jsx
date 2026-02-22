@@ -1,7 +1,7 @@
 // src/routes/inventory/NewCategory.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Tag, Save, X, Palette } from 'lucide-react';
+import { Tag, Save, X, Palette, Package, Folder, FileText, ShoppingCart, DollarSign, BarChart, Users, Truck, Building, Receipt } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
@@ -17,7 +17,7 @@ const NewCategory = () => {
     name: '',
     description: '',
     color: '#3B82F6',
-    icon: '📦'
+    icon: 'package'
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,9 +34,28 @@ const NewCategory = () => {
   ];
 
   const iconOptions = [
-    '📦', '💻', '📝', '🪑', '👕', '🎒', '📱', '💡', '🔧', '🎨',
-    '📊', '💰', '🚚', '🏢', '🏭', '🔌', '💎', '🍎', '☕', '🎯'
+    { id: 'package', label: 'Package', Icon: Package },
+    { id: 'tag', label: 'Tag', Icon: Tag },
+    { id: 'folder', label: 'Folder', Icon: Folder },
+    { id: 'file-text', label: 'Document', Icon: FileText },
+    { id: 'palette', label: 'Creative', Icon: Palette },
+    { id: 'shopping-cart', label: 'Retail', Icon: ShoppingCart },
+    { id: 'dollar-sign', label: 'Finance', Icon: DollarSign },
+    { id: 'bar-chart', label: 'Analytics', Icon: BarChart },
+    { id: 'users', label: 'Team', Icon: Users },
+    { id: 'truck', label: 'Logistics', Icon: Truck },
+    { id: 'building', label: 'Facilities', Icon: Building },
+    { id: 'receipt', label: 'Receipts', Icon: Receipt }
   ];
+
+  const iconMap = iconOptions.reduce((acc, option) => {
+    acc[option.id] = option.Icon;
+    return acc;
+  }, {});
+
+  const resolveIconId = (value) => (iconMap[value] ? value : iconOptions[0].id);
+  const selectedIconId = resolveIconId(formData.icon);
+  const SelectedIcon = iconMap[selectedIconId] || Package;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -61,7 +80,7 @@ const NewCategory = () => {
         name: formData.name.trim(),
         description: formData.description.trim(),
         color: formData.color,
-        icon: formData.icon,
+        icon: selectedIconId,
         productCount: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -191,29 +210,33 @@ const NewCategory = () => {
                 Category Icon
               </label>
               <div className="flex flex-wrap gap-2">
-                {iconOptions.map((icon, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, icon }))}
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg transition-all ${
-                      formData.icon === icon 
-                        ? 'bg-primary-100 dark:bg-primary-900/30 border-2 border-primary-500' 
-                        : isDarkMode 
-                          ? 'bg-gray-700 hover:bg-gray-600' 
-                          : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-                    title={`Icon ${index + 1}`}
-                  >
-                    {icon}
-                  </button>
-                ))}
+                {iconOptions.map((option) => {
+                  const isSelected = selectedIconId === option.id;
+                  const Icon = option.Icon;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, icon: option.id }))}
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg transition-all ${
+                        isSelected 
+                          ? 'bg-primary-100 dark:bg-primary-900/30 border-2 border-primary-500' 
+                          : isDarkMode 
+                            ? 'bg-gray-700 hover:bg-gray-600' 
+                            : 'bg-gray-100 hover:bg-gray-200'
+                      }`}
+                      title={option.label}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </button>
+                  );
+                })}
               </div>
               <div className="mt-3 flex items-center">
                 <div className={`w-8 h-8 rounded-lg mr-3 flex items-center justify-center text-lg ${
                   isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
                 }`}>
-                  {formData.icon}
+                  <SelectedIcon className="w-4 h-4" />
                 </div>
                 <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
                   Selected icon
@@ -234,7 +257,7 @@ const NewCategory = () => {
                 className="w-12 h-12 rounded-lg flex items-center justify-center text-xl mr-4"
                 style={{ backgroundColor: formData.color }}
               >
-                {formData.icon}
+                <SelectedIcon className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h4 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>

@@ -4,13 +4,21 @@ import { AlertCircle, Package, DollarSign, UserPlus, Clock, ChevronRight, FileTe
 import { useSelector } from 'react-redux';
 import { useNotifications } from '../../context/NotificationContext';
 import { usePayments } from '../../context/PaymentContext'; // Added import
+import { useAccount } from '../../context/AccountContext';
 import { Link } from 'react-router-dom';
+import { formatCurrency } from '../../utils/currency';
 
 const AlertsNotifications = () => {
   const invoices = useSelector((state) => state.invoices?.invoices || []);
   const customers = useSelector((state) => state.customers?.customers || []);
   const { notifications, getRecentNotifications } = useNotifications();
   const { transactions, getPaymentStats, receipts } = usePayments(); // Added payment context
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = useCallback(
+    (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency),
+    [baseCurrency]
+  );
   
   const [alerts, setAlerts] = useState([]);
   const [previousInvoiceCount, setPreviousInvoiceCount] = useState(invoices.length);
@@ -157,7 +165,7 @@ const AlertsNotifications = () => {
         icon: AlertCircle,
         title: 'Overdue Invoices',
         description: `${overdueInvoices.length} invoice${overdueInvoices.length > 1 ? 's are' : ' is'} past due`,
-        details: `Total amount: $${overdueAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        details: `Total amount: ${formatMoney(overdueAmount, baseCurrency)}`,
         time: 'Urgent',
         action: 'View Details',
         color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
@@ -177,7 +185,7 @@ const AlertsNotifications = () => {
         icon: Package,
         title: 'Draft Invoices',
         description: `${draftInvoices.length} draft invoice${draftInvoices.length > 1 ? 's' : ''} pending`,
-        details: `Total value: $${draftAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        details: `Total value: ${formatMoney(draftAmount, baseCurrency)}`,
         time: 'Needs attention',
         action: 'View Drafts',
         color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
@@ -202,7 +210,7 @@ const AlertsNotifications = () => {
         icon: FileText,
         title: 'Pending Payments',
         description: `${pendingInvoices.length} invoice${pendingInvoices.length > 1 ? 's' : ''} sent, awaiting payment`,
-        details: `Total pending: $${pendingAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        details: `Total pending: ${formatMoney(pendingAmount, baseCurrency)}`,
         time: 'Follow up needed',
         action: 'View Sent',
         color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
@@ -230,7 +238,7 @@ const AlertsNotifications = () => {
         icon: Clock,
         title: 'Payments Due Soon',
         description: `${dueSoonInvoices.length} invoice${dueSoonInvoices.length > 1 ? 's' : ''} due within 7 days`,
-        details: `Total: $${dueSoonAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        details: `Total: ${formatMoney(dueSoonAmount, baseCurrency)}`,
         time: 'Upcoming',
         action: 'View Pending',
         color: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800',
@@ -264,7 +272,7 @@ const AlertsNotifications = () => {
           icon: Receipt,
           title: 'Recent Receipt',
           description: `Receipt #${receipt.id} generated`,
-          details: `Amount: $${(receipt.total || 0).toFixed(2)}`,
+          details: `Amount: ${formatMoney(receipt.total || 0, receipt.currency || baseCurrency)}`,
           time: 'Today',
           action: 'View Receipts',
           color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
@@ -278,7 +286,7 @@ const AlertsNotifications = () => {
           icon: Receipt,
           title: 'Recent Receipts',
           description: `${recentReceipts.length} receipts generated today`,
-          details: `Total amount: $${totalReceiptAmount.toFixed(2)}`,
+          details: `Total amount: ${formatMoney(totalReceiptAmount, baseCurrency)}`,
           time: 'Today',
           action: 'View Receipts',
           color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
@@ -374,7 +382,7 @@ const AlertsNotifications = () => {
           type: 'payment-reminder',
           icon: Clock,
           title: 'High Pending Payments',
-          description: `$${paymentStats.pendingPayments.toLocaleString('en-US', { minimumFractionDigits: 2 })} awaiting payment`,
+          description: `${formatMoney(paymentStats.pendingPayments, baseCurrency)} awaiting payment`,
           details: `${paymentStats.pendingCount} invoices pending`,
           time: 'Attention needed',
           action: 'Process Payments',
@@ -392,7 +400,7 @@ const AlertsNotifications = () => {
           icon: AlertCircle,
           title: 'Failed Payments',
           description: `${paymentStats.failedCount} payment${paymentStats.failedCount > 1 ? 's' : ''} failed`,
-          details: `Total: $${paymentStats.failedPayments.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          details: `Total: ${formatMoney(paymentStats.failedPayments, baseCurrency)}`,
           time: 'Needs review',
           action: 'View Failed',
           color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
@@ -429,7 +437,7 @@ const AlertsNotifications = () => {
             icon: TrendingUp,
             title: 'Revenue Growth',
             description: `Revenue increased by ${Math.abs(changePercentage).toFixed(1)}% this week`,
-            details: `This week: $${thisWeekRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+            details: `This week: ${formatMoney(thisWeekRevenue, baseCurrency)}`,
             time: 'Positive trend',
             action: 'View Analytics',
             color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',
@@ -443,7 +451,7 @@ const AlertsNotifications = () => {
             icon: TrendingDown,
             title: 'Revenue Decline',
             description: `Revenue decreased by ${Math.abs(changePercentage).toFixed(1)}% this week`,
-            details: `This week: $${thisWeekRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+            details: `This week: ${formatMoney(thisWeekRevenue, baseCurrency)}`,
             time: 'Needs attention',
             action: 'View Analytics',
             color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
@@ -472,8 +480,8 @@ const AlertsNotifications = () => {
           icon: transaction.amount > 0 ? DollarSign : RefreshCw,
           title: transaction.amount > 0 ? 'Recent Payment' : 'Recent Refund',
           description: transaction.amount > 0 
-            ? `$${transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} received`
-            : `$${Math.abs(transaction.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} refunded`,
+            ? `${formatMoney(transaction.amount, transaction.currency || baseCurrency)} received`
+            : `${formatMoney(Math.abs(transaction.amount), transaction.currency || baseCurrency)} refunded`,
           details: `From ${transaction.customerName}`,
           time: 'Recent',
           action: 'View Transaction',
@@ -491,7 +499,7 @@ const AlertsNotifications = () => {
           icon: DollarSign,
           title: 'Recent Transactions',
           description: `${recentTransactions.length} recent ${recentTransactions.length > 1 ? 'transactions' : 'transaction'}`,
-          details: `Total: $${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          details: `Total: ${formatMoney(totalAmount, baseCurrency)}`,
           time: 'Today',
           action: 'View Payments',
           color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800',

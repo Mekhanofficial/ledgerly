@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { useInventory } from '../../context/InventoryContext';
 import { useToast } from '../../context/ToastContext';
+import { useAccount } from '../../context/AccountContext';
 import { fetchProducts, deleteProduct as deactivateProduct } from '../../store/slices/productSlide';
 import { mapProductFromApi } from '../../utils/productAdapter';
 
@@ -13,9 +14,24 @@ const Products = () => {
   const { isDarkMode } = useTheme();
   const { categories } = useInventory();
   const { addToast } = useToast();
+  const { accountInfo } = useAccount();
   const dispatch = useDispatch();
   const { products: rawProducts } = useSelector((state) => state.products);
   const navigate = useNavigate();
+  const currencyCode = (accountInfo?.currency || 'USD').toUpperCase();
+  const formatCurrency = (amount) => {
+    const value = Number.isFinite(amount) ? amount : 0;
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currencyCode,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(value);
+    } catch (error) {
+      return `${currencyCode} ${value.toFixed(2)}`;
+    }
+  };
 
   const products = useMemo(
     () => rawProducts.map((product) => mapProductFromApi(product)),
@@ -73,7 +89,7 @@ const Products = () => {
   const getCategoryName = (product) => {
     if (product.categoryName) return product.categoryName;
     if (!product.categoryId) return 'Uncategorized';
-    const category = categories.find(c => c.id === product.categoryId);
+    const category = categories.find(c => (c.id || c._id) === product.categoryId);
     return category ? category.name : 'Uncategorized';
   };
 
@@ -323,13 +339,13 @@ const Products = () => {
           <div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Unit Price</div>
             <div className="text-sm font-medium">
-              ${(product.price || 0).toFixed(2)}
+              {formatCurrency(product.price || 0)}
             </div>
           </div>
           <div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Value</div>
             <div className="text-sm font-bold">
-              ${totalValue.toFixed(2)}
+              {formatCurrency(totalValue)}
             </div>
           </div>
         </div>
@@ -486,7 +502,7 @@ const Products = () => {
                 <p className={`text-lg md:text-xl font-bold mt-1 truncate ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  ${calculateTotalValue().toFixed(2)}
+                  {formatCurrency(calculateTotalValue())}
                 </p>
               </div>
               <Package className={`w-8 h-8 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
@@ -752,14 +768,14 @@ const Products = () => {
                           <div className={`font-medium ${
                             isDarkMode ? 'text-white' : 'text-gray-900'
                           }`}>
-                            ${(product.price || 0).toFixed(2)}
+                            {formatCurrency(product.price || 0)}
                           </div>
                         </td>
                         <td className="px-4 md:px-6 py-4">
                           <div className={`font-bold ${
                             isDarkMode ? 'text-white' : 'text-gray-900'
                           }`}>
-                            ${totalValue.toFixed(2)}
+                            {formatCurrency(totalValue)}
                           </div>
                         </td>
                         <td className="px-4 md:px-6 py-4">

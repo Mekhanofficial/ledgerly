@@ -4,6 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAccount } from '../../context/AccountContext';
 import templateStorage from '../../utils/templateStorage';
 import PaymentMethodDisplay from './PaymentMethodDisplay';
+import { formatCurrency } from '../../utils/currency';
 
 const TEMPLATE_COLOR_FALLBACK = {
   primary: '#2980b9',
@@ -61,6 +62,8 @@ const ReceiptPreview = ({
 }) => {
   const { isDarkMode } = useTheme();
   const { accountInfo } = useAccount();
+  const currencyCode = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyOverride) => formatCurrency(value, currencyOverride || currencyCode);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   
   // Calculate totals
@@ -129,7 +132,7 @@ const ReceiptPreview = ({
                 Receipt Preview
               </div>
               <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                {items.length} items • ${total.toFixed(2)}
+                {items.length} items • {formatMoney(total)}
               </div>
             </div>
           </div>
@@ -299,8 +302,8 @@ const ReceiptPreview = ({
           } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {availableTemplates.map((template) => {
-            const isLocked = template.isPremium && !template.hasAccess;
-            const label = `${template.name}${isLocked ? ' (Premium)' : ''}`;
+            const isLocked = template.hasAccess === false;
+            const label = `${template.name}${isLocked ? ' (Locked)' : ''}`;
             return (
               <option key={template.id} value={template.id} disabled={isLocked}>
                 {label}
@@ -335,7 +338,7 @@ const ReceiptPreview = ({
             <span>Selected Items ({items.length})</span>
             {items.length > 0 && (
               <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                ${subtotal.toFixed(2)} subtotal
+                {formatMoney(subtotal)} subtotal
               </span>
             )}
           </div>
@@ -357,7 +360,7 @@ const ReceiptPreview = ({
                       {item.name}
                     </div>
                     <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      ${item.price.toFixed(2)} each • SKU: {item.sku || item.id}
+                      {formatMoney(item.price)} each • SKU: {item.sku || item.id}
                     </div>
                   </div>
                   <div className="flex items-center space-x-2 sm:space-x-4">
@@ -389,7 +392,7 @@ const ReceiptPreview = ({
                       </button>
                     </div>
                     <div className={`font-medium text-right w-14 sm:w-20 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      ${(item.price * item.quantity).toFixed(2)}
+                      {formatMoney(item.price * item.quantity)}
                     </div>
                   </div>
                 </div>
@@ -404,13 +407,13 @@ const ReceiptPreview = ({
         <div className="flex justify-between py-2">
           <span className={`text-sm sm:text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Subtotal:</span>
           <span className={`font-medium text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            ${subtotal.toFixed(2)}
+            {formatMoney(subtotal)}
           </span>
         </div>
         <div className="flex justify-between py-2">
           <span className={`text-sm sm:text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Tax (8.5%):</span>
           <span className={`font-medium text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            ${tax.toFixed(2)}
+            {formatMoney(tax)}
           </span>
         </div>
         <div className={`flex justify-between py-2 border-t mt-2 pt-2 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
@@ -421,7 +424,7 @@ const ReceiptPreview = ({
             className={`font-bold text-lg sm:text-xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
             style={{ color: templatePalette.primary }}
           >
-            ${total.toFixed(2)}
+            {formatMoney(total)}
           </span>
         </div>
       </div>

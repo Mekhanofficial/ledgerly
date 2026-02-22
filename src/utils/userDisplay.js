@@ -47,7 +47,24 @@ export const getUserEmail = (user) => {
 
 export const getUserRoleLabel = (user) => {
   if (!user) return 'Guest';
-  return user.role === 'admin' ? 'Admin' : 'User';
+  const role = user.role;
+  switch (role) {
+    case 'super_admin':
+      return 'Super Admin';
+    case 'admin':
+      return 'Admin';
+    case 'accountant':
+      return 'Accountant';
+    case 'staff':
+    case 'sales':
+      return 'Staff';
+    case 'client':
+      return 'Client';
+    case 'viewer':
+      return 'Viewer';
+    default:
+      return 'User';
+  }
 };
 
 const getServerBaseUrl = () => resolveServerBaseUrl();

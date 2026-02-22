@@ -13,10 +13,15 @@ const InvoicePreviewModal = ({ invoiceData, onClose, onSend }) => {
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: invoiceData.currency || 'USD',
+      currency: invoiceData.currency || accountInfo?.currency || 'USD',
       minimumFractionDigits: 2
     }).format(amount);
   };
+  const taxRateUsed = Number.isFinite(Number(invoiceData.taxRateUsed))
+    ? Number(invoiceData.taxRateUsed)
+    : 0;
+  const taxLabel = invoiceData.taxName || 'Tax';
+  const showTax = Number(invoiceData.totalTax || 0) > 0 || taxRateUsed > 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -84,7 +89,7 @@ const InvoicePreviewModal = ({ invoiceData, onClose, onSend }) => {
                     <th className="py-3 text-left text-gray-700 dark:text-gray-300">Description</th>
                     <th className="py-3 text-left text-gray-700 dark:text-gray-300">Qty</th>
                     <th className="py-3 text-left text-gray-700 dark:text-gray-300">Rate</th>
-                    <th className="py-3 text-left text-gray-700 dark:text-gray-300">Tax</th>
+                    <th className="py-3 text-left text-gray-700 dark:text-gray-300">Tax (Global)</th>
                     <th className="py-3 text-left text-gray-700 dark:text-gray-300">Amount</th>
                   </tr>
                 </thead>
@@ -115,12 +120,16 @@ const InvoicePreviewModal = ({ invoiceData, onClose, onSend }) => {
                     {formatCurrency(invoiceData.subtotal)}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Tax:</span>
-                  <span className="text-gray-900 dark:text-white">
-                    {formatCurrency(invoiceData.totalTax)}
-                  </span>
-                </div>
+                {showTax && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-300">
+                      {`${taxLabel} (${taxRateUsed}%)`}:
+                    </span>
+                    <span className="text-gray-900 dark:text-white">
+                      {formatCurrency(invoiceData.totalTax)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200 dark:border-gray-700">
                   <span className="text-gray-900 dark:text-white">Total:</span>
                   <span className="text-primary-600">

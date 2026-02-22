@@ -1,5 +1,6 @@
 // src/utils/reportExporter.js
 import { jsPDF } from 'jspdf';
+import { formatCurrency } from './currency';
 
 let jsPDFInstance = null;
 
@@ -49,11 +50,12 @@ export const generatePDF = async (reportData, filename) => {
     // Summary in two columns
     const leftColumn = margin;
     const rightColumn = pageWidth / 2 + 10;
+    const currencyCode = reportData?.metadata?.currency || reportData?.currency || 'USD';
     
     // Left column
     doc.text(`Total Invoices: ${reportData.summary.totalInvoices}`, leftColumn, yPos);
     doc.text(`Total Customers: ${reportData.summary.totalCustomers}`, leftColumn, yPos + 8);
-    doc.text(`Total Revenue: $${reportData.summary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, leftColumn, yPos + 16);
+    doc.text(`Total Revenue: ${formatCurrency(reportData.summary.totalRevenue, currencyCode)}`, leftColumn, yPos + 16);
     doc.text(`Paid Invoices: ${reportData.summary.paidInvoices}`, leftColumn, yPos + 24);
     
     // Right column
@@ -115,6 +117,7 @@ export const generatePDF = async (reportData, filename) => {
 };
 
 export const generateExcelContent = (reportData) => {
+  const currencyCode = reportData?.metadata?.currency || reportData?.currency || 'USD';
   const rows = [
     ['Report:', reportData.metadata.title],
     ['Generated:', new Date(reportData.metadata.generated).toLocaleString()],
@@ -125,7 +128,7 @@ export const generateExcelContent = (reportData) => {
     ['SUMMARY', '', ''],
     ['Total Invoices:', reportData.summary.totalInvoices],
     ['Total Customers:', reportData.summary.totalCustomers],
-    ['Total Revenue:', `$${reportData.summary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`],
+    ['Total Revenue:', formatCurrency(reportData.summary.totalRevenue, currencyCode)],
     ['Paid Invoices:', reportData.summary.paidInvoices],
     ['Pending Invoices:', reportData.summary.pendingInvoices],
     ['Overdue Invoices:', reportData.summary.overdueInvoices],
@@ -142,15 +145,15 @@ export const generateExcelContent = (reportData) => {
     ['Cancelled:', reportData.breakdown.byStatus.cancelled],
     [],
     ['REVENUE BY STATUS', '', ''],
-    ['Paid Revenue:', `$${reportData.breakdown.revenueByStatus.paid.toLocaleString('en-US', { minimumFractionDigits: 2 })}`],
-    ['Pending Revenue:', `$${reportData.breakdown.revenueByStatus.pending.toLocaleString('en-US', { minimumFractionDigits: 2 })}`],
-    ['Overdue Revenue:', `$${reportData.breakdown.revenueByStatus.overdue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`],
+    ['Paid Revenue:', formatCurrency(reportData.breakdown.revenueByStatus.paid, currencyCode)],
+    ['Pending Revenue:', formatCurrency(reportData.breakdown.revenueByStatus.pending, currencyCode)],
+    ['Overdue Revenue:', formatCurrency(reportData.breakdown.revenueByStatus.overdue, currencyCode)],
     [],
     ['TOP CUSTOMERS', 'Invoices', 'Total Amount'],
     ...reportData.breakdown.byCustomer.slice(0, 10).map(cust => [
       cust.name,
       cust.totalInvoices,
-      `$${cust.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+      formatCurrency(cust.totalAmount, currencyCode)
     ]),
     [],
     ['MONTHLY TREND', 'Month', 'Revenue', 'Invoices', 'Average per Invoice'],
@@ -158,9 +161,9 @@ export const generateExcelContent = (reportData) => {
       const avgInvoice = month.invoices > 0 ? (month.revenue / month.invoices) : 0;
       return [
         month.month,
-        `$${month.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        formatCurrency(month.revenue, currencyCode),
         month.invoices,
-        `$${avgInvoice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+        formatCurrency(avgInvoice, currencyCode)
       ];
     })
   ];
@@ -181,6 +184,7 @@ export const generateHTMLContent = (reportData) => {
 export const generateTextContent = (reportData) => {
   const title = reportData.metadata.title;
   const date = new Date(reportData.metadata.generated).toLocaleString();
+  const currencyCode = reportData?.metadata?.currency || reportData?.currency || 'USD';
   
   return `
 ==================================================================
@@ -196,7 +200,7 @@ SUMMARY
 ==================================================================
 Total Invoices: ${reportData.summary.totalInvoices}
 Total Customers: ${reportData.summary.totalCustomers}
-Total Revenue: $${reportData.summary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+Total Revenue: ${formatCurrency(reportData.summary.totalRevenue, currencyCode)}
 Paid Invoices: ${reportData.summary.paidInvoices}
 Pending Invoices: ${reportData.summary.pendingInvoices}
 Overdue Invoices: ${reportData.summary.overdueInvoices}

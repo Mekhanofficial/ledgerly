@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { Search, Filter, Mail, Phone, MoreVertical, Send, Eye, Edit, ChevronDown, Trash2 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAccount } from '../../context/AccountContext';
 
 const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete }) => {
   const { isDarkMode } = useTheme();
+  const { accountInfo } = useAccount();
+  const currencyCode = accountInfo?.currency || 'USD';
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,7 +74,7 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete })
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: currencyCode,
       minimumFractionDigits: 2
     }).format(amount);
   };

@@ -10,18 +10,6 @@ const GeneratedReportsList = memo(({
   onDeleteReport, 
   isDarkMode = false 
 }) => {
-  
-  // Debug: Log props to see what's being received
-  console.log('GeneratedReportsList received:', {
-    reportsCount: reports.length,
-    reports: reports,
-    hasOnLoadReports: !!onLoadReports,
-    hasOnExport: !!onExport,
-    hasOnViewReport: !!onViewReport,
-    hasOnDeleteReport: !!onDeleteReport,
-    isDarkMode
-  });
-
   const getStatusColor = (status) => {
     switch(status?.toLowerCase?.()) {
       case 'completed': 
@@ -138,8 +126,8 @@ const GeneratedReportsList = memo(({
                       <span className={`text-sm ${
                         isDarkMode ? 'text-gray-400' : 'text-gray-500'
                       }`}>
-                        {formatDate(report.createdAt)} • 
-                        {getReportType(report.type)} • 
+                        {formatDate(report.createdAt)} | 
+                        {getReportType(report.type)} | 
                         {getReportFormat(report.format)}
                       </span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>

@@ -129,11 +129,10 @@ export const premiumTemplates = {
 
 // Check if user has access to premium templates
 export const checkPremiumAccess = () => {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
   const subscription = JSON.parse(localStorage.getItem('subscription') || '{}');
   
   return {
-    hasPremium: user?.isPremium || subscription?.status === 'active',
+    hasPremium: subscription?.status === 'active',
     subscriptionType: subscription?.type,
     expiresAt: subscription?.expiresAt
   };

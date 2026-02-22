@@ -3,6 +3,8 @@ import React from 'react';
 import { Search, Filter, Download, FileText, DollarSign, Calendar, Plus } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../context/InvoiceContext';
+import { useAccount } from '../../context/AccountContext';
+import { formatCurrency } from '../../utils/currency';
 
 const InvoiceFilters = ({ 
   statusFilter = 'all', 
@@ -20,6 +22,8 @@ const InvoiceFilters = ({
 }) => {
   const { isDarkMode } = useTheme();
   const { invoices } = useInvoice();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
   
   // Calculate real counts based on actual invoices
   const calculateStatusCounts = () => {
@@ -64,9 +68,9 @@ const InvoiceFilters = ({
   const defaultStats = [
     { label: 'Total Invoices', value: '0' },
     { label: 'Drafts', value: '0' },
-    { label: 'Total Amount', value: '$0.00' },
-    { label: 'Paid Amount', value: '$0.00' },
-    { label: 'Overdue', value: '$0.00' },
+    { label: 'Total Amount', value: formatCurrency(0, baseCurrency) },
+    { label: 'Paid Amount', value: formatCurrency(0, baseCurrency) },
+    { label: 'Overdue', value: formatCurrency(0, baseCurrency) },
     { label: 'Sent', value: '0' }
   ];
 

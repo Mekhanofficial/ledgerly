@@ -2,9 +2,15 @@
 import React from 'react';
 import { Pause, Play, Edit, Trash2, MoreVertical, PlayCircle, Download } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
+import { useAccount } from '../../../context/AccountContext';
+import { formatCurrency } from '../../../utils/currency';
 
 const RecurringTable = ({ invoices, onPauseResume, onEdit, onDelete, onGenerateNow }) => {
   const { isDarkMode } = useTheme();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyCode) =>
+    formatCurrency(value, currencyCode || baseCurrency);
 
   const getStatusBadge = (status) => {
     const styles = {
@@ -141,7 +147,7 @@ const RecurringTable = ({ invoices, onPauseResume, onEdit, onDelete, onGenerateN
                       <div className={`text-sm font-semibold ${
                         isDarkMode ? 'text-white' : 'text-gray-900'
                       }`}>
-                        ${invoice.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        {formatMoney(invoice.amount || 0, invoice.currency)}
                       </div>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFrequencyColor(invoice.frequency)}`}>
                         {invoice.frequency}

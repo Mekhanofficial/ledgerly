@@ -1,13 +1,65 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
 
+const normalizeListPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+};
+
+const fetchAllPages = async (path, params = {}, pageSize = 200) => {
+  const limit = params.limit ?? pageSize;
+  let page = params.page ?? 1;
+  let combined = [];
+  let lastPayload = null;
+  let resolvedPages = 1;
+
+  for (let guard = 0; guard < 200; guard += 1) {
+    const response = await api.get(path, { params: { ...params, page, limit } });
+    const payload = response.data;
+    lastPayload = payload;
+    const data = normalizeListPayload(payload);
+
+    combined = combined.concat(data);
+
+    const hasPagination = payload?.pages !== undefined || payload?.total !== undefined;
+    if (!hasPagination) {
+      return payload;
+    }
+
+    resolvedPages = payload?.pages ?? Math.ceil((payload?.total ?? combined.length) / limit);
+
+    if (data.length === 0 || page >= resolvedPages) {
+      return {
+        ...payload,
+        data: combined,
+        count: combined.length,
+        total: payload?.total ?? combined.length,
+        pages: resolvedPages
+      };
+    }
+
+    page += 1;
+  }
+
+  return {
+    ...lastPayload,
+    data: combined,
+    count: combined.length,
+    total: lastPayload?.total ?? combined.length,
+    pages: resolvedPages
+  };
+};
+
 // Async thunks for invoices
 export const fetchInvoices = createAsyncThunk(
   'invoices/fetchAll',
   async (params = {}, { rejectWithValue }) => {
     try {
-      const response = await api.get('/invoices', { params });
-      return response.data;
+      const payload = await fetchAllPages('/invoices', params, 200);
+      return payload;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || 'Failed to fetch invoices');
     }
@@ -97,14 +149,6 @@ export const fetchOutstandingInvoices = createAsyncThunk(
     }
   }
 );
-
-const normalizeListPayload = (payload) => {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.data?.data)) return payload.data.data;
-  if (Array.isArray(payload?.items)) return payload.items;
-  return [];
-};
 
 const initialState = {
   invoices: [],

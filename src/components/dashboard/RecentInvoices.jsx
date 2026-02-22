@@ -1,10 +1,23 @@
 import React from 'react';
-import { Eye, Download, Mail, MoreVertical } from 'lucide-react';
+import { Eye, Download, Mail, MoreVertical, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useInvoice } from '../../context/InvoiceContext';
+import { useAccount } from '../../context/AccountContext';
+import { useSelector } from 'react-redux';
+import { formatCurrency } from '../../utils/currency';
 
 const RecentInvoices = () => {
   const { invoices, sendInvoice, markAsPaid } = useInvoice();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
+  const authUser = useSelector((state) => state.auth?.user);
+  const normalizedRole = String(authUser?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const isClient = normalizedRole === 'client';
+  const canRecordPayment = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
 
   // Get recent 5 invoices sorted by date
   const recentInvoices = [...invoices]
@@ -58,6 +71,8 @@ const RecentInvoices = () => {
     markAsPaid(invoiceId);
   };
 
+  const canMarkAsPaid = (status) => ['sent', 'partial', 'overdue', 'viewed'].includes(status);
+
   const handleViewInvoice = (invoiceId) => {
     // Navigate to invoice view page
     window.location.href = `/invoices/view/${invoiceId}`;
@@ -90,14 +105,16 @@ const RecentInvoices = () => {
             No invoices yet
           </h3>
           <p className="text-gray-600 dark:text-gray-300 mb-4">
-            Create your first invoice to get started
+            {isClient ? 'Your invoices will appear here once issued.' : 'Create your first invoice to get started'}
           </p>
-          <Link
-            to="/invoices/create"
-            className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-          >
-            Create Invoice
-          </Link>
+          {!isClient && (
+            <Link
+              to="/invoices/create"
+              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            >
+              Create Invoice
+            </Link>
+          )}
         </div>
       ) : (
         <>
@@ -146,7 +163,7 @@ const RecentInvoices = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                        ${(invoice.totalAmount || invoice.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        {formatMoney(invoice.totalAmount || invoice.amount || 0, invoice.currency || baseCurrency)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -173,26 +190,30 @@ const RecentInvoices = () => {
                         >
                           <Download className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                         </button>
-                        {invoice.status === 'draft' || invoice.status === 'pending' ? (
-                          <button 
-                            onClick={(e) => handleSendInvoice(invoice.id, e)}
-                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" 
-                            title="Send"
-                          >
-                            <Mail className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                          </button>
-                        ) : invoice.status === 'sent' ? (
-                          <button 
-                            onClick={(e) => handleMarkAsPaid(invoice.id, e)}
-                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" 
-                            title="Mark as Paid"
-                          >
-                            <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          </button>
-                        ) : null}
-                        <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                          <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                        </button>
+                        {!isClient && (
+                          <>
+                            {invoice.status === 'draft' || invoice.status === 'pending' ? (
+                              <button 
+                                onClick={(e) => handleSendInvoice(invoice.id, e)}
+                                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" 
+                                title="Send"
+                              >
+                                <Mail className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                              </button>
+                            ) : canMarkAsPaid(invoice.status) && canRecordPayment ? (
+                              <button 
+                                onClick={(e) => handleMarkAsPaid(invoice.id, e)}
+                                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" 
+                                title="Mark as Paid"
+                              >
+                                <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                              </button>
+                            ) : null}
+                            <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                              <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

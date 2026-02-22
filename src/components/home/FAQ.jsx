@@ -8,7 +8,7 @@ const FAQSection = () => {
     {
       id: 1,
       question: "How do I get started with Ledgerly?",
-      answer: "Sign up for a free account, complete your business profile, and start creating invoices immediately. No credit card required for the free plan.",
+      answer: "Sign up, complete your business profile, and choose a plan starting at $9/month. You can start creating invoices immediately after setup.",
       icon: <Zap className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
     {
@@ -37,14 +37,14 @@ const FAQSection = () => {
     },
     {
       id: 6,
-      question: "How does the free plan work?",
-      answer: "Our free plan includes 10 invoices per month, basic templates, and email support. Upgrade anytime to unlock unlimited invoices, advanced features, and priority support.",
+      question: "What plans are available?",
+      answer: "We offer Starter, Professional, and Enterprise plans. Starter includes 100 invoices per month and 5 Standard templates, while Professional and Enterprise unlock premium and elite templates plus advanced features.",
       icon: <HelpCircle className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
     {
       id: 7,
       question: "Can I automate recurring invoices?",
-      answer: "Yes! Set up automatic recurring invoices for regular clients. Choose daily, weekly, monthly, or custom intervals. The system will handle everything automatically.",
+      answer: "Yes. Recurring invoices are available on Professional and Enterprise plans. Choose daily, weekly, monthly, or custom intervals.",
       icon: <Settings className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
     {

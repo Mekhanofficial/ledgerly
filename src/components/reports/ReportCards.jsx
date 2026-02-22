@@ -3,7 +3,7 @@ import React from 'react';
 import { BarChart3, PieChart, TrendingUp, Download, Calendar, Trash2, Eye } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewReport, onExport }) => {
+const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewReport, onExport, reportType = 'all' }) => {
   const { isDarkMode } = useTheme();
   
   const reportTemplates = [
@@ -73,9 +73,16 @@ const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewRep
     }
   ];
 
+  const resolveTemplateType = (templateId) => {
+    if (templateId === 'quick-summary') return 'summary';
+    if (templateId === 'monthly-performance') return 'performance';
+    return templateId;
+  };
+
   const getGeneratedReport = (templateId) => {
+    const resolvedType = resolveTemplateType(templateId);
     return reports
-      .filter(r => r.type === templateId && r.status === 'completed')
+      .filter(r => r.type === resolvedType && r.status === 'completed')
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
   };
 
@@ -103,6 +110,11 @@ const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewRep
     }
   };
 
+  const filteredTemplates = reportType === 'all'
+    ? reportTemplates
+    : reportTemplates.filter((template) => template.category === reportType);
+
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -115,7 +127,7 @@ const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewRep
         <div className={`text-sm ${
           isDarkMode ? 'text-gray-400' : 'text-gray-500'
         }`}>
-          {reports.filter(r => r.status === 'completed').length} generated • {reports.filter(r => r.status === 'processing').length} processing
+          {reports.filter(r => r.status === 'completed').length} generated | {reports.filter(r => r.status === 'processing').length} processing
         </div>
       </div>
 
@@ -170,10 +182,12 @@ const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewRep
 
       {/* Report Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {reportTemplates.map((template) => {
+        {filteredTemplates.map((template) => {
           const Icon = template.icon;
           const generatedReport = getGeneratedReport(template.id);
-          const isProcessing = reports.some(r => r.type === template.id && r.status === 'processing');
+          const resolvedType = resolveTemplateType(template.id);
+          const isProcessing = reports.some(r => r.type === resolvedType && r.status === 'processing');
+          const processingReport = reports.find(r => r.type === resolvedType && r.status === 'processing');
           
           return (
             <div key={template.id} className={`border rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 ${
@@ -322,14 +336,14 @@ const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewRep
                       <div 
                         className="h-full bg-gradient-to-r from-primary-500 to-primary-300 transition-all duration-500"
                         style={{ 
-                          width: `${reports.find(r => r.type === template.id && r.status === 'processing')?.progress || 0}%` 
+                          width: `${processingReport?.progress || 0}%` 
                         }}
                       />
                     </div>
                     <div className={`text-xs text-center mt-1 ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-500'
                     }`}>
-                      {reports.find(r => r.type === template.id && r.status === 'processing')?.progress || 0}% complete
+                      {processingReport?.progress || 0}% complete
                     </div>
                   </div>
                 )}

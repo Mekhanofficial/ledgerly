@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { CreditCard, DollarSign, Clock, CheckCircle, XCircle, MoreVertical, Download, Filter } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAccount } from '../../context/AccountContext';
+import { formatCurrency } from '../../utils/currency';
 
-const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund }) => {
+const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund, readOnly = false }) => {
   const { isDarkMode } = useTheme();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
   const [selectedPayments, setSelectedPayments] = useState([]);
 
   const getStatusBadge = (status) => {
@@ -76,7 +81,7 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund }) => {
             )}
           </div>
           <div className="flex items-center space-x-3">
-            {selectedPayments.length > 0 && (
+            {!readOnly && selectedPayments.length > 0 && (
               <button className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">
                 Bulk Process ({selectedPayments.length})
               </button>
@@ -94,16 +99,18 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund }) => {
           }`}>
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                <input
-                  type="checkbox"
-                  checked={selectedPayments.length === payments.length}
-                  onChange={handleSelectAll}
-                  className={`rounded focus:ring-primary-500 ${
-                    isDarkMode 
-                      ? 'border-gray-600 bg-gray-700 text-primary-500' 
-                      : 'border-gray-300 text-primary-600'
-                  }`}
-                />
+                {!readOnly && (
+                  <input
+                    type="checkbox"
+                    checked={selectedPayments.length === payments.length}
+                    onChange={handleSelectAll}
+                    className={`rounded focus:ring-primary-500 ${
+                      isDarkMode 
+                        ? 'border-gray-600 bg-gray-700 text-primary-500' 
+                        : 'border-gray-300 text-primary-600'
+                    }`}
+                  />
+                )}
               </th>
               <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
                 isDarkMode ? 'text-gray-300' : 'text-gray-500'
@@ -153,16 +160,18 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund }) => {
               return (
                 <tr key={payment.id} className={isDarkMode ? 'hover:bg-gray-750' : 'hover:bg-gray-50'}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      checked={selectedPayments.includes(payment.id)}
-                      onChange={() => handleSelectPayment(payment.id)}
-                      className={`rounded focus:ring-primary-500 ${
-                        isDarkMode 
-                          ? 'border-gray-600 bg-gray-700 text-primary-500' 
-                          : 'border-gray-300 text-primary-600'
-                      }`}
-                    />
+                    {!readOnly && (
+                      <input
+                        type="checkbox"
+                        checked={selectedPayments.includes(payment.id)}
+                        onChange={() => handleSelectPayment(payment.id)}
+                        className={`rounded focus:ring-primary-500 ${
+                          isDarkMode 
+                            ? 'border-gray-600 bg-gray-700 text-primary-500' 
+                            : 'border-gray-300 text-primary-600'
+                        }`}
+                      />
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className={`text-sm font-medium ${
@@ -192,7 +201,7 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund }) => {
                     <div className={`text-sm font-bold ${
                       isDarkMode ? 'text-white' : 'text-gray-900'
                     }`}>
-                      ${payment.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      {formatMoney(payment.amount, payment.currency || baseCurrency)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -248,7 +257,7 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund }) => {
                       >
                         View
                       </button>
-                      {payment.status === 'pending' && (
+                      {!readOnly && onProcess && payment.status === 'pending' && (
                         <button
                           onClick={() => onProcess(payment.id)}
                           className={`px-3 py-1 text-sm rounded-lg ${
@@ -260,7 +269,7 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund }) => {
                           Process
                         </button>
                       )}
-                      {payment.status === 'completed' && (
+                      {!readOnly && onRefund && payment.status === 'completed' && (
                         <button
                           onClick={() => onRefund(payment.id)}
                           className={`px-3 py-1 text-sm rounded-lg ${
@@ -272,13 +281,15 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund }) => {
                           Refund
                         </button>
                       )}
-                      <button className={`p-1 rounded-lg ${
-                        isDarkMode 
-                          ? 'text-gray-400 hover:bg-gray-700' 
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}>
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
+                      {!readOnly && (
+                        <button className={`p-1 rounded-lg ${
+                          isDarkMode 
+                            ? 'text-gray-400 hover:bg-gray-700' 
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}>
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

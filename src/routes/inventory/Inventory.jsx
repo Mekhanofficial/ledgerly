@@ -7,19 +7,36 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { useInventory } from '../../context/InventoryContext';
 import { useToast } from '../../context/ToastContext';
+import { useAccount } from '../../context/AccountContext';
 import { fetchProducts } from '../../store/slices/productSlide';
 import { mapProductFromApi } from '../../utils/productAdapter';
+import { getAdjustmentDate, getAdjustmentTimestamp } from '../../utils/adjustmentDate';
 
 const Inventory = () => {
   const { isDarkMode } = useTheme();
   const { suppliers, categories } = useInventory();
   const dispatch = useDispatch();
   const { products: rawProducts, loading: productsLoading, stockAdjustments } = useSelector((state) => state.products);
+  const { accountInfo } = useAccount();
   const products = useMemo(
     () => rawProducts.map((product) => mapProductFromApi(product)),
     [rawProducts]
   );
   const { addToast } = useToast();
+  const currencyCode = (accountInfo?.currency || 'USD').toUpperCase();
+  const formatCurrency = (amount) => {
+    const value = Number.isFinite(amount) ? amount : 0;
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currencyCode,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(value);
+    } catch (error) {
+      return `${currencyCode} ${value.toFixed(2)}`;
+    }
+  };
   
   const [recentActivity, setRecentActivity] = useState([]);
 
@@ -30,11 +47,12 @@ const Inventory = () => {
   useEffect(() => {
     try {
       const sortedAdjustments = [...stockAdjustments]
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .sort((a, b) => getAdjustmentTimestamp(b) - getAdjustmentTimestamp(a))
         .slice(0, 5);
 
       const activity = sortedAdjustments.map((adj) => {
-        const timeAgo = calculateTimeAgo(adj.date);
+        const adjustmentDate = getAdjustmentDate(adj);
+        const timeAgo = calculateTimeAgo(adjustmentDate);
         const product = products.find((p) => p.id === adj.productId);
         return {
           id: adj.id,
@@ -55,8 +73,11 @@ const Inventory = () => {
   }, [stockAdjustments, products, addToast]);
 
   const calculateTimeAgo = (dateString) => {
+    const date = dateString instanceof Date ? dateString : (dateString ? new Date(dateString) : null);
+    if (!date || Number.isNaN(date.getTime())) {
+      return 'Unknown date';
+    }
     const now = new Date();
-    const date = new Date(dateString);
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -126,7 +147,7 @@ const Inventory = () => {
     },
     {
       label: 'Total Value',
-      value: `$${stats?.totalValue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
+      value: formatCurrency(stats?.totalValue || 0),
       change: '+0%',
       icon: TrendingUp,
       color: 'bg-emerald-500',

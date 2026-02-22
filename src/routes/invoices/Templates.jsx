@@ -9,8 +9,7 @@ import TemplateCustom from '../../components/invoices/templates/TemplateCustom';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useInvoice } from '../../context/InvoiceContext';
-import { purchaseTemplate as purchaseTemplateApi } from '../../services/templateService';
-import { purchaseTemplate as purchaseTemplateLocal } from '../../utils/templateStorage';
+import { initializeTemplatePayment } from '../../services/billingService';
 
 const InvoiceTemplates = () => {
   const { isDarkMode } = useTheme();
@@ -34,8 +33,8 @@ const InvoiceTemplates = () => {
       isFavorite: favorites[template.id] ?? template.isFavorite
     }));
   };
-  const hasPremiumAccess = templates.some((template) => template.isPremium && template.hasAccess);
-  const hasLockedPremium = templates.some((template) => template.isPremium && !template.hasAccess);
+  const hasPaidAccess = templates.some((template) => template.hasAccess && (template.category === 'PREMIUM' || template.category === 'ELITE'));
+  const hasLockedTemplates = templates.some((template) => template.category !== 'CUSTOM' && template.hasAccess === false);
   
   // Load templates on component mount
   useEffect(() => {
@@ -62,10 +61,10 @@ const InvoiceTemplates = () => {
 
   const categories = [
     { id: 'all', label: 'All', count: templates.length },
-    { id: 'basic', label: 'Basic', count: templates.filter(t => t.category === 'basic').length },
-    { id: 'premium', label: 'Premium', count: templates.filter(t => t.isPremium).length },
-    { id: 'industry', label: 'Industry', count: templates.filter(t => t.category === 'industry').length },
-    { id: 'custom', label: 'Custom', count: templates.filter(t => t.category === 'custom').length },
+    { id: 'STANDARD', label: 'Standard', count: templates.filter(t => t.category === 'STANDARD').length },
+    { id: 'PREMIUM', label: 'Premium', count: templates.filter(t => t.category === 'PREMIUM').length },
+    { id: 'ELITE', label: 'Elite', count: templates.filter(t => t.category === 'ELITE').length },
+    { id: 'CUSTOM', label: 'Custom', count: templates.filter(t => t.category === 'CUSTOM').length },
     { id: 'favorites', label: 'Favorites', count: templates.filter(t => t.isFavorite).length }
   ];
 
@@ -85,23 +84,38 @@ const InvoiceTemplates = () => {
     navigate(`/invoices/create?template=${template.id}`);
   };
 
+  const redirectToCheckout = (paymentData) => {
+    const url = paymentData?.authorizationUrl || paymentData?.authorization_url;
+    if (url) {
+      window.location.href = url;
+      return true;
+    }
+    return false;
+  };
+
   const handlePurchaseTemplate = async (templateId) => {
     try {
-      await purchaseTemplateApi(templateId, { paymentMethod: 'manual' });
-      await loadTemplates();
-      addToast('Template unlocked successfully!', 'success');
-    } catch (error) {
-      console.error('Error purchasing template via API:', error);
-      try {
-        await purchaseTemplateLocal(templateId, 'manual');
-        await loadTemplates();
-        addToast('Template unlocked successfully!', 'success');
-        return;
-      } catch (fallbackError) {
-        console.error('Error purchasing template locally:', fallbackError);
-        addToast('Unable to purchase template', 'error');
-        throw fallbackError;
+      const response = await initializeTemplatePayment({ templateId });
+      const data = response?.data || response;
+      if (!redirectToCheckout(data)) {
+        addToast('Unable to start payment. Please try again.', 'error');
       }
+    } catch (error) {
+      console.error('Error starting template payment:', error);
+      addToast(error?.response?.data?.error || 'Unable to purchase template', 'error');
+    }
+  };
+
+  const handlePurchaseBundle = async () => {
+    try {
+      const response = await initializeTemplatePayment({ type: 'lifetime' });
+      const data = response?.data || response;
+      if (!redirectToCheckout(data)) {
+        addToast('Unable to start payment. Please try again.', 'error');
+      }
+    } catch (error) {
+      console.error('Error starting template bundle payment:', error);
+      addToast(error?.response?.data?.error || 'Unable to purchase template bundle', 'error');
     }
   };
 
@@ -119,22 +133,22 @@ const InvoiceTemplates = () => {
               <h1 className={`text-xl md:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} truncate`}>
                 Invoice Templates
               </h1>
-              {hasPremiumAccess && (
+              {hasPaidAccess && (
                 <span className="px-2 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-semibold rounded-full flex items-center gap-1">
                   <Crown className="w-3 h-3" />
-                  <span>PREMIUM</span>
+                  <span>PAID ACCESS</span>
                 </span>
               )}
             </div>
             <p className={`mt-1 text-sm md:text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              {hasPremiumAccess 
-                ? 'Access all premium and basic templates'
-                : 'Choose from basic templates or upgrade for premium designs'
+              {hasPaidAccess 
+                ? 'Access premium and elite templates included with your plan'
+                : 'Choose from standard templates or upgrade to unlock premium and elite designs'
               }
             </p>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            {hasLockedPremium && (
+            {hasLockedTemplates && (
               <button 
                 onClick={() => navigate('/pricing')}
                 className="flex items-center justify-center px-3 py-2 md:px-4 md:py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 text-sm md:text-base whitespace-nowrap"
@@ -168,8 +182,8 @@ const InvoiceTemplates = () => {
             {/* Stats Component */}
             <TemplateStats templates={templates} />
 
-            {/* Premium Templates Section */}
-            {hasLockedPremium && (
+            {/* Locked Templates Section */}
+            {hasLockedTemplates && (
               <div className={`rounded-xl p-6 border ${
                 isDarkMode 
                   ? 'bg-gradient-to-r from-gray-800 to-gray-900 border-gray-700' 
@@ -178,10 +192,10 @@ const InvoiceTemplates = () => {
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                   <div className="flex-1">
                     <h2 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Unlock Premium Templates
+                      Unlock Premium & Elite Templates
                     </h2>
                     <p className={`mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                      Get access to exclusive, professionally designed templates with advanced features.
+                      Upgrade your plan or purchase templates individually to unlock advanced designs.
                     </p>
                     <div className="flex flex-wrap gap-3">
                       <div className="flex items-center gap-2">
@@ -189,7 +203,7 @@ const InvoiceTemplates = () => {
                           <Crown className="w-3 h-3 text-purple-600 dark:text-purple-300" />
                         </div>
                         <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
-                          20+ Premium Designs
+                          Premium & Elite Designs
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -221,6 +235,7 @@ const InvoiceTemplates = () => {
               onFavoriteToggle={handleFavoriteToggle}
               onUseTemplate={handleUseTemplate}
               onPurchaseTemplate={handlePurchaseTemplate}
+              onPurchaseBundle={handlePurchaseBundle}
             />
 
             {/* Custom Template Component */}

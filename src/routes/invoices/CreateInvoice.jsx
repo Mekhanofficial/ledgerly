@@ -1,7 +1,7 @@
 // src/routes/invoices/CreateInvoice.js
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Eye, Mail, Download, Repeat, Save, Printer, Palette, Package, Search, Plus } from 'lucide-react';
+import { Eye, Mail, Download, Repeat, Save, Printer, Palette, Package, Search, Plus, X } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import InvoicePreviewModal from '../../components/invoices/InvoicePreviewModal';
 import EmailTemplateModal from '../../components/invoices/EmailTemplateModal';
@@ -17,8 +17,11 @@ import { useToast } from '../../context/ToastContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useInventory } from '../../context/InventoryContext';
 import { useAccount } from '../../context/AccountContext';
-import templateStorage from '../../utils/templateStorage';
+import { useTheme } from '../../context/ThemeContext';
+import { isMultiCurrencyPlan } from '../../utils/subscription';
+import templateStorage, { hasTemplateAccess } from '../../utils/templateStorage';
 import { resolveTemplateStyleVariant } from '../../utils/templateStyleVariants';
+import { fetchTaxSettings } from '../../services/taxSettingsService';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -130,8 +133,18 @@ const buildTemplateDecorations = (variant, colors) => {
   return { headerHtml, footerHtml, paddingTop: 95, paddingBottom: 70 };
 };
 
+const resolveTemplateAccess = (template) => {
+  if (typeof template?.hasAccess === 'boolean') {
+    return template.hasAccess;
+  }
+  if (!template?.id) {
+    return false;
+  }
+  return hasTemplateAccess(template.id);
+};
+
 const filterAccessibleTemplates = (templates = []) => (
-  templates.filter((template) => !template.isPremium || template.hasAccess)
+  templates.filter((template) => resolveTemplateAccess(template))
 );
 
 const CreateInvoice = () => {
@@ -145,9 +158,12 @@ const CreateInvoice = () => {
     saveRecurringInvoice,
     getAvailableTemplates 
   } = useInvoice();
+  const { isDarkMode } = useTheme();
   
   const { getProductsForInvoice } = useInventory();
   const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const canUseMultiCurrency = isMultiCurrencyPlan(accountInfo?.plan, accountInfo?.subscriptionStatus);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -160,7 +176,7 @@ const CreateInvoice = () => {
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
   const [paymentTerms, setPaymentTerms] = useState('net-30');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState(baseCurrency);
   const [notes, setNotes] = useState('Payment due within 30 days. Late payments subject to 1.5% monthly interest.');
   const [terms, setTerms] = useState('All services are subject to our terms and conditions. For any questions, please contact our billing department.');
   const [attachments, setAttachments] = useState([]);
@@ -190,6 +206,17 @@ const CreateInvoice = () => {
   const [lineItems, setLineItems] = useState([
     { id: 1, description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }
   ]);
+
+  // Tax settings state
+  const [taxSettings, setTaxSettings] = useState({
+    taxEnabled: true,
+    taxName: 'VAT',
+    taxRate: 7.5,
+    allowManualOverride: true
+  });
+  const [useTaxOverride, setUseTaxOverride] = useState(false);
+  const [taxRateOverride, setTaxRateOverride] = useState('');
+  const [taxAmountOverride, setTaxAmountOverride] = useState('');
   
   // Inventory products state
   const [availableProducts, setAvailableProducts] = useState([]);
@@ -203,13 +230,49 @@ const CreateInvoice = () => {
   const [isSending, setIsSending] = useState(false);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState('');
   
+  const roundMoney = (value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 0;
+    return Math.round((number + Number.EPSILON) * 100) / 100;
+  };
+
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
-  const totalTax = lineItems.reduce((sum, item) => sum + (item.quantity * item.rate * (item.tax / 100)), 0);
-  const totalAmount = subtotal + totalTax;
+  const taxEnabled = taxSettings.taxEnabled ?? true;
+  const allowManualOverride = taxSettings.allowManualOverride ?? true;
+  const taxName = taxSettings.taxName || 'VAT';
+  const baseTaxRate = Number.isFinite(Number(taxSettings.taxRate)) ? Number(taxSettings.taxRate) : 0;
+  const overrideRateValue = allowManualOverride && useTaxOverride && taxRateOverride !== ''
+    ? Number(taxRateOverride)
+    : NaN;
+  const overrideAmountValue = allowManualOverride && useTaxOverride && taxAmountOverride !== ''
+    ? Number(taxAmountOverride)
+    : NaN;
+  const hasOverrideRate = Number.isFinite(overrideRateValue);
+  const hasOverrideAmount = Number.isFinite(overrideAmountValue);
+  const effectiveTaxRate = taxEnabled ? Math.max(0, (hasOverrideRate ? overrideRateValue : baseTaxRate)) : 0;
+  const effectiveTaxAmount = taxEnabled
+    ? (hasOverrideAmount ? Math.max(0, overrideAmountValue) : subtotal * (effectiveTaxRate / 100))
+    : 0;
+  const totalTax = roundMoney(Math.max(0, effectiveTaxAmount));
+  const totalAmount = roundMoney(subtotal + totalTax);
+  const resolvedCurrency = canUseMultiCurrency ? currency : baseCurrency;
+  const isTaxOverridden = taxEnabled && allowManualOverride && useTaxOverride && (hasOverrideRate || hasOverrideAmount);
 
-  // Load templates
+  
+  useEffect(() => {
+    if (!canUseMultiCurrency) {
+      setCurrency(baseCurrency);
+      return;
+    }
+    if (!currency) {
+      setCurrency(baseCurrency);
+    }
+  }, [baseCurrency, canUseMultiCurrency]);
+// Load templates
   useEffect(() => {
     const templates = dedupeTemplates(getAvailableTemplates());
     const accessibleTemplates = filterAccessibleTemplates(templates);
@@ -222,10 +285,43 @@ const CreateInvoice = () => {
       setTerms(defaultTemplate.terms || '');
       setEmailSubject(defaultTemplate.emailSubject || 'Invoice for Services Rendered');
       setEmailMessage(defaultTemplate.emailMessage || 'Dear valued customer,\n\nPlease find attached your invoice for services rendered.\n\nThank you for your business.\n\nBest regards,');
-      setCurrency(defaultTemplate.currency || 'USD');
+      setCurrency(canUseMultiCurrency ? (defaultTemplate.currency || baseCurrency) : baseCurrency);
       setPaymentTerms(defaultTemplate.paymentTerms || 'net-30');
     }
-  }, [getAvailableTemplates]);
+  }, [getAvailableTemplates, canUseMultiCurrency, baseCurrency]);
+
+  // Load tax settings
+  useEffect(() => {
+    let isMounted = true;
+    const loadTaxSettings = async () => {
+      try {
+        const settings = await fetchTaxSettings();
+        if (!isMounted || !settings) return;
+        setTaxSettings({
+          taxEnabled: settings.taxEnabled ?? true,
+          taxName: settings.taxName || 'VAT',
+          taxRate: Number(settings.taxRate) || 0,
+          allowManualOverride: settings.allowManualOverride ?? true
+        });
+      } catch (error) {
+        console.error('Failed to load tax settings:', error);
+        addToast('Unable to load tax settings. Using defaults.', 'warning');
+      }
+    };
+
+    loadTaxSettings();
+    return () => {
+      isMounted = false;
+    };
+  }, [addToast]);
+
+  useEffect(() => {
+    if (!taxSettings.allowManualOverride || !taxSettings.taxEnabled) {
+      setUseTaxOverride(false);
+      setTaxRateOverride('');
+      setTaxAmountOverride('');
+    }
+  }, [taxSettings.allowManualOverride, taxSettings.taxEnabled]);
 
   useEffect(() => {
     if (availableTemplates.length === 0) return;
@@ -254,23 +350,26 @@ const CreateInvoice = () => {
       const templates = dedupeTemplates(getAvailableTemplates());
       const template = templates.find(t => t.id === templateId);
       if (template) {
-        if (template.isPremium && !template.hasAccess) {
-          addToast(`"${template.name}" is a premium template. Purchase to use it.`, 'warning');
+        const hasAccess = resolveTemplateAccess(template);
+        if (!hasAccess) {
+          const requiredPlan = template.requiredPlan ? `Upgrade to ${template.requiredPlan}` : 'Upgrade your plan';
+          addToast(`"${template.name}" is locked. ${requiredPlan} or purchase to use it.`, 'warning');
           return;
         }
         // Apply template settings
         if (template.lineItems && template.lineItems.length > 0) {
           setLineItems(template.lineItems.map(item => ({
             ...item,
+            tax: 0,
             id: Date.now() + Math.random(),
-            amount: item.quantity * item.rate * (1 + (item.tax || 0) / 100)
+            amount: item.quantity * item.rate
           })));
         }
         if (template.notes) setNotes(template.notes);
         if (template.terms) setTerms(template.terms);
         if (template.emailSubject) setEmailSubject(template.emailSubject);
         if (template.emailMessage) setEmailMessage(template.emailMessage);
-        if (template.currency) setCurrency(template.currency);
+        if (template.currency && canUseMultiCurrency) setCurrency(template.currency);
         if (template.paymentTerms) setPaymentTerms(template.paymentTerms);
         if (template.templateStyle) setSelectedTemplate(template.templateStyle);
         
@@ -288,8 +387,10 @@ const CreateInvoice = () => {
 
   const handleSelectTemplate = (template) => {
     if (!template) return;
-    if (template.isPremium && !template.hasAccess) {
-      addToast(`"${template.name}" is a premium template. Purchase to use it.`, 'warning');
+    const hasAccess = resolveTemplateAccess(template);
+    if (!hasAccess) {
+      const requiredPlan = template.requiredPlan ? `Upgrade to ${template.requiredPlan}` : 'Upgrade your plan';
+      addToast(`"${template.name}" is locked. ${requiredPlan} or purchase to use it.`, 'warning');
       return;
     }
     setSelectedTemplate(template.id);
@@ -299,16 +400,15 @@ const CreateInvoice = () => {
   const updateLineItem = (id, field, value) => {
     setLineItems(lineItems.map(item => {
       if (item.id === id) {
-        const updatedItem = { ...item, [field]: value };
-        
-        if (field === 'quantity' || field === 'rate' || field === 'tax') {
+        const updatedItem = { ...item, [field]: value, tax: 0 };
+
+        if (field === 'quantity' || field === 'rate') {
           const quantity = field === 'quantity' ? (value === '' ? '' : parseFloat(value) || 0) : item.quantity;
           const rate = field === 'rate' ? (value === '' ? '' : parseFloat(value) || 0) : item.rate;
-          const tax = field === 'tax' ? (value === '' ? '' : parseFloat(value) || 0) : item.tax;
-          
+
           // Only calculate amount if all values are numbers
-          if (quantity !== '' && rate !== '' && tax !== '') {
-            updatedItem.amount = quantity * rate * (1 + tax / 100);
+          if (quantity !== '' && rate !== '') {
+            updatedItem.amount = quantity * rate;
           } else {
             updatedItem.amount = 0;
           }
@@ -410,9 +510,13 @@ const CreateInvoice = () => {
         subtotal,
         totalTax,
         totalAmount,
+        taxRateUsed: effectiveTaxRate,
+        taxAmount: totalTax,
+        taxName,
+        isTaxOverridden,
         notes,
         terms,
-        currency,
+        currency: resolvedCurrency,
         emailSubject,
         emailMessage,
         templateStyle: selectedTemplate,
@@ -477,6 +581,15 @@ const CreateInvoice = () => {
         accountInfo?.website
       ].filter(Boolean);
       const contactDetailsHtml = contactDetailsList.map(line => `<div>${line}</div>`).join('');
+
+      const buildIcon = (path) => `
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${colors.primary}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; vertical-align: -2px;">
+          ${path}
+        </svg>
+      `;
+      const attachmentIcon = buildIcon('<path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.48" />');
+      const notesIcon = buildIcon('<path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />');
+      const termsIcon = buildIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" />');
       
       // Prepare attachments HTML
       let attachmentsHtml = '';
@@ -484,7 +597,7 @@ const CreateInvoice = () => {
         attachmentsHtml = `
           <div style="margin-top: 30px; padding: 20px; background: ${colors.accent}; border-radius: 8px; border-left: 4px solid ${colors.primary};">
             <div style="color: ${colors.primary}; font-weight: bold; margin-bottom: 15px; font-size: 14px;">
-              <span style="margin-right: 8px;">📎</span>Attachments
+              ${attachmentIcon}Attachments
             </div>
         `;
         
@@ -518,6 +631,15 @@ const CreateInvoice = () => {
         
         attachmentsHtml += '</div>';
       }
+      
+      const taxSummaryHtml = taxEnabled
+        ? `
+            <div style="margin-bottom: 20px;">
+              <span style="color: #6c757d; font-size: 14px;">${taxName} (${effectiveTaxRate}%):</span>
+              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${totalTax.toFixed(2)}</span>
+            </div>
+          `
+        : '';
       
       const htmlContent = `
         <div id="invoice-content" style="max-width: 800px; margin: 0 auto; position: relative; overflow: hidden; background: white; border-radius: 12px;">
@@ -598,10 +720,7 @@ const CreateInvoice = () => {
               <span style="color: #6c757d; font-size: 14px;">Subtotal:</span>
               <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${subtotal.toFixed(2)}</span>
             </div>
-            <div style="margin-bottom: 20px;">
-              <span style="color: #6c757d; font-size: 14px;">Tax:</span>
-              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${totalTax.toFixed(2)}</span>
-            </div>
+            ${taxSummaryHtml}
             <div>
               <span style="color: ${colors.primary}; font-weight: bold; font-size: 20px;">Total:</span>
               <span style="color: ${colors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${totalAmount.toFixed(2)}</span>
@@ -615,7 +734,7 @@ const CreateInvoice = () => {
           ${notes ? `
             <div style="margin-top: 30px; padding: 20px; background: ${colors.accent}; border-radius: 8px;">
               <div style="color: ${colors.primary}; font-weight: bold; margin-bottom: 15px; font-size: 14px;">
-                <span style="margin-right: 8px;">📝</span>Notes
+                ${notesIcon}Notes
               </div>
               <div style="color: #495057; line-height: 1.6; font-size: 14px; white-space: pre-line;">${notes}</div>
             </div>
@@ -625,7 +744,7 @@ const CreateInvoice = () => {
           ${terms ? `
             <div style="margin-top: 20px; padding: 20px; background: ${colors.accent}; border-radius: 8px;">
               <div style="color: ${colors.primary}; font-weight: bold; margin-bottom: 15px; font-size: 14px;">
-                <span style="margin-right: 8px;">⚖️</span>Terms & Conditions
+                ${termsIcon}Terms & Conditions
               </div>
               <div style="color: #495057; line-height: 1.6; font-size: 13px; white-space: pre-line;">${terms}</div>
             </div>
@@ -656,10 +775,23 @@ const CreateInvoice = () => {
       
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgWidth = 210; // A4 width in mm
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      let heightLeft = imgHeight;
+      let position = 0;
+      
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
       
       // Clean up
       document.body.removeChild(pdfContainer);
@@ -686,6 +818,18 @@ const CreateInvoice = () => {
     }
   };
 
+  const isUpgradeError = (message) => {
+    const normalized = String(message || '').toLowerCase();
+    return normalized.includes('subscription required')
+      || normalized.includes('invoice limit')
+      || normalized.includes('upgrade');
+  };
+
+  const openUpgradePrompt = (message) => {
+    setUpgradeMessage(message || 'Upgrade to continue creating invoices.');
+    setShowUpgradePrompt(true);
+  };
+
   const handleSendInvoice = async () => {
     try {
       if (!selectedCustomer && !newCustomer.name) {
@@ -697,11 +841,10 @@ const CreateInvoice = () => {
         .map((item) => {
           const quantity = Number(item.quantity);
           const rate = Number(item.rate);
-          const tax = Number(item.tax);
           const safeQuantity = Number.isFinite(quantity) ? quantity : 0;
           const safeRate = Number.isFinite(rate) ? rate : 0;
-          const safeTax = Number.isFinite(tax) ? tax : 0;
-          const computedAmount = Number(item.amount) || safeQuantity * safeRate * (1 + safeTax / 100);
+          const safeTax = 0;
+          const computedAmount = Number(item.amount) || safeQuantity * safeRate;
           return {
             ...item,
             description: (item.description || '').trim(),
@@ -735,11 +878,12 @@ const CreateInvoice = () => {
         (sum, item) => sum + item.quantity * item.rate,
         0
       );
-      const sanitizedTotalTax = normalizedLineItems.reduce(
-        (sum, item) => sum + (item.quantity * item.rate * (item.tax / 100)),
-        0
+      const sanitizedTotalTax = roundMoney(
+        taxEnabled
+          ? (hasOverrideAmount ? overrideAmountValue : sanitizedSubtotal * (effectiveTaxRate / 100))
+          : 0
       );
-      const sanitizedTotalAmount = sanitizedSubtotal + sanitizedTotalTax;
+      const sanitizedTotalAmount = roundMoney(sanitizedSubtotal + sanitizedTotalTax);
       
       // Generate PDF first
       const pdf = await generatePDF(false, normalizedLineItems);
@@ -772,9 +916,13 @@ const CreateInvoice = () => {
         totalAmount: sanitizedTotalAmount,
         subtotal: sanitizedSubtotal,
         totalTax: sanitizedTotalTax,
+        taxRateUsed: effectiveTaxRate,
+        taxAmount: sanitizedTotalTax,
+        taxName,
+        isTaxOverridden,
         notes,
         terms,
-        currency,
+        currency: resolvedCurrency,
         status: 'sent',
         sentAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -802,6 +950,10 @@ const CreateInvoice = () => {
           totalCycles: recurringSettings.totalCycles,
           cyclesCompleted: 1,
           status: 'active',
+          taxRateUsed: effectiveTaxRate,
+          taxAmount: sanitizedTotalTax,
+          taxName,
+          isTaxOverridden,
           lineItems: normalizedLineItems.map(item => ({
             description: item.description,
             quantity: item.quantity,
@@ -822,9 +974,11 @@ ${emailMessage}
 INVOICE DETAILS
 ===============
 Invoice #: ${invoiceNumber}
-Issue Date: ${new Date(issueDate).toLocaleDateString()}
-Due Date: ${new Date(dueDate).toLocaleDateString()}
-Total Amount: ${currency} ${sanitizedTotalAmount.toFixed(2)}
+ Issue Date: ${new Date(issueDate).toLocaleDateString()}
+ Due Date: ${new Date(dueDate).toLocaleDateString()}
+ Subtotal: ${currency} ${sanitizedSubtotal.toFixed(2)}
+ ${taxEnabled ? `${taxName} (${effectiveTaxRate}%): ${currency} ${sanitizedTotalTax.toFixed(2)}` : ''}
+ Total Amount: ${currency} ${sanitizedTotalAmount.toFixed(2)}
 
 ITEMS:
 ${normalizedLineItems.map(item => `- ${item.description}: ${item.quantity} × ${currency}${item.rate.toFixed(2)} = ${currency}${item.amount.toFixed(2)}`).join('\n')}
@@ -864,6 +1018,9 @@ This email was sent from Ledgerly Invoice System
       const errorMessage = typeof error === 'string'
         ? error
         : error?.message || 'Unable to send invoice';
+      if (isUpgradeError(errorMessage)) {
+        openUpgradePrompt(errorMessage);
+      }
       addToast('Error sending invoice: ' + errorMessage, 'error');
     } finally {
       setIsSending(false);
@@ -882,6 +1039,14 @@ This email was sent from Ledgerly Invoice System
       || templateStorage.getTemplate(selectedTemplate);
     const templateVariant = resolveTemplateStyleVariant(selectedTemplate, templateMeta);
     const { headerHtml, footerHtml, paddingTop, paddingBottom } = buildTemplateDecorations(templateVariant, printColors);
+    const printTaxSummaryHtml = taxEnabled
+      ? `
+          <div style="margin-bottom: 20px;">
+            <span style="color: #6c757d; font-size: 14px;">${taxName} (${effectiveTaxRate}%):</span>
+            <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${totalTax.toFixed(2)}</span>
+          </div>
+        `
+      : '';
     
     const printContent = `
       <html>
@@ -971,10 +1136,7 @@ This email was sent from Ledgerly Invoice System
                 <span style="color: #6c757d; font-size: 14px;">Subtotal:</span>
                 <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${subtotal.toFixed(2)}</span>
               </div>
-              <div style="margin-bottom: 20px;">
-                <span style="color: #6c757d; font-size: 14px;">Tax:</span>
-                <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${totalTax.toFixed(2)}</span>
-              </div>
+              ${printTaxSummaryHtml}
               <div>
               <span style="color: ${printColors.primary}; font-weight: bold; font-size: 20px;">Total:</span>
               <span style="color: ${printColors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${totalAmount.toFixed(2)}</span>
@@ -1035,6 +1197,9 @@ This email was sent from Ledgerly Invoice System
     setTerms('All services are subject to our terms and conditions. For any questions, please contact our billing department.');
     setIsRecurring(false);
     setNewCustomer({ name: '', email: '', phone: '', address: '' });
+    setUseTaxOverride(false);
+    setTaxRateOverride('');
+    setTaxAmountOverride('');
   };
 
   return (
@@ -1121,9 +1286,9 @@ This email was sent from Ledgerly Invoice System
                     <option
                       key={template.id}
                       value={template.id}
-                      disabled={template.isPremium && !template.hasAccess}
+                      disabled={!resolveTemplateAccess(template)}
                     >
-                      {template.name}{template.isPremium && !template.hasAccess ? ' (Premium)' : ''}
+                      {template.name}{!resolveTemplateAccess(template) ? ' (Locked)' : ''}
                     </option>
                   ))}
                 </select>
@@ -1143,12 +1308,12 @@ This email was sent from Ledgerly Invoice System
                     <button
                       key={template.id}
                       onClick={() => handleSelectTemplate(template)}
-                      disabled={template.isPremium && !template.hasAccess}
+                      disabled={!resolveTemplateAccess(template)}
                       className={`p-3 rounded-lg border transition-all duration-200 ${
                         selectedTemplate === template.id
                           ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20 shadow-md scale-105'
                           : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm'
-                      } ${template.isPremium && !template.hasAccess ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      } ${!resolveTemplateAccess(template) ? 'opacity-60 cursor-not-allowed' : ''}`}
                       title={template.name}
                     >
                       <div className="flex flex-col items-center">
@@ -1170,7 +1335,7 @@ This email was sent from Ledgerly Invoice System
                             Default
                           </span>
                         )}
-                        {template.isPremium && !template.hasAccess && (
+                        {!resolveTemplateAccess(template) && (
                           <span className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
                             Locked
                           </span>
@@ -1190,8 +1355,10 @@ This email was sent from Ledgerly Invoice System
             <InvoiceDetailsSection
               invoiceNumber={invoiceNumber}
               setInvoiceNumber={setInvoiceNumber}
-              currency={currency}
+              currency={resolvedCurrency}
               setCurrency={setCurrency}
+              isMultiCurrencyAllowed={canUseMultiCurrency}
+              baseCurrency={baseCurrency}
               issueDate={issueDate}
               setIssueDate={setIssueDate}
               dueDate={dueDate}
@@ -1290,7 +1457,7 @@ This email was sent from Ledgerly Invoice System
               updateLineItem={updateLineItem}
               removeLineItem={removeLineItem}
               addLineItem={addLineItem}
-              currency={currency}
+              currency={resolvedCurrency}
             />
             
             {/* Notes and Terms */}
@@ -1330,8 +1497,74 @@ This email was sent from Ledgerly Invoice System
               subtotal={subtotal}
               totalTax={totalTax}
               totalAmount={totalAmount}
-              currency={currency}
+              currency={resolvedCurrency}
+              taxLabel={`${taxName} (${effectiveTaxRate}%)`}
+              showTax={taxEnabled}
             />
+
+            {taxEnabled && (
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                <h3 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Tax Settings</h3>
+                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                  <div>
+                    <span className="font-medium">Tax Name:</span> {taxName}
+                  </div>
+                  <div>
+                    <span className="font-medium">Default Rate:</span> {baseTaxRate}%
+                  </div>
+                </div>
+
+                {allowManualOverride ? (
+                  <div className="mt-4 space-y-3">
+                    <label className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                      <input
+                        type="checkbox"
+                        checked={useTaxOverride}
+                        onChange={(e) => setUseTaxOverride(e.target.checked)}
+                        className="mr-2"
+                      />
+                      Override tax for this invoice
+                    </label>
+
+                    {useTaxOverride && (
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <label className="text-xs text-gray-500 dark:text-gray-400">Override Rate (%)</label>
+                          <input
+                            type="number"
+                            value={taxRateOverride}
+                            onChange={(e) => setTaxRateOverride(e.target.value)}
+                            className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            min="0"
+                            step="0.01"
+                            placeholder={`${baseTaxRate}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 dark:text-gray-400">Override Amount</label>
+                          <input
+                            type="number"
+                            value={taxAmountOverride}
+                            onChange={(e) => setTaxAmountOverride(e.target.value)}
+                            className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            min="0"
+                            step="0.01"
+                            placeholder={`${currency} ${totalTax.toFixed(2)}`}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          If you enter a tax amount, it overrides the rate.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                    Manual tax overrides are disabled by the administrator.
+                  </p>
+                )}
+              </div>
+            )}
             
             {/* Recurring Invoice Checkbox */}
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
@@ -1403,7 +1636,7 @@ This email was sent from Ledgerly Invoice System
                   }}
                   className="text-gray-400 hover:text-gray-500"
                 >
-                  ✕
+                  <X className="w-5 h-5" />
                 </button>
               </div>
               
@@ -1508,9 +1741,12 @@ This email was sent from Ledgerly Invoice System
             subtotal,
             totalTax,
             totalAmount,
+            taxName,
+            taxRateUsed: effectiveTaxRate,
+            isTaxOverridden,
             notes,
             terms,
-            currency,
+            currency: resolvedCurrency,
             templateStyle: selectedTemplate
           }}
           onClose={() => setShowPreview(false)}
@@ -1543,8 +1779,49 @@ This email was sent from Ledgerly Invoice System
           onClose={() => setShowRecurringModal(false)}
         />
       )}
+
+      {showUpgradePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/60" />
+          <div className={`relative w-full max-w-lg rounded-2xl border p-6 shadow-2xl ${
+            isDarkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'
+          }`}>
+            <div className="text-sm font-semibold uppercase tracking-widest text-primary-500">
+              Upgrade Required
+            </div>
+            <h2 className="mt-2 text-2xl font-bold">
+              Invoice limit reached
+            </h2>
+            <p className={`mt-3 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              {upgradeMessage || 'Upgrade to continue creating invoices.'}
+            </p>
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/settings?section=billing')}
+                className="flex-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+              >
+                Upgrade Now
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowUpgradePrompt(false)}
+                className={`flex-1 rounded-lg border px-4 py-2 text-sm font-semibold ${
+                  isDarkMode
+                    ? 'border-gray-700 text-gray-200 hover:bg-gray-800'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Not Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };
 
 export default CreateInvoice;
+
+

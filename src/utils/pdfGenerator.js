@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { formatCurrency as formatMoneyUtil } from './currency';
 
 // ----------------------------------------------------------------------
 // TEMPLATE DEFINITIONS (consolidated)
@@ -202,10 +203,13 @@ const resolveFont = (fontName) => {
   return 'helvetica';
 };
 
-const formatCurrency = (value) => {
-  const amount = Number(value || 0);
-  return `$${amount.toFixed(2)}`;
+let activeCurrency = 'USD';
+
+const setActiveCurrency = (currency) => {
+  activeCurrency = currency || 'USD';
 };
+
+const formatCurrency = (value) => formatMoneyUtil(value, activeCurrency);
 
 const normalizeInvoiceItems = (invoiceData) => {
   const rawItems = invoiceData?.lineItems || invoiceData?.items || [];
@@ -300,29 +304,31 @@ const drawProfessionalClassic = (doc, template, invoiceData, companyData, pageWi
     doc.text(item.quantity?.toString() || '1', margin + 2, y);
     const desc = doc.splitTextToSize(item.description || 'Item', 80);
     doc.text(desc[0], margin + 30, y);
-    doc.text(`$${(item.rate || 0).toFixed(2)}`, pageWidth - margin - 80, y, { align: 'right' });
-    doc.text(`$${(item.amount || 0).toFixed(2)}`, pageWidth - margin - 20, y, { align: 'right' });
+    doc.text(formatCurrency(item.rate || 0), pageWidth - margin - 80, y, { align: 'right' });
+    doc.text(formatCurrency(item.amount || 0), pageWidth - margin - 20, y, { align: 'right' });
     y += 8;
   });
   y += 5;
 
   // Totals
   const subtotal = invoiceData.subtotal || 145.00;
-  const tax = invoiceData.totalTax || 9.06;
+  const tax = invoiceData.totalTax || 0;
   const total = invoiceData.totalAmount || 154.06;
+  const taxName = invoiceData.taxName || 'Tax';
+  const taxRateUsed = Number.isFinite(Number(invoiceData.taxRateUsed)) ? Number(invoiceData.taxRateUsed) : 0;
   doc.setFont(resolveFont(fonts.body), 'normal');
   doc.text('Subtotal', pageWidth - margin - 80, y);
-  doc.text(`$${subtotal.toFixed(2)}`, pageWidth - margin - 20, y, { align: 'right' });
+  doc.text(formatCurrency(subtotal), pageWidth - margin - 20, y, { align: 'right' });
   y += 7;
-  doc.text('Sales Tax 6.25%', pageWidth - margin - 80, y);
-  doc.text(`$${tax.toFixed(2)}`, pageWidth - margin - 20, y, { align: 'right' });
+  doc.text(`${taxName} ${taxRateUsed}%`, pageWidth - margin - 80, y);
+  doc.text(formatCurrency(tax), pageWidth - margin - 20, y, { align: 'right' });
   y += 10;
   doc.setDrawColor(...primary);
   doc.line(pageWidth - margin - 80, y - 2, pageWidth - margin, y - 2);
   doc.setFont(resolveFont(fonts.body), 'bold');
   doc.setFontSize(11);
   doc.text('Invoice Total', pageWidth - margin - 80, y);
-  doc.text(`$${total.toFixed(2)}`, pageWidth - margin - 20, y, { align: 'right' });
+  doc.text(formatCurrency(total), pageWidth - margin - 20, y, { align: 'right' });
   y += 15;
 
   // Terms
@@ -395,9 +401,9 @@ const drawModernCorporate = (doc, template, invoiceData, companyData, pageWidth,
   ];
   items.forEach(item => {
     doc.text(item.description || 'Item', margin + 2, y);
-    doc.text(`$${(item.rate || 0).toFixed(2)}`, pageWidth - margin - 80, y, { align: 'right' });
+    doc.text(formatCurrency(item.rate || 0), pageWidth - margin - 80, y, { align: 'right' });
     doc.text((item.quantity || 1).toString(), pageWidth - margin - 50, y, { align: 'center' });
-    doc.text(`$${(item.amount || 0).toFixed(2)}`, pageWidth - margin - 20, y, { align: 'right' });
+    doc.text(formatCurrency(item.amount || 0), pageWidth - margin - 20, y, { align: 'right' });
     y += 8;
   });
   y += 5;
@@ -409,7 +415,7 @@ const drawModernCorporate = (doc, template, invoiceData, companyData, pageWidth,
   const total = invoiceData.totalAmount || 220.00;
   doc.setFont(resolveFont(fonts.body), 'bold');
   doc.setTextColor(...primary);
-  doc.text(`Total: $${total.toFixed(2)}`, pageWidth - margin, y, { align: 'right' });
+  doc.text(`Total: ${formatCurrency(total)}`, pageWidth - margin, y, { align: 'right' });
 };
 
 // ... Continue similarly for the other 5 new templates (CleanBilling, RetailReceipt, SimpleElegant, UrbanEdge, CreativeFlow)
@@ -787,6 +793,7 @@ export const generateInvoicePDF = (invoiceData, templateId = 'standard', company
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
   const template = getTemplate(templateId);
+  setActiveCurrency(invoiceData?.currency || companyData?.currency || 'USD');
 
   // Route to appropriate drawing function
   switch (templateId) {

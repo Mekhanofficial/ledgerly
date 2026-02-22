@@ -5,10 +5,13 @@ import { Edit, Trash2, Eye, Mail, Calendar, FileText, User, Send } from 'lucide-
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useToast } from '../../context/ToastContext';
+import { useAccount } from '../../context/AccountContext';
 
 const Drafts = () => {
   const { drafts, deleteDraft, convertDraftToInvoice, sendInvoice } = useInvoice();
   const { addToast } = useToast();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
   const [selectedDrafts, setSelectedDrafts] = useState([]);
 
   const handleDeleteDraft = (id, e) => {
@@ -71,6 +74,14 @@ const Drafts = () => {
     return draft.lineItems?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
   };
 
+  const formatCurrency = (amount, currencyCode = baseCurrency) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6 p-4 md:p-6">
@@ -121,7 +132,7 @@ const Drafts = () => {
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
             <div className="text-sm text-gray-600 dark:text-gray-300">Total Amount</div>
             <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-              ${drafts.reduce((sum, draft) => sum + calculateTotal(draft), 0).toFixed(2)}
+              {formatCurrency(drafts.reduce((sum, draft) => sum + calculateTotal(draft), 0))}
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
@@ -221,7 +232,7 @@ const Drafts = () => {
                           </div>
                           <div className="text-right">
                             <div className="text-xl font-bold text-gray-900 dark:text-white">
-                              {draft.currency || 'USD'} {calculateTotal(draft).toFixed(2)}
+                              {formatCurrency(calculateTotal(draft), draft.currency || baseCurrency)}
                             </div>
                             <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-1">
                               <Calendar className="w-3 h-3 mr-1" />

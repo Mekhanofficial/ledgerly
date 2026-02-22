@@ -4,11 +4,14 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
 import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
+import { formatCurrency } from '../../utils/currency';
 
 const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted, defaultTemplateId }) => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
   const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
   const [loading, setLoading] = useState(false);
   const [expandedReceipt, setExpandedReceipt] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -38,6 +41,7 @@ const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted, defaultTem
       return;
     }
 
+    const receiptCurrency = receipt.currency || baseCurrency;
     const emailBody = `
 Receipt Reprint: ${receipt.id}
 
@@ -48,12 +52,12 @@ ${receipt.paymentMethodDetails ? `Payment Details: ${receipt.paymentMethodDetail
 
 Items:
 ${receipt.items?.map(item => 
-  `- ${item.name}: ${item.quantity} × $${item.price?.toFixed(2) || '0.00'} = $${((item.price || 0) * item.quantity).toFixed(2)}`
+  `- ${item.name}: ${item.quantity} × ${formatMoney(item.price || 0, receiptCurrency)} = ${formatMoney((item.price || 0) * item.quantity, receiptCurrency)}`
 ).join('\n') || 'No items found'}
 
-Subtotal: $${receipt.subtotal?.toFixed(2) || '0.00'}
-Tax (8.5%): $${receipt.tax?.toFixed(2) || '0.00'}
-Total: $${receipt.total?.toFixed(2) || '0.00'}
+Subtotal: ${formatMoney(receipt.subtotal || 0, receiptCurrency)}
+Tax (8.5%): ${formatMoney(receipt.tax || 0, receiptCurrency)}
+Total: ${formatMoney(receipt.total || 0, receiptCurrency)}
 
 ${receipt.notes ? `\nNotes: ${receipt.notes}` : ''}
 
@@ -318,10 +322,10 @@ Thank you for shopping with us!
                 <div className={`font-bold text-lg mb-1 ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  ${receipt.total?.toFixed(2) || '0.00'}
+                  {formatMoney(receipt.total || 0, receipt.currency || baseCurrency)}
                 </div>
                 <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  ${receipt.subtotal?.toFixed(2) || '0.00'} + ${receipt.tax?.toFixed(2) || '0.00'} tax
+                  {formatMoney(receipt.subtotal || 0, receipt.currency || baseCurrency)} + {formatMoney(receipt.tax || 0, receipt.currency || baseCurrency)} tax
                 </div>
                 
                 {expandedReceipt === receipt.id && receipt.items && (
@@ -337,7 +341,7 @@ Thank you for shopping with us!
                           {item.quantity} × {item.name}
                         </span>
                         <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                          ${(item.price * item.quantity).toFixed(2)}
+                          {formatMoney(item.price * item.quantity, receipt.currency || baseCurrency)}
                         </span>
                       </div>
                     ))}
@@ -434,12 +438,12 @@ Thank you for shopping with us!
                       <div className={`font-bold ${
                         isDarkMode ? 'text-white' : 'text-gray-900'
                       }`}>
-                        ${receipt.total?.toFixed(2) || '0.00'}
+                        {formatMoney(receipt.total || 0, receipt.currency || baseCurrency)}
                       </div>
                       <div className={`text-xs ${
                         isDarkMode ? 'text-gray-400' : 'text-gray-500'
                       }`}>
-                        ${receipt.subtotal?.toFixed(2) || '0.00'} + ${receipt.tax?.toFixed(2) || '0.00'} tax
+                        {formatMoney(receipt.subtotal || 0, receipt.currency || baseCurrency)} + {formatMoney(receipt.tax || 0, receipt.currency || baseCurrency)} tax
                       </div>
                     </td>
                     <td className="px-4 sm:px-6 py-4">
@@ -534,8 +538,10 @@ Thank you for shopping with us!
             <div className={`text-sm ${
               isDarkMode ? 'text-gray-300' : 'text-gray-700'
             }`}>
-              Total Revenue: $
-              {receipts.reduce((sum, receipt) => sum + (receipt.total || 0), 0).toFixed(2)}
+              Total Revenue: {formatMoney(
+                receipts.reduce((sum, receipt) => sum + (receipt.total || 0), 0),
+                baseCurrency
+              )}
             </div>
           </div>
         </div>

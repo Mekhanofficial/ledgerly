@@ -3,6 +3,7 @@ import React, { createContext, useState, useContext, useEffect, useCallback, use
 import { useSelector } from 'react-redux';
 import { useToast } from './ToastContext';
 import { resolveAuthUser } from '../utils/userDisplay';
+import { formatCurrency } from '../utils/currency';
 
 export const NotificationContext = createContext();
 
@@ -19,6 +20,11 @@ export const NotificationProvider = ({ children }) => {
   const authUser = useSelector((state) => state.auth.user);
   const resolvedUser = resolveAuthUser(authUser);
   const userId = resolvedUser?.id || resolvedUser?._id || null;
+  const baseCurrency = resolvedUser?.currencyCode || resolvedUser?.currency || resolvedUser?.business?.currency || 'USD';
+  const formatMoney = useCallback(
+    (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency),
+    [baseCurrency]
+  );
   const notificationsKey = userId ? `ledgerly_notifications_${userId}` : null;
   const processedKey = userId ? `ledgerly_processed_items_${userId}` : null;
   
@@ -117,7 +123,7 @@ export const NotificationProvider = ({ children }) => {
               type: 'new-invoice',
               title: 'New Invoice Created',
               description: `Invoice #${inv.number || inv.invoiceNumber} for ${inv.customer || 'Customer'}`,
-              details: `Amount: $${(inv.totalAmount || inv.amount || 0).toLocaleString()}`,
+              details: `Amount: ${formatMoney(inv.totalAmount || inv.amount || 0, inv.currency || baseCurrency)}`,
               time: 'Just now',
               action: 'View Invoice',
               color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800',
@@ -203,7 +209,7 @@ export const NotificationProvider = ({ children }) => {
             type: 'receipt',
             title: 'New Receipt Generated',
             description: `Receipt #${receipt.id} for ${receipt.customerEmail || 'Walk-in Customer'}`,
-            details: `Amount: $${(receipt.total || 0).toFixed(2)}`,
+            details: `Amount: ${formatMoney(receipt.total || 0, receipt.currency || baseCurrency)}`,
             time: 'Just now',
             action: 'View Receipt',
             color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',

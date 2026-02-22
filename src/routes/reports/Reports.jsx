@@ -14,6 +14,10 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useInvoice } from '../../context/InvoiceContext';
+import { useInventory } from '../../context/InventoryContext';
+import { useAccount } from '../../context/AccountContext';
+import { isAccessDeniedError } from '../../utils/accessControl';
+import { formatCurrency as formatMoney } from '../../utils/currency';
 import {
   fetchReports as fetchStoredReports,
   createReport as createStoredReport,
@@ -27,6 +31,11 @@ const Reports = () => {
   const { addToast } = useToast();
   const { addReportNotification } = useNotifications();
   const { invoices, customers } = useInvoice();
+  const { products, categories, stockAdjustments } = useInventory();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatReportCurrency = (value, currencyCode = baseCurrency, options = {}) =>
+    formatMoney(value, currencyCode, options);
   
   const [dateRange, setDateRange] = useState('last-30-days');
   const [reportType, setReportType] = useState('all');
@@ -42,6 +51,9 @@ const Reports = () => {
       setReports(storedReports);
     } catch (error) {
       console.error('Error loading reports:', error);
+      if (isAccessDeniedError(error)) {
+        return;
+      }
       addToast('Unable to load generated reports', 'error');
     }
   }, [addToast]);
@@ -56,6 +68,18 @@ const Reports = () => {
       setJsPDF(jsPDF);
     });
   }, []);
+
+  const normalizeReportType = (value) => {
+    if (!value) return '';
+    const normalized = String(value).toLowerCase();
+    if (normalized === 'quick-summary') return 'summary';
+    if (normalized === 'monthly-performance') return 'performance';
+    return normalized;
+  };
+
+  const filteredReports = reportType === 'all'
+    ? reports
+    : reports.filter((report) => normalizeReportType(report.type) === reportType);
 
   const handleCreateReport = () => {
     setShowCreateModal(true);
@@ -75,6 +99,9 @@ const Reports = () => {
       addToast('Report creation started!', 'success');
     } catch (error) {
       console.error('Error creating report:', error);
+      if (isAccessDeniedError(error)) {
+        return;
+      }
       addToast('Error creating report: ' + (error.message || 'Unable to save report'), 'error');
     }
   };
@@ -139,14 +166,14 @@ const Reports = () => {
   const handleGenerateReport = async (reportId) => {
     try {
       const reportTemplate = {
-        sales: { title: 'Sales Report', type: 'sales', format: 'pdf' },
-        revenue: { title: 'Revenue Report', type: 'revenue', format: 'pdf' },
-        inventory: { title: 'Inventory Report', type: 'inventory', format: 'pdf' },
-        customer: { title: 'Customer Report', type: 'customer', format: 'pdf' },
-        profit: { title: 'Profit & Loss Report', type: 'profit', format: 'pdf' },
-        expenses: { title: 'Expenses Report', type: 'expenses', format: 'pdf' },
-        'quick-summary': { title: 'Quick Summary Report', type: 'summary', format: 'pdf' },
-        'monthly-performance': { title: 'Monthly Performance Report', type: 'performance', format: 'pdf' }
+        sales: { title: 'Sales Report', type: 'sales', format: 'pdf', description: 'Daily, weekly, and monthly sales performance' },
+        revenue: { title: 'Revenue Report', type: 'revenue', format: 'pdf', description: 'Revenue breakdown by product and category' },
+        inventory: { title: 'Inventory Report', type: 'inventory', format: 'pdf', description: 'Stock levels, turnover, and restocking needs' },
+        customer: { title: 'Customer Report', type: 'customer', format: 'pdf', description: 'Customer acquisition, retention, and behavior' },
+        profit: { title: 'Profit & Loss Report', type: 'profit', format: 'pdf', description: 'Income statement and profitability analysis' },
+        expenses: { title: 'Expenses Report', type: 'expenses', format: 'pdf', description: 'Operating costs and expense breakdown' },
+        'quick-summary': { title: 'Quick Summary Report', type: 'summary', format: 'pdf', description: 'Executive summary with key metrics' },
+        'monthly-performance': { title: 'Monthly Performance Report', type: 'performance', format: 'pdf', description: 'Month-over-month performance comparison' }
       };
 
       const template = reportTemplate[reportId] || { 
@@ -157,7 +184,7 @@ const Reports = () => {
 
       const reportPayload = buildReportPayload({
         ...template,
-        dateRange: 'last-30-days',
+        dateRange: dateRange || 'last-30-days',
         includeCharts: true,
         sections: ['summary', 'charts', 'tables', 'details'],
         description: template.description || ''
@@ -173,121 +200,689 @@ const Reports = () => {
       }, 100);
     } catch (error) {
       console.error('Error generating report:', error);
+      if (isAccessDeniedError(error)) {
+        return;
+      }
       addToast('Unable to generate report at the moment', 'error');
     }
   };
 
   // Generate actual report data functions
   function generateReportData(report) {
-    // Calculate invoice statistics
-    const totalInvoices = invoices.length;
-    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
-    const paidInvoices = invoices.filter(inv => inv.status === 'paid').length;
-    const pendingInvoices = invoices.filter(inv => inv.status === 'sent' || inv.status === 'pending').length;
-    const overdueInvoices = invoices.filter(inv => inv.status === 'overdue').length;
-    const draftInvoices = invoices.filter(inv => inv.status === 'draft').length;
-    
-    // Calculate customer statistics
-    const totalCustomers = customers.length;
-    const activeCustomers = customers.filter(c => {
-      const customerInvoices = invoices.filter(inv => 
-        inv.customerId === c.id || inv.customer === c.name
-      );
-      return customerInvoices.length > 0;
-    }).length;
-    
-    // Get top customers
-    const topCustomers = customers.map(customer => {
-      const customerInvoices = invoices.filter(inv => 
-        inv.customerId === customer.id || inv.customer === customer.name
-      );
-      const customerRevenue = customerInvoices.reduce(
-        (sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 
-        0
-      );
-      
-      return {
-        name: customer.name,
-        totalInvoices: customerInvoices.length,
-        totalAmount: customerRevenue,
-        lastPurchase: customer.lastTransaction || 'Never',
-        email: customer.email
-      };
-    })
-    .filter(c => c.totalInvoices > 0)
-    .sort((a, b) => b.totalAmount - a.totalAmount)
-    .slice(0, 10);
-
-    // Generate monthly trend data
-    const generateMonthlyTrendData = () => {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const currentDate = new Date();
-      
-      return months.map((month, index) => {
-        const monthRevenue = invoices
-          .filter(inv => {
-            const invDate = new Date(inv.issueDate || inv.createdAt);
-            return invDate.getMonth() === index && invDate.getFullYear() === currentDate.getFullYear();
-          })
-          .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
-        
-        const monthInvoices = invoices.filter(inv => {
-          const invDate = new Date(inv.issueDate || inv.createdAt);
-          return invDate.getMonth() === index && invDate.getFullYear() === currentDate.getFullYear();
-        }).length;
-        
-        return {
-          month,
-          revenue: monthRevenue,
-          invoices: monthInvoices
-        };
-      });
+    const toNumber = (value, fallback = 0) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
     };
 
-    const data = {
-      metadata: {
-        title: report?.title || 'Business Report',
-        generated: new Date().toISOString(),
-        type: report?.type || 'general',
-        format: report?.format || 'pdf',
-        dateRange: report?.dateRange || 'last-30-days'
-      },
-      summary: {
-        totalInvoices,
-        totalCustomers,
-        totalRevenue,
-        paidInvoices,
-        pendingInvoices,
-        overdueInvoices,
-        draftInvoices,
-        activeCustomers
-      },
-      breakdown: {
-        byStatus: {
-          draft: draftInvoices,
-          sent: invoices.filter(inv => inv.status === 'sent').length,
-          paid: paidInvoices,
-          overdue: overdueInvoices,
-          pending: pendingInvoices,
-          cancelled: invoices.filter(inv => inv.status === 'cancelled').length
-        },
-        byCustomer: topCustomers,
-        monthlyTrend: generateMonthlyTrendData(),
-        revenueByStatus: {
-          paid: invoices
-            .filter(inv => inv.status === 'paid')
-            .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0),
-          pending: invoices
-            .filter(inv => inv.status === 'pending' || inv.status === 'sent')
-            .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0),
-          overdue: invoices
-            .filter(inv => inv.status === 'overdue')
-            .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0)
+    const formatCurrency = (value) =>
+      new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: baseCurrency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(toNumber(value));
+
+    const formatCount = (value) => toNumber(value).toLocaleString('en-US');
+
+    const titleMap = {
+      sales: 'Sales Report',
+      revenue: 'Revenue Report',
+      inventory: 'Inventory Report',
+      customer: 'Customer Report',
+      profit: 'Profit & Loss Report',
+      expenses: 'Expenses Report',
+      summary: 'Quick Summary Report',
+      performance: 'Monthly Performance Report',
+      custom: 'Custom Report'
+    };
+
+    const dateRangeLabels = {
+      today: 'Today',
+      yesterday: 'Yesterday',
+      'last-7-days': 'Last 7 days',
+      'last-30-days': 'Last 30 days',
+      'this-month': 'This month',
+      'last-month': 'Last month',
+      'this-quarter': 'This quarter',
+      'this-year': 'This year',
+      custom: 'Custom range'
+    };
+
+    const resolveDateRange = (rangeId, customStart, customEnd) => {
+      const now = new Date();
+      let start = null;
+      let end = null;
+
+      const withStartOfDay = (date) => {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      };
+
+      const withEndOfDay = (date) => {
+        const d = new Date(date);
+        d.setHours(23, 59, 59, 999);
+        return d;
+      };
+
+      switch (rangeId) {
+        case 'today': {
+          start = withStartOfDay(now);
+          end = withEndOfDay(now);
+          break;
+        }
+        case 'yesterday': {
+          const yesterday = new Date(now);
+          yesterday.setDate(now.getDate() - 1);
+          start = withStartOfDay(yesterday);
+          end = withEndOfDay(yesterday);
+          break;
+        }
+        case 'last-7-days': {
+          start = withStartOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6));
+          end = withEndOfDay(now);
+          break;
+        }
+        case 'last-30-days': {
+          start = withStartOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29));
+          end = withEndOfDay(now);
+          break;
+        }
+        case 'this-month': {
+          start = withStartOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+          end = withEndOfDay(now);
+          break;
+        }
+        case 'last-month': {
+          const monthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          const monthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+          start = withStartOfDay(monthStart);
+          end = withEndOfDay(monthEnd);
+          break;
+        }
+        case 'this-quarter': {
+          const quarter = Math.floor(now.getMonth() / 3);
+          start = withStartOfDay(new Date(now.getFullYear(), quarter * 3, 1));
+          end = withEndOfDay(now);
+          break;
+        }
+        case 'this-year': {
+          start = withStartOfDay(new Date(now.getFullYear(), 0, 1));
+          end = withEndOfDay(now);
+          break;
+        }
+        case 'custom': {
+          if (customStart) start = withStartOfDay(new Date(customStart));
+          if (customEnd) end = withEndOfDay(new Date(customEnd));
+          break;
+        }
+        default: {
+          start = withStartOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29));
+          end = withEndOfDay(now);
         }
       }
+
+      const days = start && end ? Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1) : null;
+      return {
+        start,
+        end,
+        days,
+        label: dateRangeLabels[rangeId] || rangeId
+      };
     };
 
-    return data;
+    const resolveDateRangeId = report?.dateRange || report?.metadata?.dateRange || dateRange || 'last-30-days';
+    const customStart = report?.startDate || report?.metadata?.extra?.startDate;
+    const customEnd = report?.endDate || report?.metadata?.extra?.endDate;
+    const rangeInfo = resolveDateRange(resolveDateRangeId, customStart, customEnd);
+
+    const getInvoiceDate = (invoice) => {
+      const raw = invoice?.issueDate || invoice?.date || invoice?.createdAt || invoice?.sentAt || invoice?.updatedAt;
+      return raw ? new Date(raw) : new Date();
+    };
+
+    const isWithinRange = (date) => {
+      if (rangeInfo.start && date < rangeInfo.start) return false;
+      if (rangeInfo.end && date > rangeInfo.end) return false;
+      return true;
+    };
+
+    const filteredInvoices = invoices.filter((invoice) => isWithinRange(getInvoiceDate(invoice)));
+    const paidInvoices = filteredInvoices.filter((inv) => String(inv.status || '').toLowerCase() === 'paid');
+
+    const statusCounts = {
+      draft: 0,
+      sent: 0,
+      paid: 0,
+      overdue: 0,
+      pending: 0,
+      cancelled: 0
+    };
+
+    const revenueByStatus = {
+      draft: 0,
+      sent: 0,
+      paid: 0,
+      overdue: 0,
+      pending: 0,
+      cancelled: 0
+    };
+
+    filteredInvoices.forEach((invoice) => {
+      const status = String(invoice.status || 'draft').toLowerCase();
+      if (statusCounts[status] !== undefined) {
+        statusCounts[status] += 1;
+        revenueByStatus[status] += toNumber(invoice.totalAmount || invoice.amount || 0);
+      }
+    });
+
+    const totalInvoices = filteredInvoices.length;
+    const totalRevenue = paidInvoices.reduce((sum, inv) => sum + toNumber(inv.totalAmount || inv.amount || 0), 0);
+    const totalCustomers = customers.length;
+
+    const customerMap = new Map(customers.map((customer) => [customer.id || customer._id || customer.email || customer.name, customer]));
+    const productMap = new Map(products.map((product) => [product.id || product._id, product]));
+    const categoryMap = new Map(categories.map((category) => [category.id || category._id, category]));
+
+    const resolveCustomerName = (invoice) => {
+      if (typeof invoice.customer === 'string' && invoice.customer.trim()) {
+        return invoice.customer;
+      }
+      if (invoice.customer?.name) {
+        return invoice.customer.name;
+      }
+      const customer = customerMap.get(invoice.customerId) || customerMap.get(invoice.customer);
+      return customer?.name || invoice.customerName || 'Customer';
+    };
+
+    const customerTotals = new Map();
+    filteredInvoices.forEach((invoice) => {
+      const key = invoice.customerId || invoice.customerEmail || resolveCustomerName(invoice);
+      const existing = customerTotals.get(key) || {
+        name: resolveCustomerName(invoice),
+        invoices: 0,
+        revenue: 0,
+        lastInvoice: null
+      };
+      const invoiceDate = getInvoiceDate(invoice);
+      existing.invoices += 1;
+      existing.revenue += toNumber(invoice.totalAmount || invoice.amount || 0);
+      if (!existing.lastInvoice || invoiceDate > existing.lastInvoice) {
+        existing.lastInvoice = invoiceDate;
+      }
+      customerTotals.set(key, existing);
+    });
+
+    const topCustomers = Array.from(customerTotals.values())
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10);
+
+    const lineItems = filteredInvoices.flatMap((invoice) => {
+      const items = Array.isArray(invoice.lineItems)
+        ? invoice.lineItems
+        : Array.isArray(invoice.items)
+          ? invoice.items
+          : [];
+      return items.map((item) => {
+        const quantity = toNumber(item.quantity ?? item.qty ?? 1, 1);
+        const rate = toNumber(item.rate ?? item.unitPrice ?? item.price ?? 0);
+        const amount = toNumber(item.amount ?? (quantity * rate));
+        return {
+          description: item.description || item.name || 'Item',
+          quantity,
+          rate,
+          amount,
+          productId: item.productId || item.product || item.id || item._id
+        };
+      });
+    });
+
+    const revenueByProduct = new Map();
+    const revenueByCategory = new Map();
+
+    lineItems.forEach((item) => {
+      const product = productMap.get(item.productId);
+      const productName = product?.name || item.description || 'Item';
+      const productEntry = revenueByProduct.get(productName) || {
+        name: productName,
+        quantity: 0,
+        revenue: 0
+      };
+      productEntry.quantity += item.quantity;
+      productEntry.revenue += item.amount;
+      revenueByProduct.set(productName, productEntry);
+
+      const categoryId = product?.categoryId || product?.category?._id || product?.category;
+      const categoryName = categoryMap.get(categoryId)?.name || product?.categoryName || 'Uncategorized';
+      const categoryEntry = revenueByCategory.get(categoryName) || { name: categoryName, revenue: 0 };
+      categoryEntry.revenue += item.amount;
+      revenueByCategory.set(categoryName, categoryEntry);
+    });
+
+    const buildMonthlySeries = (monthsBack = 12) => {
+      const now = new Date();
+      const series = [];
+      for (let i = monthsBack - 1; i >= 0; i -= 1) {
+        const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
+        const monthInvoices = filteredInvoices.filter((invoice) => {
+          const date = getInvoiceDate(invoice);
+          return date >= monthStart && date <= monthEnd;
+        });
+        const revenue = monthInvoices.reduce((sum, inv) => sum + toNumber(inv.totalAmount || inv.amount || 0), 0);
+        series.push({
+          label: monthStart.toLocaleString('en-US', { month: 'short', year: 'numeric' }),
+          revenue,
+          invoices: monthInvoices.length,
+          paidRevenue: monthInvoices
+            .filter((inv) => String(inv.status || '').toLowerCase() === 'paid')
+            .reduce((sum, inv) => sum + toNumber(inv.totalAmount || inv.amount || 0), 0)
+        });
+      }
+      return series;
+    };
+
+    const groupInvoicesByPeriod = (period = 'day') => {
+      const groups = new Map();
+      filteredInvoices.forEach((invoice) => {
+        const date = getInvoiceDate(invoice);
+        const key = period === 'month'
+          ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+          : date.toISOString().split('T')[0];
+        const label = period === 'month'
+          ? date.toLocaleString('en-US', { month: 'short', year: 'numeric' })
+          : key;
+        const entry = groups.get(key) || { label, revenue: 0, invoices: 0 };
+        entry.revenue += toNumber(invoice.totalAmount || invoice.amount || 0);
+        entry.invoices += 1;
+        groups.set(key, entry);
+      });
+      return Array.from(groups.values());
+    };
+
+    const summaryCards = [];
+    const sections = [];
+    const reportType = report?.type || 'summary';
+    const reportTitle = report?.title || titleMap[reportType] || 'Business Report';
+    const reportFormat = report?.format || 'pdf';
+
+    const baseSummary = {
+      totalInvoices,
+      totalCustomers,
+      totalRevenue,
+      paidInvoices: paidInvoices.length,
+      pendingInvoices: statusCounts.pending + statusCounts.sent,
+      overdueInvoices: statusCounts.overdue,
+      draftInvoices: statusCounts.draft,
+      activeCustomers: customerTotals.size
+    };
+
+    const breakdown = {
+      byStatus: statusCounts,
+      revenueByStatus
+    };
+
+    const addSection = (section) => {
+      if (!section?.columns || !section?.rows) return;
+      const rows = section.rows.length > 0
+        ? section.rows
+        : [[section.emptyMessage || 'No data available', ...Array(section.columns.length - 1).fill('')]];
+      sections.push({ ...section, rows });
+    };
+
+    switch (reportType) {
+      case 'sales': {
+        const taxCollected = paidInvoices.reduce((sum, inv) => sum + toNumber(inv.totalTax || inv.tax?.amount || 0), 0);
+        const averageSale = totalInvoices > 0 ? totalRevenue / totalInvoices : 0;
+        summaryCards.push(
+          { label: 'Total Sales', value: formatCount(totalInvoices) },
+          { label: 'Total Revenue', value: formatCurrency(totalRevenue) },
+          { label: 'Avg Sale', value: formatCurrency(averageSale) },
+          { label: 'Tax Collected', value: formatCurrency(taxCollected) }
+        );
+
+        const periodType = rangeInfo.days && rangeInfo.days > 31 ? 'month' : 'day';
+        const salesByPeriod = groupInvoicesByPeriod(periodType).map((entry) => {
+          const avg = entry.invoices > 0 ? entry.revenue / entry.invoices : 0;
+          return [
+            entry.label,
+            formatCount(entry.invoices),
+            formatCurrency(entry.revenue),
+            formatCurrency(avg)
+          ];
+        });
+
+        addSection({
+          title: 'Sales by Period',
+          columns: ['Period', 'Invoices', 'Revenue', 'Avg Sale'],
+          rows: salesByPeriod
+        });
+
+        addSection({
+          title: 'Top Customers',
+          columns: ['Customer', 'Invoices', 'Revenue'],
+          rows: topCustomers.map((customer) => [
+            customer.name,
+            formatCount(customer.invoices),
+            formatCurrency(customer.revenue)
+          ])
+        });
+
+        addSection({
+          title: 'Revenue by Status',
+          columns: ['Status', 'Revenue'],
+          rows: Object.entries(revenueByStatus).map(([status, value]) => [
+            status.charAt(0).toUpperCase() + status.slice(1),
+            formatCurrency(value)
+          ])
+        });
+
+        breakdown.salesByPeriod = salesByPeriod;
+        breakdown.topCustomers = topCustomers;
+        break;
+      }
+      case 'revenue': {
+        const pendingRevenue = (revenueByStatus.pending || 0) + (revenueByStatus.sent || 0);
+        const overdueRevenue = revenueByStatus.overdue || 0;
+        summaryCards.push(
+          { label: 'Total Revenue', value: formatCurrency(totalRevenue) },
+          { label: 'Paid Revenue', value: formatCurrency(revenueByStatus.paid || 0) },
+          { label: 'Pending Revenue', value: formatCurrency(pendingRevenue) },
+          { label: 'Overdue Revenue', value: formatCurrency(overdueRevenue) }
+        );
+
+        addSection({
+          title: 'Revenue by Product',
+          columns: ['Product', 'Qty', 'Revenue'],
+          rows: Array.from(revenueByProduct.values())
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 10)
+            .map((item) => [item.name, formatCount(item.quantity), formatCurrency(item.revenue)])
+        });
+
+        addSection({
+          title: 'Revenue by Category',
+          columns: ['Category', 'Revenue'],
+          rows: Array.from(revenueByCategory.values())
+            .sort((a, b) => b.revenue - a.revenue)
+            .map((item) => [item.name, formatCurrency(item.revenue)])
+        });
+
+        addSection({
+          title: 'Revenue by Status',
+          columns: ['Status', 'Revenue'],
+          rows: Object.entries(revenueByStatus).map(([status, value]) => [
+            status.charAt(0).toUpperCase() + status.slice(1),
+            formatCurrency(value)
+          ])
+        });
+        break;
+      }
+      case 'inventory': {
+        const inventoryValue = products.reduce((sum, product) => sum + (toNumber(product.costPrice) * toNumber(product.stock || product.quantity)), 0);
+        const salesValue = products.reduce((sum, product) => sum + (toNumber(product.price) * toNumber(product.stock || product.quantity)), 0);
+        const lowStockItems = products.filter((product) => toNumber(product.stock || product.quantity) > 0 && toNumber(product.stock || product.quantity) <= toNumber(product.reorderLevel || 0));
+        const outOfStock = products.filter((product) => toNumber(product.stock || product.quantity) <= 0);
+
+        summaryCards.push(
+          { label: 'Total Products', value: formatCount(products.length) },
+          { label: 'Low Stock Items', value: formatCount(lowStockItems.length) },
+          { label: 'Inventory Value', value: formatCurrency(inventoryValue) },
+          { label: 'Sales Value', value: formatCurrency(salesValue) }
+        );
+
+        addSection({
+          title: 'Inventory Overview',
+          columns: ['Product', 'SKU', 'Stock', 'Cost Value', 'Sales Value'],
+          rows: [...products]
+            .sort((a, b) => (toNumber(b.price) * toNumber(b.stock || b.quantity)) - (toNumber(a.price) * toNumber(a.stock || a.quantity)))
+            .slice(0, 15)
+            .map((product) => [
+              product.name,
+              product.sku || 'N/A',
+              formatCount(product.stock || product.quantity),
+              formatCurrency(toNumber(product.costPrice) * toNumber(product.stock || product.quantity)),
+              formatCurrency(toNumber(product.price) * toNumber(product.stock || product.quantity))
+            ])
+        });
+
+        addSection({
+          title: 'Low Stock Items',
+          columns: ['Product', 'SKU', 'Stock', 'Reorder Level'],
+          rows: lowStockItems.map((product) => [
+            product.name,
+            product.sku || 'N/A',
+            formatCount(product.stock || product.quantity),
+            formatCount(product.reorderLevel || 0)
+          ]),
+          emptyMessage: outOfStock.length > 0 ? 'No low stock items (some are out of stock)' : 'No low stock items'
+        });
+
+        const adjustmentRows = [...stockAdjustments]
+          .sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0))
+          .slice(0, 10)
+          .map((adjustment) => {
+            const product = productMap.get(adjustment.productId);
+            return [
+              new Date(adjustment.date || adjustment.createdAt || Date.now()).toLocaleDateString(),
+              product?.name || 'Product',
+              adjustment.type || 'Adjustment',
+              formatCount(adjustment.quantity || 0),
+              adjustment.user || 'System'
+            ];
+          });
+
+        addSection({
+          title: 'Recent Stock Adjustments',
+          columns: ['Date', 'Product', 'Type', 'Qty', 'User'],
+          rows: adjustmentRows
+        });
+
+        breakdown.inventory = {
+          totalProducts: products.length,
+          lowStock: lowStockItems.length,
+          outOfStock: outOfStock.length
+        };
+        break;
+      }
+      case 'customer': {
+        const newCustomers = customers.filter((customer) => {
+          if (!customer?.createdAt && !customer?.joinedDate) return false;
+          const createdDate = new Date(customer.createdAt || customer.joinedDate);
+          return isWithinRange(createdDate);
+        });
+
+        const repeatCustomers = Array.from(customerTotals.values()).filter((entry) => entry.invoices > 1);
+
+        summaryCards.push(
+          { label: 'Total Customers', value: formatCount(totalCustomers) },
+          { label: 'Active Customers', value: formatCount(customerTotals.size) },
+          { label: 'New Customers', value: formatCount(newCustomers.length) },
+          { label: 'Repeat Customers', value: formatCount(repeatCustomers.length) }
+        );
+
+        addSection({
+          title: 'Top Customers',
+          columns: ['Customer', 'Invoices', 'Revenue', 'Last Invoice'],
+          rows: topCustomers.map((customer) => [
+            customer.name,
+            formatCount(customer.invoices),
+            formatCurrency(customer.revenue),
+            customer.lastInvoice ? customer.lastInvoice.toLocaleDateString() : 'N/A'
+          ])
+        });
+
+        addSection({
+          title: 'Customer Activity',
+          columns: ['Customer', 'Invoices', 'Revenue'],
+          rows: Array.from(customerTotals.values())
+            .sort((a, b) => b.invoices - a.invoices)
+            .slice(0, 10)
+            .map((customer) => [
+              customer.name,
+              formatCount(customer.invoices),
+              formatCurrency(customer.revenue)
+            ])
+        });
+
+        addSection({
+          title: 'New Customers',
+          columns: ['Customer', 'Email', 'Joined'],
+          rows: newCustomers.map((customer) => [
+            customer.name,
+            customer.email || 'N/A',
+            new Date(customer.createdAt || customer.joinedDate).toLocaleDateString()
+          ])
+        });
+        break;
+      }
+      case 'profit': {
+        const costOfGoods = lineItems.reduce((sum, item) => {
+          const product = productMap.get(item.productId);
+          const cost = product ? toNumber(product.costPrice) : 0;
+          return sum + (cost * item.quantity);
+        }, 0);
+
+        const grossProfit = totalRevenue - costOfGoods;
+        const operatingExpenses = 0;
+        const netProfit = grossProfit - operatingExpenses;
+
+        summaryCards.push(
+          { label: 'Total Revenue', value: formatCurrency(totalRevenue) },
+          { label: 'Cost of Goods', value: formatCurrency(costOfGoods) },
+          { label: 'Gross Profit', value: formatCurrency(grossProfit) },
+          { label: 'Net Profit', value: formatCurrency(netProfit) }
+        );
+
+        addSection({
+          title: 'Profit & Loss Summary',
+          columns: ['Metric', 'Amount'],
+          rows: [
+            ['Revenue', formatCurrency(totalRevenue)],
+            ['Cost of Goods Sold', formatCurrency(costOfGoods)],
+            ['Gross Profit', formatCurrency(grossProfit)],
+            ['Operating Expenses', formatCurrency(operatingExpenses)],
+            ['Net Profit', formatCurrency(netProfit)]
+          ]
+        });
+
+        addSection({
+          title: 'Revenue by Product',
+          columns: ['Product', 'Qty', 'Revenue'],
+          rows: Array.from(revenueByProduct.values())
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 10)
+            .map((item) => [item.name, formatCount(item.quantity), formatCurrency(item.revenue)])
+        });
+        break;
+      }
+      case 'expenses': {
+        summaryCards.push(
+          { label: 'Total Expenses', value: formatCurrency(0) },
+          { label: 'Expense Entries', value: formatCount(0) },
+          { label: 'Avg Expense', value: formatCurrency(0) },
+          { label: 'Largest Expense', value: formatCurrency(0) }
+        );
+
+        addSection({
+          title: 'Expense Breakdown',
+          columns: ['Category', 'Amount'],
+          rows: [],
+          emptyMessage: 'No expense records found'
+        });
+        break;
+      }
+      case 'performance': {
+        const monthlySeries = buildMonthlySeries(12);
+        const totalPerformanceRevenue = monthlySeries.reduce((sum, entry) => sum + entry.revenue, 0);
+        const averageMonthly = monthlySeries.length > 0 ? totalPerformanceRevenue / monthlySeries.length : 0;
+        const bestMonth = monthlySeries.reduce((best, entry) => (entry.revenue > best.revenue ? entry : best), monthlySeries[0] || { revenue: 0 });
+        const worstMonth = monthlySeries.reduce((worst, entry) => (entry.revenue < worst.revenue ? entry : worst), monthlySeries[0] || { revenue: 0 });
+
+        summaryCards.push(
+          { label: 'YTD Revenue', value: formatCurrency(totalPerformanceRevenue) },
+          { label: 'Avg Monthly Revenue', value: formatCurrency(averageMonthly) },
+          { label: 'Best Month', value: bestMonth?.label || 'N/A' },
+          { label: 'Worst Month', value: worstMonth?.label || 'N/A' }
+        );
+
+        addSection({
+          title: 'Monthly Performance',
+          columns: ['Month', 'Revenue', 'Invoices', 'Paid Revenue'],
+          rows: monthlySeries.map((entry) => [
+            entry.label,
+            formatCurrency(entry.revenue),
+            formatCount(entry.invoices),
+            formatCurrency(entry.paidRevenue)
+          ])
+        });
+        break;
+      }
+      case 'summary':
+      default: {
+        const overdueAmount = filteredInvoices
+          .filter((inv) => String(inv.status || '').toLowerCase() === 'overdue')
+          .reduce((sum, inv) => sum + toNumber(inv.totalAmount || inv.amount || 0), 0);
+
+        summaryCards.push(
+          { label: 'Total Revenue', value: formatCurrency(totalRevenue) },
+          { label: 'Total Invoices', value: formatCount(totalInvoices) },
+          { label: 'Active Customers', value: formatCount(customerTotals.size) },
+          { label: 'Overdue Amount', value: formatCurrency(overdueAmount) }
+        );
+
+        addSection({
+          title: 'Key Metrics',
+          columns: ['Metric', 'Value'],
+          rows: [
+            ['Total Customers', formatCount(totalCustomers)],
+            ['Paid Invoices', formatCount(paidInvoices.length)],
+            ['Pending Invoices', formatCount(statusCounts.pending + statusCounts.sent)],
+            ['Overdue Invoices', formatCount(statusCounts.overdue)]
+          ]
+        });
+
+        addSection({
+          title: 'Top Customers',
+          columns: ['Customer', 'Invoices', 'Revenue'],
+          rows: topCustomers.map((customer) => [
+            customer.name,
+            formatCount(customer.invoices),
+            formatCurrency(customer.revenue)
+          ])
+        });
+
+        addSection({
+          title: 'Recent Invoices',
+          columns: ['Invoice', 'Customer', 'Amount', 'Status'],
+          rows: [...filteredInvoices]
+            .sort((a, b) => getInvoiceDate(b) - getInvoiceDate(a))
+            .slice(0, 10)
+            .map((invoice) => [
+              invoice.invoiceNumber || invoice.number || invoice.id || 'INV',
+              resolveCustomerName(invoice),
+              formatCurrency(toNumber(invoice.totalAmount || invoice.amount || 0)),
+              (invoice.status || 'draft').toString()
+            ])
+        });
+        break;
+      }
+    }
+
+      return {
+        metadata: {
+          title: reportTitle,
+          generated: report?.metadata?.generated || report?.generatedAt || new Date().toISOString(),
+          type: reportType,
+          format: reportFormat,
+          dateRange: rangeInfo.label,
+          currency: baseCurrency
+        },
+      summary: baseSummary,
+      breakdown,
+      summaryCards,
+      sections
+    };
   }
 
   function buildReportPayload(report, overrides = {}) {
@@ -298,6 +893,14 @@ const Reports = () => {
       generated: overrides.generatedAt || new Date().toISOString(),
       extra: report.metadata?.extra || {}
     };
+    const resolvedExtra = {
+      ...metadata.extra,
+      startDate: report.startDate || report.metadata?.extra?.startDate,
+      endDate: report.endDate || report.metadata?.extra?.endDate
+    };
+    if (resolvedExtra.startDate || resolvedExtra.endDate) {
+      metadata.extra = resolvedExtra;
+    }
     const payload = {
       title: report.title || reportData.metadata.title || 'Business Report',
       description: report.description || '',
@@ -339,6 +942,150 @@ const generatePDF = (reportData, filename) => {
   }
 
   try {
+    const hasDynamicSections = Array.isArray(reportData?.sections) && reportData.sections.length > 0;
+    const summaryCards = Array.isArray(reportData?.summaryCards) ? reportData.summaryCards : [];
+
+    if (hasDynamicSections || summaryCards.length > 0) {
+      const doc = new jsPDF.jsPDF();
+      const pageWidth = doc.internal.pageSize.width;
+      const pageHeight = doc.internal.pageSize.height;
+      const margin = 20;
+      let yPos = margin;
+
+      const addFooter = (pageNum) => {
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text('Generated by Ledgerly Invoice System', pageWidth / 2, pageHeight - 20, { align: 'center' });
+        doc.text(`Page ${pageNum} - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
+      };
+
+      const checkNewPage = (neededHeight = 10) => {
+        if (yPos + neededHeight > pageHeight - 30) {
+          doc.addPage();
+          yPos = margin;
+        }
+      };
+
+      const safeText = (value) => String(value ?? '');
+      const truncate = (text, max = 32) => (text.length > max ? `${text.slice(0, max - 3)}...` : text);
+
+      // Title
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(41, 128, 185);
+      doc.text(reportData.metadata?.title || 'Report', pageWidth / 2, yPos, { align: 'center' });
+      yPos += 10;
+
+      // Metadata
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated: ${new Date(reportData.metadata?.generated || Date.now()).toLocaleString()}`, pageWidth / 2, yPos, { align: 'center' });
+      yPos += 5;
+      doc.text(
+        `Type: ${reportData.metadata?.type || 'custom'} | Format: ${reportData.metadata?.format || 'pdf'} | Date Range: ${reportData.metadata?.dateRange || 'N/A'}`,
+        pageWidth / 2,
+        yPos,
+        { align: 'center' }
+      );
+      yPos += 15;
+
+      // Summary cards
+      if (summaryCards.length > 0) {
+        const cardWidth = (pageWidth - 2 * margin - 10) / 2;
+        const cardHeight = 28;
+        summaryCards.forEach((card, index) => {
+          const row = Math.floor(index / 2);
+          const col = index % 2;
+          const xPos = margin + col * (cardWidth + 10);
+          const cardYPos = yPos + row * (cardHeight + 6);
+
+          doc.setFillColor(241, 245, 249);
+          doc.roundedRect(xPos, cardYPos, cardWidth, cardHeight, 3, 3, 'F');
+          doc.setFillColor(41, 128, 185);
+          doc.rect(xPos, cardYPos, 4, cardHeight, 'F');
+
+          doc.setTextColor(71, 85, 105);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.text(truncate(safeText(card.label), 40), xPos + 8, cardYPos + 9);
+
+          doc.setTextColor(15, 23, 42);
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'bold');
+          doc.text(truncate(safeText(card.value), 26), xPos + 8, cardYPos + 20);
+        });
+
+        yPos += Math.ceil(summaryCards.length / 2) * (cardHeight + 6) + 8;
+      }
+
+      const renderTable = (section) => {
+        if (!section) return;
+        checkNewPage(18);
+
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42);
+        doc.text(section.title, margin, yPos);
+        yPos += 8;
+
+        if (section.note) {
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(100, 100, 100);
+          doc.text(section.note, margin, yPos);
+          yPos += 6;
+        }
+
+        const columns = section.columns || [];
+        const rows = section.rows || [];
+        if (columns.length === 0) return;
+
+        const tableWidth = pageWidth - 2 * margin;
+        const colWidth = tableWidth / columns.length;
+        const rowHeight = 8;
+
+        doc.setFillColor(241, 245, 249);
+        doc.rect(margin, yPos, tableWidth, rowHeight, 'F');
+        doc.setTextColor(71, 85, 105);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        columns.forEach((col, index) => {
+          doc.text(truncate(safeText(col), 18), margin + index * colWidth + 2, yPos + 6);
+        });
+        yPos += rowHeight + 2;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(15, 23, 42);
+
+        rows.forEach((row, rowIndex) => {
+          checkNewPage(rowHeight + 4);
+          if (rowIndex % 2 === 0) {
+            doc.setFillColor(248, 250, 252);
+            doc.rect(margin, yPos - 2, tableWidth, rowHeight, 'F');
+          }
+          columns.forEach((_, colIndex) => {
+            const cell = row[colIndex] ?? '';
+            doc.text(truncate(safeText(cell), 18), margin + colIndex * colWidth + 2, yPos + 4);
+          });
+          yPos += rowHeight;
+        });
+
+        yPos += 8;
+      };
+
+      reportData.sections?.forEach(renderTable);
+
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i += 1) {
+        doc.setPage(i);
+        addFooter(i);
+      }
+
+      doc.save(filename);
+      return;
+    }
+
     const doc = new jsPDF.jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     const margin = 20;
@@ -380,9 +1127,9 @@ const generatePDF = (reportData, filename) => {
     yPos += 10;
     
     // Summary cards layout
-    const summaryCards = [
+    const legacySummaryCards = [
       { label: 'Total Invoices', value: reportData.summary.totalInvoices.toString() },
-      { label: 'Total Revenue', value: `$${reportData.summary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+      { label: 'Total Revenue', value: formatReportCurrency(reportData.summary.totalRevenue, reportData?.metadata?.currency) },
       { label: 'Total Customers', value: reportData.summary.totalCustomers.toString() },
       { label: 'Active Customers', value: reportData.summary.activeCustomers.toString() }
     ];
@@ -394,7 +1141,7 @@ const generatePDF = (reportData, filename) => {
     const cardWidth = (pageWidth - 2 * margin) / 2 - 5;
     const cardHeight = 30;
     
-    summaryCards.forEach((card, index) => {
+    legacySummaryCards.forEach((card, index) => {
       const row = Math.floor(index / 2);
       const col = index % 2;
       const xPos = margin + col * (cardWidth + 10);
@@ -419,7 +1166,7 @@ const generatePDF = (reportData, filename) => {
       doc.text(card.value, xPos + 10, cardYPos + 22);
     });
     
-    yPos += (Math.ceil(summaryCards.length / 2) * (cardHeight + 5)) + 15;
+    yPos += (Math.ceil(legacySummaryCards.length / 2) * (cardHeight + 5)) + 15;
     checkNewPage();
     
     // Invoice Status Breakdown
@@ -510,7 +1257,7 @@ const generatePDF = (reportData, filename) => {
       
       doc.setTextColor(0, 0, 0);
       doc.text(revenue.label, margin + 5, yPos + 6);
-      doc.text(`$${revenue.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, margin + 60, yPos + 6);
+      doc.text(formatReportCurrency(revenue.value, reportData?.metadata?.currency), margin + 60, yPos + 6);
       
       const percentage = ((revenue.value / reportData.summary.totalRevenue) * 100 || 0).toFixed(1);
       doc.text(`${percentage}%`, margin + 120, yPos + 6);
@@ -559,7 +1306,7 @@ const generatePDF = (reportData, filename) => {
         const customerName = customer.name.length > 30 ? customer.name.substring(0, 27) + '...' : customer.name;
         doc.text(customerName, margin + 25, yPos + 6);
         doc.text(customer.totalInvoices.toString(), margin + 120, yPos + 6);
-        doc.text(`$${customer.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, margin + 160, yPos + 6);
+        doc.text(formatReportCurrency(customer.totalAmount, reportData?.metadata?.currency), margin + 160, yPos + 6);
         doc.text(customer.lastPurchase, pageWidth - margin - 5, yPos + 6, { align: 'right' });
         
         yPos += 8;
@@ -602,9 +1349,9 @@ const generatePDF = (reportData, filename) => {
       
       doc.setTextColor(0, 0, 0);
       doc.text(month.month, margin + 5, yPos + 6);
-      doc.text(`$${month.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, margin + 40, yPos + 6);
+      doc.text(formatReportCurrency(month.revenue, reportData?.metadata?.currency), margin + 40, yPos + 6);
       doc.text(month.invoices.toString(), margin + 90, yPos + 6);
-      doc.text(`$${avgInvoice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, margin + 130, yPos + 6);
+      doc.text(formatReportCurrency(avgInvoice, reportData?.metadata?.currency), margin + 130, yPos + 6);
       
       yPos += 8;
     });
@@ -615,7 +1362,7 @@ const generatePDF = (reportData, filename) => {
       doc.setFontSize(8);
       doc.setTextColor(128, 128, 128);
       doc.text('Generated by Ledgerly Invoice System', pageWidth / 2, pageHeight - 20, { align: 'center' });
-      doc.text(`Page ${pageNum} • ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
+      doc.text(`Page ${pageNum} - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
     };
     
     // Add footer to all pages
@@ -636,6 +1383,36 @@ const generatePDF = (reportData, filename) => {
 
   // Content generation functions for other formats
   const generateExcelContent = (reportData) => {
+    const escapeCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+
+    if (Array.isArray(reportData.sections) && reportData.sections.length > 0) {
+      const rows = [
+        ['Report:', reportData.metadata.title],
+        ['Generated:', new Date(reportData.metadata.generated).toLocaleString()],
+        ['Type:', reportData.metadata.type],
+        ['Format:', reportData.metadata.format],
+        ['Date Range:', reportData.metadata.dateRange],
+        []
+      ];
+
+      if (Array.isArray(reportData.summaryCards) && reportData.summaryCards.length > 0) {
+        rows.push(['SUMMARY']);
+        reportData.summaryCards.forEach((card) => {
+          rows.push([card.label, card.value]);
+        });
+        rows.push([]);
+      }
+
+      reportData.sections.forEach((section) => {
+        rows.push([section.title]);
+        rows.push(section.columns);
+        section.rows.forEach((row) => rows.push(row));
+        rows.push([]);
+      });
+
+      return rows.map(row => row.map(escapeCell).join(',')).join('\n');
+    }
+
     const rows = [
       ['Report:', reportData.metadata.title],
       ['Generated:', new Date(reportData.metadata.generated).toLocaleString()],
@@ -646,7 +1423,7 @@ const generatePDF = (reportData, filename) => {
       ['SUMMARY', '', ''],
       ['Total Invoices:', reportData.summary.totalInvoices],
       ['Total Customers:', reportData.summary.totalCustomers],
-      ['Total Revenue:', `$${reportData.summary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`],
+      ['Total Revenue:', formatReportCurrency(reportData.summary.totalRevenue, reportData?.metadata?.currency)],
       ['Paid Invoices:', reportData.summary.paidInvoices],
       ['Pending Invoices:', reportData.summary.pendingInvoices],
       ['Overdue Invoices:', reportData.summary.overdueInvoices],
@@ -661,8 +1438,7 @@ const generatePDF = (reportData, filename) => {
       ['Pending:', reportData.breakdown.byStatus.pending],
       ['Cancelled:', reportData.breakdown.byStatus.cancelled],
     ];
-
-    return rows.map(row => row.join(',')).join('\n');
+    return rows.map(row => row.map(escapeCell).join(',')).join('\n');
   };
 
   const generateCSVContent = (reportData) => {
@@ -670,6 +1446,80 @@ const generatePDF = (reportData, filename) => {
   };
 
   const generateHTMLContent = (reportData) => {
+    if (Array.isArray(reportData.sections) && reportData.sections.length > 0) {
+      const summaryCards = Array.isArray(reportData.summaryCards) ? reportData.summaryCards : [];
+      const summaryCardsHtml = summaryCards.map((card) => `
+        <div class="summary-card">
+          <div>${card.label}</div>
+          <div class="summary-value">${card.value}</div>
+        </div>
+      `).join('');
+
+      const sectionsHtml = reportData.sections.map((section) => {
+        const headerCells = section.columns.map((col) => `<th>${col}</th>`).join('');
+        const rows = section.rows.map((row) => {
+          const cells = row.map((cell) => `<td>${cell ?? ''}</td>`).join('');
+          return `<tr>${cells}</tr>`;
+        }).join('');
+        const note = section.note ? `<p class="note">${section.note}</p>` : '';
+        return `
+          <div class="section">
+            <h2>${section.title}</h2>
+            ${note}
+            <table>
+              <tr>${headerCells}</tr>
+              ${rows}
+            </table>
+          </div>
+        `;
+      }).join('');
+
+      return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${reportData.metadata.title}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; color: #333; background: #f8fafc; }
+    .container { max-width: 1000px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
+    .header h1 { color: #2563eb; margin-bottom: 10px; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .summary-card { background: #f1f5f9; padding: 20px; border-radius: 8px; text-align: center; border-left: 4px solid #2563eb; }
+    .summary-value { font-size: 24px; font-weight: bold; color: #2563eb; margin: 10px 0; }
+    .section { margin-bottom: 30px; }
+    .section h2 { color: #475569; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 10px; }
+    .note { color: #64748b; font-size: 13px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    th { background: #f1f5f9; font-weight: 600; color: #475569; }
+    tr:hover { background: #f8fafc; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${reportData.metadata.title}</h1>
+      <p>Generated: ${new Date(reportData.metadata.generated).toLocaleString()}</p>
+      <p>Report Type: ${reportData.metadata.type} | Format: ${reportData.metadata.format} | Date Range: ${reportData.metadata.dateRange}</p>
+    </div>
+
+    ${summaryCards.length > 0 ? `<div class="summary">${summaryCardsHtml}</div>` : ''}
+
+    ${sectionsHtml}
+
+    <div class="footer">
+      Generated by Ledgerly Invoice System
+    </div>
+  </div>
+</body>
+</html>
+      `;
+    }
+
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -715,7 +1565,7 @@ const generatePDF = (reportData, filename) => {
             </div>
             <div class="summary-card">
                 <div>Total Revenue</div>
-                <div class="summary-value">$${reportData.summary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                <div class="summary-value">${formatReportCurrency(reportData.summary.totalRevenue, reportData?.metadata?.currency)}</div>
             </div>
             <div class="summary-card">
                 <div>Total Customers</div>
@@ -779,17 +1629,17 @@ const generatePDF = (reportData, filename) => {
                     </tr>
                     <tr>
                         <td>Paid</td>
-                        <td>$${reportData.breakdown.revenueByStatus.paid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td>${formatReportCurrency(reportData.breakdown.revenueByStatus.paid, reportData?.metadata?.currency)}</td>
                         <td>${((reportData.breakdown.revenueByStatus.paid / reportData.summary.totalRevenue) * 100 || 0).toFixed(1)}%</td>
                     </tr>
                     <tr>
                         <td>Pending</td>
-                        <td>$${reportData.breakdown.revenueByStatus.pending.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td>${formatReportCurrency(reportData.breakdown.revenueByStatus.pending, reportData?.metadata?.currency)}</td>
                         <td>${((reportData.breakdown.revenueByStatus.pending / reportData.summary.totalRevenue) * 100 || 0).toFixed(1)}%</td>
                     </tr>
                     <tr>
                         <td>Overdue</td>
-                        <td>$${reportData.breakdown.revenueByStatus.overdue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td>${formatReportCurrency(reportData.breakdown.revenueByStatus.overdue, reportData?.metadata?.currency)}</td>
                         <td>${((reportData.breakdown.revenueByStatus.overdue / reportData.summary.totalRevenue) * 100 || 0).toFixed(1)}%</td>
                     </tr>
                 </table>
@@ -811,7 +1661,7 @@ const generatePDF = (reportData, filename) => {
                     <td>${i + 1}</td>
                     <td>${cust.name}</td>
                     <td>${cust.totalInvoices}</td>
-                    <td>$${cust.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td>${formatReportCurrency(cust.totalAmount, reportData?.metadata?.currency)}</td>
                     <td>${cust.lastPurchase}</td>
                 </tr>
                 `).join('')}
@@ -830,9 +1680,9 @@ const generatePDF = (reportData, filename) => {
                 ${reportData.breakdown.monthlyTrend.map(month => `
                 <tr>
                     <td>${month.month}</td>
-                    <td>$${month.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td>${formatReportCurrency(month.revenue, reportData?.metadata?.currency)}</td>
                     <td>${month.invoices}</td>
-                    <td>$${month.invoices > 0 ? (month.revenue / month.invoices).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00'}</td>
+                    <td>${formatReportCurrency(month.invoices > 0 ? (month.revenue / month.invoices) : 0, reportData?.metadata?.currency)}</td>
                 </tr>
                 `).join('')}
             </table>
@@ -849,6 +1699,43 @@ const generatePDF = (reportData, filename) => {
   };
 
   const generateTextContent = (reportData) => {
+    if (Array.isArray(reportData.sections) && reportData.sections.length > 0) {
+      const lines = [];
+      lines.push('==================================================================');
+      lines.push(`                          ${reportData.metadata.title}`);
+      lines.push('==================================================================');
+      lines.push(`Generated: ${new Date(reportData.metadata.generated).toLocaleString()}`);
+      lines.push(`Report Type: ${reportData.metadata.type}`);
+      lines.push(`Format: ${reportData.metadata.format}`);
+      lines.push(`Date Range: ${reportData.metadata.dateRange}`);
+      lines.push('');
+
+      if (Array.isArray(reportData.summaryCards) && reportData.summaryCards.length > 0) {
+        lines.push('SUMMARY');
+        lines.push('==================================================================');
+        reportData.summaryCards.forEach((card) => {
+          lines.push(`${card.label}: ${card.value}`);
+        });
+        lines.push('');
+      }
+
+      reportData.sections.forEach((section) => {
+        lines.push(section.title.toUpperCase());
+        lines.push('==================================================================');
+        lines.push(section.columns.join(' | '));
+        section.rows.forEach((row) => {
+          lines.push(row.map((cell) => String(cell ?? '')).join(' | '));
+        });
+        lines.push('');
+      });
+
+      lines.push('==================================================================');
+      lines.push('Generated by Ledgerly Invoice System');
+      lines.push(`${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`);
+      lines.push('==================================================================');
+      return lines.join('\n');
+    }
+
     const title = reportData.metadata.title;
     const date = new Date(reportData.metadata.generated).toLocaleString();
     
@@ -866,7 +1753,7 @@ SUMMARY
 ==================================================================
 Total Invoices: ${reportData.summary.totalInvoices}
 Total Customers: ${reportData.summary.totalCustomers}
-Total Revenue: $${reportData.summary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+Total Revenue: ${formatReportCurrency(reportData.summary.totalRevenue, reportData?.metadata?.currency)}
 Paid Invoices: ${reportData.summary.paidInvoices}
 Pending Invoices: ${reportData.summary.pendingInvoices}
 Overdue Invoices: ${reportData.summary.overdueInvoices}
@@ -884,20 +1771,20 @@ Cancelled: ${reportData.breakdown.byStatus.cancelled}
 
 REVENUE BY STATUS
 ==================================================================
-Paid Revenue: $${reportData.breakdown.revenueByStatus.paid.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-Pending Revenue: $${reportData.breakdown.revenueByStatus.pending.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-Overdue Revenue: $${reportData.breakdown.revenueByStatus.overdue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+Paid Revenue: ${formatReportCurrency(reportData.breakdown.revenueByStatus.paid, reportData?.metadata?.currency)}
+Pending Revenue: ${formatReportCurrency(reportData.breakdown.revenueByStatus.pending, reportData?.metadata?.currency)}
+Overdue Revenue: ${formatReportCurrency(reportData.breakdown.revenueByStatus.overdue, reportData?.metadata?.currency)}
 
 TOP CUSTOMERS
 ==================================================================
 ${reportData.breakdown.byCustomer.slice(0, 5).map((cust, i) => 
-  `${i + 1}. ${cust.name}: ${cust.totalInvoices} invoices, $${cust.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+  `${i + 1}. ${cust.name}: ${cust.totalInvoices} invoices, ${formatReportCurrency(cust.totalAmount, reportData?.metadata?.currency)}`
 ).join('\n')}
 
 MONTHLY TREND (Current Year)
 ==================================================================
 ${reportData.breakdown.monthlyTrend.map(month => 
-  `${month.month}: $${month.revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })} revenue, ${month.invoices} invoices`
+  `${month.month}: ${formatReportCurrency(month.revenue, reportData?.metadata?.currency)} revenue, ${month.invoices} invoices`
 ).join('\n')}
 
 ==================================================================
@@ -1001,6 +1888,9 @@ ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
         addToast('Report deleted successfully', 'success');
       } catch (error) {
         console.error('Delete report failed:', error);
+        if (isAccessDeniedError(error)) {
+          return;
+        }
         addToast('Unable to delete report', 'error');
       }
     }
@@ -1076,10 +1966,11 @@ ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
         {/* Report Cards Component */}
         <ReportCards 
           onGenerateReport={handleGenerateReport}
-          reports={reports}
+          reports={filteredReports}
           onDeleteReport={handleDeleteReport}
           onViewReport={handleViewReport}
           onExport={handleExport}
+          reportType={reportType}
           isDarkMode={isDarkMode}
         />
 
@@ -1088,7 +1979,7 @@ ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
 
         {/* Generated Reports List - USING THE SEPARATE COMPONENT */}
         <GeneratedReportsList
-          reports={reports}
+          reports={filteredReports}
           onLoadReports={loadReports}
           onExport={handleExport}
           onViewReport={handleViewReport}

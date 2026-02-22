@@ -14,21 +14,27 @@ import AttachmentsSection from '../../components/invoices/create/AttachmentsSect
 import EmailTemplateSection from '../../components/invoices/create/EmailTemplateSection';
 import QuickActions from '../../components/invoices/create/QuickActions';
 import { useToast } from '../../context/ToastContext';
+import { useAccount } from '../../context/AccountContext';
+import { isMultiCurrencyPlan } from '../../utils/subscription';
 import { draftStorage } from '../../utils/draftStorage';
 import { generateInvoicePDF } from '../../utils/pdfGenerator';
 import { saveInvoice } from '../../utils/invoiceStorage';
+import { fetchTaxSettings } from '../../services/taxSettingsService';
 
 const EditInvoice = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const canUseMultiCurrency = isMultiCurrencyPlan(accountInfo?.plan, accountInfo?.subscriptionStatus);
   
   // Main state
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('net-30');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState(baseCurrency);
   const [notes, setNotes] = useState('');
   const [terms, setTerms] = useState('');
   const [attachments, setAttachments] = useState([]);
@@ -48,6 +54,14 @@ const EditInvoice = () => {
   const [lineItems, setLineItems] = useState([
     { id: 1, description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }
   ]);
+
+  // Tax settings state
+  const [taxSettings, setTaxSettings] = useState({
+    taxEnabled: true,
+    taxName: 'VAT',
+    taxRate: 7.5,
+    allowManualOverride: true
+  });
   
   // Modal states
   const [showPreview, setShowPreview] = useState(false);
@@ -56,15 +70,75 @@ const EditInvoice = () => {
   const [loading, setLoading] = useState(true);
   const [originalInvoice, setOriginalInvoice] = useState(null);
   
+  const roundMoney = (value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 0;
+    return Math.round((number + Number.EPSILON) * 100) / 100;
+  };
+
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
-  const totalTax = lineItems.reduce((sum, item) => sum + (item.quantity * item.rate * (item.tax / 100)), 0);
-  const totalAmount = subtotal + totalTax;
+  const settingsTaxEnabled = taxSettings.taxEnabled ?? true;
+  const taxName = originalInvoice?.taxName || taxSettings.taxName || 'VAT';
+  const storedTaxRateValue = Number.isFinite(Number(originalInvoice?.taxRateUsed))
+    ? Number(originalInvoice.taxRateUsed)
+    : NaN;
+  const storedTaxAmount = Number(originalInvoice?.taxAmount ?? originalInvoice?.totalTax ?? NaN);
+  const hasStoredTaxAmount = Number.isFinite(storedTaxAmount) && storedTaxAmount > 0;
+  const hasStoredTaxRate = Number.isFinite(storedTaxRateValue) && storedTaxRateValue > 0;
+  const taxEnabled = originalInvoice
+    ? (hasStoredTaxRate || hasStoredTaxAmount || Boolean(originalInvoice?.isTaxOverridden))
+    : settingsTaxEnabled;
+  const baseTaxRate = Number.isFinite(storedTaxRateValue)
+    ? storedTaxRateValue
+    : (taxEnabled ? (Number(taxSettings.taxRate) || 0) : 0);
+  const hasStoredOverrideAmount = Boolean(originalInvoice?.isTaxOverridden) && Number.isFinite(storedTaxAmount);
+  const totalTax = taxEnabled
+    ? roundMoney(Math.max(0, hasStoredOverrideAmount ? storedTaxAmount : subtotal * (baseTaxRate / 100)))
+    : 0;
+  const totalAmount = roundMoney(subtotal + totalTax);
+  const isTaxOverridden = taxEnabled && hasStoredOverrideAmount;
+  const taxLabel = `${taxName} (${baseTaxRate}%)`;
+  const resolvedCurrency = canUseMultiCurrency ? currency : baseCurrency;
+
+  useEffect(() => {
+    if (!canUseMultiCurrency) {
+      setCurrency(baseCurrency);
+      return;
+    }
+    if (!currency) {
+      setCurrency(baseCurrency);
+    }
+  }, [baseCurrency, canUseMultiCurrency]);
 
   // Load draft data
   useEffect(() => {
     loadDraftData();
   }, [id]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadTaxSettings = async () => {
+      try {
+        const settings = await fetchTaxSettings();
+        if (!isMounted || !settings) return;
+        setTaxSettings({
+          taxEnabled: settings.taxEnabled ?? true,
+          taxName: settings.taxName || 'VAT',
+          taxRate: Number(settings.taxRate) || 0,
+          allowManualOverride: settings.allowManualOverride ?? true
+        });
+      } catch (error) {
+        console.error('Failed to load tax settings:', error);
+        addToast('Unable to load tax settings. Using defaults.', 'warning');
+      }
+    };
+
+    loadTaxSettings();
+    return () => {
+      isMounted = false;
+    };
+  }, [addToast]);
 
   const loadDraftData = () => {
     try {
@@ -80,7 +154,7 @@ const EditInvoice = () => {
       setIssueDate(draft.issueDate || new Date().toISOString().split('T')[0]);
       setDueDate(draft.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
       setPaymentTerms(draft.paymentTerms || 'net-30');
-      setCurrency(draft.currency || 'USD');
+      setCurrency(canUseMultiCurrency ? (draft.currency || baseCurrency) : baseCurrency);
       setNotes(draft.notes || '');
       setTerms(draft.terms || '');
       setEmailSubject(draft.emailSubject || 'Invoice for Services Rendered');
@@ -89,7 +163,8 @@ const EditInvoice = () => {
       if (draft.lineItems && draft.lineItems.length > 0) {
         setLineItems(draft.lineItems.map(item => ({
           ...item,
-          amount: item.quantity * item.rate * (1 + (item.tax || 0) / 100)
+          tax: 0,
+          amount: item.quantity * item.rate
         })));
       }
       
@@ -117,13 +192,17 @@ const EditInvoice = () => {
   const updateLineItem = (id, field, value) => {
     setLineItems(lineItems.map(item => {
       if (item.id === id) {
-        const updatedItem = { ...item, [field]: value };
-        
-        if (field === 'quantity' || field === 'rate' || field === 'tax') {
-          const quantity = field === 'quantity' ? parseInt(value) || 0 : item.quantity;
-          const rate = field === 'rate' ? parseFloat(value) || 0 : item.rate;
-          const tax = field === 'tax' ? parseFloat(value) || 0 : item.tax;
-          updatedItem.amount = quantity * rate * (1 + tax / 100);
+        const updatedItem = { ...item, [field]: value, tax: 0 };
+
+        if (field === 'quantity' || field === 'rate') {
+          const quantity = field === 'quantity' ? (value === '' ? '' : parseFloat(value) || 0) : item.quantity;
+          const rate = field === 'rate' ? (value === '' ? '' : parseFloat(value) || 0) : item.rate;
+
+          if (quantity !== '' && rate !== '') {
+            updatedItem.amount = quantity * rate;
+          } else {
+            updatedItem.amount = 0;
+          }
         }
         
         return updatedItem;
@@ -184,14 +263,19 @@ const EditInvoice = () => {
         customer,
         lineItems: lineItems.map(item => ({
           ...item,
-          amount: item.quantity * item.rate * (1 + item.tax / 100)
+          tax: 0,
+          amount: item.quantity * item.rate
         })),
         subtotal,
         totalTax,
         totalAmount,
+        taxName,
+        taxRateUsed: baseTaxRate,
+        taxAmount: totalTax,
+        isTaxOverridden,
         notes,
         terms,
-        currency,
+        currency: resolvedCurrency,
         attachments: attachments.map(file => ({
           name: file.name,
           size: file.size,
@@ -239,14 +323,19 @@ const EditInvoice = () => {
         customer,
         lineItems: lineItems.map(item => ({
           ...item,
-          amount: item.quantity * item.rate * (1 + item.tax / 100)
+          tax: 0,
+          amount: item.quantity * item.rate
         })),
         subtotal,
         totalTax,
         totalAmount,
+        taxName,
+        taxRateUsed: baseTaxRate,
+        taxAmount: totalTax,
+        isTaxOverridden,
         notes,
         terms,
-        currency,
+        currency: resolvedCurrency,
         status: 'sent',
         sentAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -262,6 +351,9 @@ const EditInvoice = () => {
       const pdfDoc = generateInvoicePDF(invoiceData);
       
       // Generate email body
+      const taxLine = taxEnabled
+        ? `${taxName} (${baseTaxRate}%): ${resolvedCurrency} ${totalTax.toFixed(2)}`
+        : '';
       const emailBody = `
 ${emailMessage}
 
@@ -270,10 +362,11 @@ INVOICE DETAILS
 Invoice #: ${invoiceNumber}
 Issue Date: ${new Date(issueDate).toLocaleDateString()}
 Due Date: ${new Date(dueDate).toLocaleDateString()}
-Total Amount: ${currency} ${totalAmount.toFixed(2)}
+Subtotal: ${resolvedCurrency} ${subtotal.toFixed(2)}
+${taxLine ? `${taxLine}\n` : ''}Total Amount: ${resolvedCurrency} ${totalAmount.toFixed(2)}
 
 ITEMS:
-${lineItems.map(item => `- ${item.description}: ${item.quantity} × ${currency}${item.rate} = ${currency}${item.amount.toFixed(2)}`).join('\n')}
+${lineItems.map(item => `- ${item.description}: ${item.quantity} × ${resolvedCurrency}${item.rate} = ${resolvedCurrency}${item.amount.toFixed(2)}`).join('\n')}
 
 Thank you for your business!
       `;
@@ -325,9 +418,13 @@ Thank you for your business!
         subtotal,
         totalTax,
         totalAmount,
+        taxName,
+        taxRateUsed: baseTaxRate,
+        taxAmount: totalTax,
+        isTaxOverridden,
         notes,
         terms,
-        currency,
+        currency: resolvedCurrency,
       };
 
       const pdfDoc = generateInvoicePDF(invoiceData);
@@ -421,8 +518,10 @@ Thank you for your business!
             <InvoiceDetailsSection
               invoiceNumber={invoiceNumber}
               setInvoiceNumber={setInvoiceNumber}
-              currency={currency}
+              currency={resolvedCurrency}
               setCurrency={setCurrency}
+              isMultiCurrencyAllowed={canUseMultiCurrency}
+              baseCurrency={baseCurrency}
               issueDate={issueDate}
               setIssueDate={setIssueDate}
               dueDate={dueDate}
@@ -436,7 +535,7 @@ Thank you for your business!
               updateLineItem={updateLineItem}
               removeLineItem={removeLineItem}
               addLineItem={addLineItem}
-              currency={currency}
+              currency={resolvedCurrency}
             />
             
             {/* Notes and Terms */}
@@ -476,7 +575,9 @@ Thank you for your business!
               subtotal={subtotal}
               totalTax={totalTax}
               totalAmount={totalAmount}
-              currency={currency}
+              currency={resolvedCurrency}
+              taxLabel={taxLabel}
+              showTax={taxEnabled}
             />
             
             <AttachmentsSection
@@ -513,9 +614,12 @@ Thank you for your business!
             subtotal,
             totalTax,
             totalAmount,
+            taxName,
+            taxRateUsed: baseTaxRate,
+            isTaxOverridden,
             notes,
             terms,
-            currency,
+            currency: resolvedCurrency,
           }}
           onClose={() => setShowPreview(false)}
           onSend={handleSendInvoice}
@@ -540,3 +644,4 @@ Thank you for your business!
 };
 
 export default EditInvoice;
+

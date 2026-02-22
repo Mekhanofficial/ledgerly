@@ -2,9 +2,14 @@
 import React from 'react';
 import { DollarSign, CreditCard, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAccount } from '../../context/AccountContext';
+import { formatCurrency } from '../../utils/currency';
 
 const PaymentStats = ({ stats }) => {
   const { isDarkMode } = useTheme();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value) => formatCurrency(value, baseCurrency);
   
   // Default stats if none provided
   const defaultStats = {
@@ -22,7 +27,7 @@ const PaymentStats = ({ stats }) => {
   const statsData = [
     {
       label: 'Total Revenue',
-      value: `$${actualStats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      value: formatMoney(actualStats.totalRevenue),
       description: 'This month',
       icon: DollarSign,
       color: 'bg-emerald-500',
@@ -30,7 +35,7 @@ const PaymentStats = ({ stats }) => {
     },
     {
       label: 'Pending Payments',
-      value: `$${actualStats.pendingPayments.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      value: formatMoney(actualStats.pendingPayments),
       description: `${actualStats.pendingCount} transactions`,
       icon: Clock,
       color: 'bg-amber-500',
@@ -38,7 +43,7 @@ const PaymentStats = ({ stats }) => {
     },
     {
       label: 'Processed Today',
-      value: `$${actualStats.processedToday.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      value: formatMoney(actualStats.processedToday),
       description: `${actualStats.todayCount} transactions`,
       icon: CheckCircle,
       color: 'bg-blue-500',
@@ -46,7 +51,7 @@ const PaymentStats = ({ stats }) => {
     },
     {
       label: 'Failed Payments',
-      value: `$${actualStats.failedPayments.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      value: formatMoney(actualStats.failedPayments),
       description: `${actualStats.failedCount} transactions`,
       icon: AlertTriangle,
       color: 'bg-red-500',

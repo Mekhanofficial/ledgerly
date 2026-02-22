@@ -3,11 +3,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Package, Search, Filter, AlertCircle } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
+import { useAccount } from '../../context/AccountContext';
 import { mapProductFromApi } from '../../utils/productAdapter';
 import { fetchProducts } from '../../store/slices/productSlide';
+import { formatCurrency } from '../../utils/currency';
 
 const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
   const { isDarkMode } = useTheme();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
   const dispatch = useDispatch();
   const { products: rawProducts } = useSelector((state) => state.products);
   const posProducts = useMemo(() => {
@@ -248,9 +253,9 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                       {/* Price and Stock Status */}
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-baseline">
-                          <span className={`text-base font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            ${product.price.toFixed(2)}
-                          </span>
+                        <span className={`text-base font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            {formatMoney(product.price || 0, baseCurrency)}
+                        </span>
                         </div>
                         <span className={`px-1.5 py-0.5 text-xs font-medium rounded-full ${stockStatus.color}`}>
                           {stockStatus.label}

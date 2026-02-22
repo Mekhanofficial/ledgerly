@@ -3,6 +3,8 @@ import React, { useState, useMemo } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../context/InvoiceContext';
+import { useAccount } from '../../context/AccountContext';
+import { formatCurrency, getCurrencySymbol } from '../../utils/currency';
 import {
   BarChart,
   Bar,
@@ -23,8 +25,9 @@ const CustomChartContainer = ({ children, className = "" }) => (
   <div className={className}>{children}</div>
 );
 
-const CustomChartTooltip = ({ active, payload, label, isDarkMode }) => {
+const CustomChartTooltip = ({ active, payload, label, isDarkMode, formatValue }) => {
   if (active && payload && payload.length) {
+    const formatDisplay = formatValue || ((value) => value);
     return (
       <div className={`p-3 rounded-lg shadow-lg border ${
         isDarkMode 
@@ -38,7 +41,7 @@ const CustomChartTooltip = ({ active, payload, label, isDarkMode }) => {
         </p>
         {payload.map((entry, index) => (
           <p key={index} className="text-sm" style={{ color: entry.color }}>
-            {entry.dataKey === 'total' ? 'Revenue' : entry.dataKey}: ${entry.value.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+            {entry.dataKey === 'total' ? 'Revenue' : entry.dataKey}: {formatDisplay(entry.value)}
           </p>
         ))}
       </div>
@@ -50,6 +53,20 @@ const CustomChartTooltip = ({ active, payload, label, isDarkMode }) => {
 const ReportCharts = () => {
   const { isDarkMode } = useTheme();
   const { invoices, customers } = useInvoice();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const currencySymbol = getCurrencySymbol(baseCurrency);
+  const formatMoney = (value, options = {}) => formatCurrency(value, baseCurrency, options);
+  const formatMoneyNoDecimals = (value) =>
+    formatMoney(value, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const formatCompactCurrency = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return `${currencySymbol}0`;
+    if (Math.abs(numeric) >= 1000) {
+      return `${currencySymbol}${(numeric / 1000).toFixed(0)}k`;
+    }
+    return `${currencySymbol}${numeric.toFixed(0)}`;
+  };
   const [activeCustomer, setActiveCustomer] = useState(null);
   
   // Calculate real data for charts
@@ -248,8 +265,14 @@ const ReportCharts = () => {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Tooltip 
-                  formatter={(value) => [`$${value.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, 'Revenue']}
-                  content={(props) => <CustomChartTooltip {...props} isDarkMode={isDarkMode} />}
+                  formatter={(value) => [formatMoneyNoDecimals(value), 'Revenue']}
+                  content={(props) => (
+                    <CustomChartTooltip
+                      {...props}
+                      isDarkMode={isDarkMode}
+                      formatValue={formatMoneyNoDecimals}
+                    />
+                  )}
                 />
                 <Pie
                   data={topCustomers}
@@ -286,7 +309,7 @@ const ReportCharts = () => {
                     fontFamily: 'system-ui, -apple-system, sans-serif'
                   }}
                 >
-                  ${activeCustomerData?.total?.toLocaleString('en-US', { minimumFractionDigits: 0 }) || 0}
+                  {formatMoneyNoDecimals(activeCustomerData?.total || 0)}
                 </text>
                 <text
                   x="50%"
@@ -361,7 +384,7 @@ const ReportCharts = () => {
                           <div className={`text-xs font-semibold ml-2 whitespace-nowrap ${
                             isDarkMode ? 'text-white' : 'text-gray-900'
                           }`}>
-                            ${customer.total.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                            {formatMoneyNoDecimals(customer.total)}
                           </div>
                         </div>
                         <div className="flex items-center justify-between mt-0.5">
@@ -393,7 +416,7 @@ const ReportCharts = () => {
                   <div className={`text-sm font-bold whitespace-nowrap ${
                     isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    ${topCustomers.reduce((sum, c) => sum + c.total, 0).toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                    {formatMoneyNoDecimals(topCustomers.reduce((sum, c) => sum + c.total, 0))}
                   </div>
                 </div>
                 <div className="flex justify-between items-center mt-1">
@@ -474,10 +497,16 @@ const ReportCharts = () => {
               <YAxis 
                 stroke={isDarkMode ? '#9ca3af' : '#6b7280'}
                 fontSize={11}
-                tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                tickFormatter={(value) => formatCompactCurrency(value)}
                 tick={{ fill: isDarkMode ? '#9ca3af' : '#6b7280' }}
               />
-              <Tooltip content={(props) => <CustomChartTooltip {...props} isDarkMode={isDarkMode} />} />
+              <Tooltip content={(props) => (
+                <CustomChartTooltip
+                  {...props}
+                  isDarkMode={isDarkMode}
+                  formatValue={formatMoneyNoDecimals}
+                />
+              )} />
               <Legend 
                 wrapperStyle={{ 
                   fontSize: '12px',
@@ -589,7 +618,7 @@ const ReportCharts = () => {
                   <div className={`text-xs md:text-sm mt-0.5 ${
                     isDarkMode ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    {insights.bestMonth().month} with ${insights.bestMonth().revenue.toLocaleString('en-US', { minimumFractionDigits: 0 })} revenue
+                    {`${insights.bestMonth().month} with ${formatMoneyNoDecimals(insights.bestMonth().revenue)} revenue`}
                   </div>
                 </div>
               </div>
@@ -639,7 +668,7 @@ const ReportCharts = () => {
                   <div className={`text-xs md:text-sm mt-0.5 ${
                     isDarkMode ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    ${insights.pendingAmount.toLocaleString('en-US', { minimumFractionDigits: 0 })} across {insights.pendingCount} invoices
+                    {formatMoneyNoDecimals(insights.pendingAmount)} across {insights.pendingCount} invoices
                   </div>
                 </div>
               </div>
@@ -664,7 +693,7 @@ const ReportCharts = () => {
                   <div className={`text-xs md:text-sm mt-0.5 ${
                     isDarkMode ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    ${insights.overdueAmount.toLocaleString('en-US', { minimumFractionDigits: 0 })} needs attention
+                    {formatMoneyNoDecimals(insights.overdueAmount)} needs attention
                   </div>
                 </div>
               </div>
@@ -677,3 +706,4 @@ const ReportCharts = () => {
 };
 
 export default ReportCharts;
+

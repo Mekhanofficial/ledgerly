@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
+import logo from '../../../assets/icons/ledgerly-logo.png';
 
 const NavBar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -20,23 +21,13 @@ const NavBar = () => {
           <Link to="/" className="flex items-center space-x-3 group">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl blur opacity-70 group-hover:opacity-100 transition-opacity"></div>
-              <img 
-                src="/images/logo.svg" 
-                alt="Ledgerly"
-                className="relative w-10 h-10 rounded-xl transform group-hover:scale-105 transition-transform duration-300"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.parentElement.innerHTML = `
-                    <div class="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center">
-                      <span class="text-white font-bold">LY</span>
-                    </div>
-                  `;
-                }}
+              <img
+                src={logo}
+                alt="Ledgerly logo"
+                className="relative w-10 h-10 rounded-xl transform group-hover:scale-105 transition-transform duration-300 object-contain bg-white"
               />
             </div>
-            <span className="text-xl font-semibold text-gray-900 dark:text-white group-hover:text-primary-700 dark:group-hover:text-primary-400 transition-colors">
-              Ledgerly
-            </span>
+            <span className="sr-only">Ledgerly</span>
           </Link>
 
           {/* Desktop Navigation */}

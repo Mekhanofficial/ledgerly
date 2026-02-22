@@ -998,6 +998,307 @@ export const industryTemplates = {
   }
 };
 
+const TEMPLATE_TIER = {
+  STANDARD: 'STANDARD',
+  PREMIUM: 'PREMIUM',
+  ELITE: 'ELITE',
+  CUSTOM: 'CUSTOM'
+};
+
+const STARTER_STANDARD_TEMPLATE_IDS = new Set([
+  'standard',
+  'minimal',
+  'retail',
+  'medical',
+  'legal'
+]);
+
+const ELITE_TEMPLATE_IDS = new Set([
+  'luxury',
+  'corporatePro',
+  'creativeStudio',
+  'glassmorphic',
+  'neoBrutalist',
+  'holographic',
+  'minimalistDark',
+  'organicEco'
+]);
+
+const TEMPLATE_PRICING = {
+  STANDARD: 5,
+  PREMIUM: 12,
+  ELITE: 25
+};
+
+const TEMPLATE_BUNDLE_ID = 'bundle_all_templates';
+const TEMPLATE_BUNDLE_PRICE = 79;
+const YEARLY_DISCOUNT = 0.2;
+const toYearlyPrice = (monthlyPrice) =>
+  Number((Number(monthlyPrice) * 12 * (1 - YEARLY_DISCOUNT)).toFixed(2));
+
+const PLAN_DEFINITIONS = {
+  starter: {
+    id: 'starter',
+    name: 'Starter',
+    monthlyPrice: 9,
+    yearlyPrice: toYearlyPrice(9),
+    templateCategories: [TEMPLATE_TIER.STANDARD]
+  },
+  professional: {
+    id: 'professional',
+    name: 'Professional',
+    monthlyPrice: 29,
+    yearlyPrice: toYearlyPrice(29),
+    templateCategories: [TEMPLATE_TIER.STANDARD, TEMPLATE_TIER.PREMIUM]
+  },
+  enterprise: {
+    id: 'enterprise',
+    name: 'Enterprise',
+    monthlyPrice: 79,
+    yearlyPrice: toYearlyPrice(79),
+    templateCategories: [TEMPLATE_TIER.STANDARD, TEMPLATE_TIER.PREMIUM, TEMPLATE_TIER.ELITE]
+  }
+};
+
+// Storage keys
+const USER_TEMPLATE_STORAGE_KEY = 'user_invoice_templates';
+const PREMIUM_ACCESS_KEY = 'premium_templates_access';
+const TEMPLATE_PURCHASES_KEY = 'template_purchases';
+const TEMPLATE_ACCESS_OWNER_KEY = 'template_access_owner';
+
+const normalizePlanId = (plan) => {
+  if (!plan) return 'starter';
+  const value = String(plan).trim().toLowerCase();
+  if (value === 'pro') return 'professional';
+  if (value === 'free') return 'starter';
+  if (value === 'starter' || value === 'professional' || value === 'enterprise') {
+    return value;
+  }
+  return 'starter';
+};
+
+const normalizeTemplateCategory = (template = {}) => {
+  const id = template.id || template.templateStyle;
+  const rawCategory = String(template.category || '').trim().toUpperCase();
+
+  if (rawCategory === TEMPLATE_TIER.CUSTOM || rawCategory.includes('CUSTOM')) {
+    return TEMPLATE_TIER.CUSTOM;
+  }
+
+  if (ELITE_TEMPLATE_IDS.has(id)) {
+    return TEMPLATE_TIER.ELITE;
+  }
+
+  if (STARTER_STANDARD_TEMPLATE_IDS.has(id)) {
+    return TEMPLATE_TIER.STANDARD;
+  }
+
+  if (rawCategory === TEMPLATE_TIER.STANDARD || rawCategory === 'BASIC' || rawCategory === 'INDUSTRY') {
+    return TEMPLATE_TIER.STANDARD;
+  }
+
+  if (rawCategory === TEMPLATE_TIER.ELITE) {
+    return TEMPLATE_TIER.ELITE;
+  }
+
+  if (rawCategory === TEMPLATE_TIER.PREMIUM) {
+    return TEMPLATE_TIER.PREMIUM;
+  }
+
+  return TEMPLATE_TIER.PREMIUM;
+};
+
+const resolveTemplatePrice = (category) => {
+  if (category === TEMPLATE_TIER.CUSTOM) {
+    return 0;
+  }
+  return TEMPLATE_PRICING[category] || 0;
+};
+
+const applyInclusionFlags = (template, category) => {
+  if (category === TEMPLATE_TIER.CUSTOM) {
+    return {
+      isIncludedInStarter: true,
+      isIncludedInProfessional: true,
+      isIncludedInEnterprise: true
+    };
+  }
+
+  const starterIncluded = typeof template.isIncludedInStarter === 'boolean'
+    ? template.isIncludedInStarter
+    : STARTER_STANDARD_TEMPLATE_IDS.has(template.id);
+
+  const professionalIncluded = typeof template.isIncludedInProfessional === 'boolean'
+    ? template.isIncludedInProfessional
+    : category === TEMPLATE_TIER.STANDARD || category === TEMPLATE_TIER.PREMIUM;
+
+  const enterpriseIncluded = typeof template.isIncludedInEnterprise === 'boolean'
+    ? template.isIncludedInEnterprise
+    : true;
+
+  return {
+    isIncludedInStarter: starterIncluded,
+    isIncludedInProfessional: professionalIncluded,
+    isIncludedInEnterprise: enterpriseIncluded
+  };
+};
+
+const getPlanDefinition = (planId) => PLAN_DEFINITIONS[normalizePlanId(planId)] || PLAN_DEFINITIONS.starter;
+
+const isTemplateIncludedInPlan = (template, planId) => {
+  const normalizedPlan = normalizePlanId(planId);
+  const flagMap = {
+    starter: template.isIncludedInStarter,
+    professional: template.isIncludedInProfessional,
+    enterprise: template.isIncludedInEnterprise
+  };
+
+  if (typeof flagMap[normalizedPlan] === 'boolean') {
+    return flagMap[normalizedPlan];
+  }
+
+  const planDef = getPlanDefinition(normalizedPlan);
+  return planDef.templateCategories.includes(template.category);
+};
+
+const resolveRequiredPlanForTemplate = (template) => {
+  if (!template) return 'starter';
+  if (isTemplateIncludedInPlan(template, 'starter')) return 'starter';
+  if (isTemplateIncludedInPlan(template, 'professional')) return 'professional';
+  if (isTemplateIncludedInPlan(template, 'enterprise')) return 'enterprise';
+  return 'enterprise';
+};
+
+const resolveAccessContext = () => {
+  try {
+    const subscription = JSON.parse(localStorage.getItem('subscription') || '{}');
+    const premiumAccess = JSON.parse(localStorage.getItem(PREMIUM_ACCESS_KEY) || '{}');
+    const purchases = JSON.parse(localStorage.getItem(TEMPLATE_PURCHASES_KEY) || '[]');
+
+    const planCandidate = subscription?.plan || subscription?.planId || premiumAccess?.plan || premiumAccess?.planId;
+    const planId = normalizePlanId(planCandidate);
+    const status = subscription?.status || premiumAccess?.status || 'active';
+    const expiresAt = subscription?.expiresAt || subscription?.subscriptionEnd || premiumAccess?.expiresAt;
+    const isActive = status === 'active' && (!expiresAt || new Date(expiresAt) >= new Date());
+
+    const purchasedTemplateIds = new Set();
+    purchases.forEach((purchase) => {
+      const isCompleted = purchase?.status ? purchase.status === 'completed' : true;
+      if (isCompleted && purchase?.templateId) {
+        purchasedTemplateIds.add(purchase.templateId);
+      }
+    });
+
+    const legacyTemplates = Array.isArray(premiumAccess?.templates) ? premiumAccess.templates : [];
+    legacyTemplates.forEach((templateId) => purchasedTemplateIds.add(templateId));
+
+    const hasBundle = purchases.some((purchase) => purchase?.templateId === TEMPLATE_BUNDLE_ID || purchase?.unlockAllTemplates)
+      || premiumAccess?.type === 'lifetime';
+
+    return {
+      planId: isActive ? planId : 'starter',
+      status,
+      expiresAt,
+      isActive,
+      hasBundle,
+      purchasedTemplateIds,
+      subscription,
+      premiumAccess
+    };
+  } catch (error) {
+    return {
+      planId: 'starter',
+      status: 'inactive',
+      expiresAt: null,
+      isActive: false,
+      hasBundle: false,
+      purchasedTemplateIds: new Set(),
+      subscription: {},
+      premiumAccess: {}
+    };
+  }
+};
+
+export const ensureTemplateAccessOwner = (userId) => {
+  if (typeof window === 'undefined' || !userId) return;
+  const ownerId = String(userId);
+  const storedOwner = localStorage.getItem(TEMPLATE_ACCESS_OWNER_KEY);
+  if (storedOwner && storedOwner === ownerId) return;
+
+  localStorage.removeItem(PREMIUM_ACCESS_KEY);
+  localStorage.removeItem(TEMPLATE_PURCHASES_KEY);
+  localStorage.removeItem('subscription');
+  localStorage.setItem(TEMPLATE_ACCESS_OWNER_KEY, ownerId);
+};
+
+const resolveTemplateAccess = (template, context) => {
+  const planId = context?.planId || 'starter';
+  const hasBundle = Boolean(context?.hasBundle);
+  const purchasedTemplateIds = context?.purchasedTemplateIds || new Set();
+
+  if (template.category === TEMPLATE_TIER.CUSTOM) {
+    return {
+      hasAccess: true,
+      accessSource: 'custom',
+      requiredPlan: planId,
+      canPurchase: false
+    };
+  }
+
+  if (hasBundle) {
+    return {
+      hasAccess: true,
+      accessSource: 'bundle',
+      requiredPlan: planId,
+      canPurchase: false
+    };
+  }
+
+  if (isTemplateIncludedInPlan(template, planId)) {
+    return {
+      hasAccess: true,
+      accessSource: 'plan',
+      requiredPlan: planId,
+      canPurchase: false
+    };
+  }
+
+  if (purchasedTemplateIds.has(template.id)) {
+    return {
+      hasAccess: true,
+      accessSource: 'purchase',
+      requiredPlan: planId,
+      canPurchase: false
+    };
+  }
+
+  return {
+    hasAccess: false,
+    accessSource: null,
+    requiredPlan: resolveRequiredPlanForTemplate(template),
+    canPurchase: true
+  };
+};
+
+const normalizeTemplate = (template, context) => {
+  if (!template) return null;
+  const normalizedCategory = normalizeTemplateCategory(template);
+  const inclusion = applyInclusionFlags(template, normalizedCategory);
+  const price = resolveTemplatePrice(normalizedCategory);
+  const base = {
+    ...template,
+    category: normalizedCategory,
+    isPremium: normalizedCategory !== TEMPLATE_TIER.STANDARD && normalizedCategory !== TEMPLATE_TIER.CUSTOM,
+    price,
+    ...inclusion
+  };
+  const access = resolveTemplateAccess(base, context);
+  return {
+    ...base,
+    ...access
+  };
+};
+
 // Merge all templates
 export const allTemplates = {
   ...basicTemplates,
@@ -1007,51 +1308,52 @@ export const allTemplates = {
 
 // Get all available templates
 export const getAvailableTemplates = () => {
-  return Object.values(allTemplates).map(template => ({
-    ...template
-  }));
+  const context = resolveAccessContext();
+  return Object.values(allTemplates)
+    .map((template) => normalizeTemplate(template, context))
+    .filter(Boolean);
 };
 
 // Get template by ID
 export const getTemplateById = (templateId) => {
-  return allTemplates[templateId] || basicTemplates.standard;
+  const template = allTemplates[templateId] || basicTemplates.standard;
+  return normalizeTemplate(template, resolveAccessContext());
 };
 
-// Storage keys
-const TEMPLATE_STORAGE_KEY = 'invoice_templates';
-const USER_TEMPLATE_STORAGE_KEY = 'user_invoice_templates';
-const PREMIUM_ACCESS_KEY = 'premium_templates_access';
-const TEMPLATE_PURCHASES_KEY = 'template_purchases';
+// Normalize template data and access using local context
+export const enrichTemplateAccess = (template) => {
+  return normalizeTemplate(template, resolveAccessContext());
+};
 
 // Check premium access
 export const checkPremiumAccess = () => {
   try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const subscription = JSON.parse(localStorage.getItem('subscription') || '{}');
-    const premiumAccess = JSON.parse(localStorage.getItem(PREMIUM_ACCESS_KEY) || '{}');
-    
-    const isPremiumUser = user?.isPremium || subscription?.status === 'active';
-    const hasLifetimeAccess = premiumAccess?.type === 'lifetime';
-    const expirationDate = premiumAccess?.expiresAt || subscription?.expiresAt;
-    const isExpired = expirationDate ? new Date(expirationDate) < new Date() : false;
-    
+    const context = resolveAccessContext();
+    const planDef = getPlanDefinition(context.planId);
+    const hasPremium = planDef.templateCategories.includes(TEMPLATE_TIER.PREMIUM)
+      || planDef.templateCategories.includes(TEMPLATE_TIER.ELITE);
+
     return {
-      hasPremium: isPremiumUser || hasLifetimeAccess,
-      hasLifetimeAccess,
-      subscriptionType: subscription?.type || premiumAccess?.type,
-      expiresAt: expirationDate,
-      isExpired,
-      accessibleTemplates: premiumAccess?.templates || []
+      hasPremium,
+      planId: context.planId,
+      status: context.status,
+      isActive: context.isActive,
+      expiresAt: context.expiresAt,
+      hasBundle: context.hasBundle,
+      accessibleTemplates: Array.from(context.purchasedTemplateIds),
+      billingCycle: context.subscription?.billingCycle
     };
   } catch (error) {
     console.error('Error checking premium access:', error);
     return {
       hasPremium: false,
-      hasLifetimeAccess: false,
-      subscriptionType: null,
+      planId: 'starter',
+      status: 'inactive',
+      isActive: false,
       expiresAt: null,
-      isExpired: false,
-      accessibleTemplates: []
+      hasBundle: false,
+      accessibleTemplates: [],
+      billingCycle: null
     };
   }
 };
@@ -1061,22 +1363,8 @@ export const hasTemplateAccess = (templateId) => {
   try {
     const template = allTemplates[templateId];
     if (!template) return false;
-    
-    // Non-premium templates are always accessible
-    if (!template.isPremium) return true;
-    
-    const { hasPremium, accessibleTemplates } = checkPremiumAccess();
-    
-    // Check if user has premium subscription
-    if (hasPremium) return true;
-    
-    // Check if user has purchased this specific template
-    const purchases = JSON.parse(localStorage.getItem(TEMPLATE_PURCHASES_KEY) || '[]');
-    const hasPurchased = purchases.some(purchase => 
-      purchase.templateId === templateId && purchase.status === 'completed'
-    );
-    
-    return hasPurchased || accessibleTemplates.includes(templateId);
+    const normalized = normalizeTemplate(template, resolveAccessContext());
+    return Boolean(normalized?.hasAccess);
   } catch (error) {
     console.error('Error checking template access:', error);
     return false;
@@ -1086,26 +1374,33 @@ export const hasTemplateAccess = (templateId) => {
 // Purchase premium template
 export const purchaseTemplate = async (templateId, paymentMethod = 'stripe') => {
   try {
-    const template = premiumTemplates[templateId];
+    const context = resolveAccessContext();
+    const template = allTemplates[templateId];
     if (!template) {
       throw new Error('Template not found');
     }
-    
-    // Check if already purchased
-    if (hasTemplateAccess(templateId)) {
+
+    const normalized = normalizeTemplate(template, context);
+    if (normalized.category === TEMPLATE_TIER.CUSTOM) {
+      throw new Error('Custom templates cannot be purchased');
+    }
+
+    if (normalized.hasAccess) {
       throw new Error('You already have access to this template');
     }
     
     // In a real app, this would call your payment API
     const purchaseData = {
       templateId,
-      templateName: template.name,
-      price: template.price,
+      templateName: normalized.name,
+      category: normalized.category,
+      price: normalized.price,
       paymentMethod,
       purchasedAt: new Date().toISOString(),
       transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       status: 'completed',
       licenseType: 'single',
+      isLifetime: true,
       expiresAt: null // Lifetime access for individual purchases
     };
     
@@ -1121,6 +1416,7 @@ export const purchaseTemplate = async (templateId, paymentMethod = 'stripe') => 
       accessibleTemplates.push(templateId);
       premiumAccess.templates = accessibleTemplates;
       premiumAccess.lastUpdated = new Date().toISOString();
+      premiumAccess.type = premiumAccess.type || 'purchase';
       localStorage.setItem(PREMIUM_ACCESS_KEY, JSON.stringify(premiumAccess));
     }
     
@@ -1134,34 +1430,64 @@ export const purchaseTemplate = async (templateId, paymentMethod = 'stripe') => 
   }
 };
 
-// Purchase subscription (multiple templates)
-export const purchaseSubscription = async (planType) => {
+// Purchase all templates bundle
+export const purchaseTemplateBundle = async (paymentMethod = 'stripe') => {
   try {
-    const plans = {
-      pro: {
-        price: 19.99,
-        duration: 'monthly',
-        templates: Object.keys(premiumTemplates).slice(0, 8) // First 8 premium templates
-      },
-      enterprise: {
-        price: 49.99,
-        duration: 'monthly',
-        templates: Object.keys(premiumTemplates) // All premium templates
-      }
+    const purchases = JSON.parse(localStorage.getItem(TEMPLATE_PURCHASES_KEY) || '[]');
+    const hasBundle = purchases.some((purchase) => purchase?.templateId === TEMPLATE_BUNDLE_ID || purchase?.unlockAllTemplates);
+    if (hasBundle) {
+      throw new Error('You already have access to the template bundle');
+    }
+
+    const purchaseData = {
+      templateId: TEMPLATE_BUNDLE_ID,
+      templateName: 'All Templates Bundle',
+      price: TEMPLATE_BUNDLE_PRICE,
+      paymentMethod,
+      purchasedAt: new Date().toISOString(),
+      transactionId: `bundle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      status: 'completed',
+      unlockAllTemplates: true,
+      isLifetime: true
     };
-    
-    const plan = plans[planType];
+
+    purchases.push(purchaseData);
+    localStorage.setItem(TEMPLATE_PURCHASES_KEY, JSON.stringify(purchases));
+
+    const premiumAccess = JSON.parse(localStorage.getItem(PREMIUM_ACCESS_KEY) || '{}');
+    premiumAccess.type = 'lifetime';
+    premiumAccess.lastUpdated = new Date().toISOString();
+    localStorage.setItem(PREMIUM_ACCESS_KEY, JSON.stringify(premiumAccess));
+
+    return purchaseData;
+  } catch (error) {
+    console.error('Bundle purchase error:', error);
+    throw error;
+  }
+};
+
+// Purchase subscription (multiple templates)
+export const purchaseSubscription = async (planType, billingCycle = 'monthly') => {
+  try {
+    const planId = normalizePlanId(planType);
+    const plan = PLAN_DEFINITIONS[planId];
     if (!plan) {
       throw new Error('Invalid plan type');
     }
-    
+
+    const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
+    const price = cycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
+    const start = new Date();
+    const durationDays = cycle === 'yearly' ? 365 : 30;
+    const end = new Date(start.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
     const subscriptionData = {
-      plan: planType,
-      price: plan.price,
-      duration: plan.duration,
-      templates: plan.templates,
-      subscribedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+      plan: planId,
+      price,
+      billingCycle: cycle,
+      subscriptionStart: start.toISOString(),
+      subscriptionEnd: end.toISOString(),
+      expiresAt: end.toISOString(),
       transactionId: `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       status: 'active'
     };
@@ -1172,9 +1498,9 @@ export const purchaseSubscription = async (planType) => {
     // Update premium access
     const premiumAccess = {
       type: 'subscription',
-      plan: planType,
-      templates: plan.templates,
-      subscribedAt: subscriptionData.subscribedAt,
+      plan: planId,
+      templates: [],
+      subscribedAt: subscriptionData.subscriptionStart,
       expiresAt: subscriptionData.expiresAt,
       lastUpdated: new Date().toISOString()
     };
@@ -1231,33 +1557,34 @@ export const templateStorage = {
 
   // Get all templates including built-in and user templates
   getAllTemplates() {
-    const userTemplates = this.getTemplates();
-    const builtInTemplates = Object.values(allTemplates);
+    const context = resolveAccessContext();
+    const builtInTemplates = Object.values(allTemplates)
+      .map((template) => normalizeTemplate(template, context))
+      .filter(Boolean);
+    const userTemplates = this.getTemplates()
+      .map((template) => normalizeTemplate(template, context))
+      .filter(Boolean);
     return [...builtInTemplates, ...userTemplates];
   },
 
   // Get accessible templates based on user's plan
   getAccessibleTemplates() {
     const allTemplatesList = this.getAllTemplates();
-    const { hasPremium, accessibleTemplates } = checkPremiumAccess();
-    
-    return allTemplatesList.filter(template => {
-      if (!template.isPremium) return true; // Always show free templates
-      if (hasPremium) return true; // Show all if user has premium
-      return accessibleTemplates.includes(template.id); // Show only purchased
-    });
+    return allTemplatesList.filter(template => template.hasAccess);
   },
 
   // Get a specific template by ID
   getTemplate(templateId) {
+    const context = resolveAccessContext();
     // Check built-in templates first
     if (allTemplates[templateId]) {
-      return allTemplates[templateId];
+      return normalizeTemplate(allTemplates[templateId], context);
     }
     
     // Check user templates
     const userTemplates = this.getTemplates();
-    return userTemplates.find(t => t.id === templateId);
+    const match = userTemplates.find(t => t.id === templateId);
+    return normalizeTemplate(match, context);
   },
 
   // Save a new user template
@@ -1269,7 +1596,7 @@ export const templateStorage = {
       const completeTemplate = {
         ...templateData,
         id: templateData.id || `template_${Date.now()}`,
-        category: templateData.category || 'custom',
+        category: TEMPLATE_TIER.CUSTOM,
         isPremium: false, // User templates are never premium
         isDefault: false,
         isFavorite: false,
@@ -1286,7 +1613,7 @@ export const templateStorage = {
       // Record creation
       recordTemplateUsage(completeTemplate.id, 'create');
       
-      return completeTemplate;
+      return normalizeTemplate(completeTemplate, resolveAccessContext());
     } catch (error) {
       console.error('Error saving template:', error);
       throw error;
@@ -1395,17 +1722,19 @@ export const templateStorage = {
       if (userDefault) return userDefault;
       
       // Return built-in default
-      return Object.values(allTemplates).find(t => t.isDefault) || basicTemplates.standard;
+      const defaultTemplate = Object.values(allTemplates).find(t => t.isDefault) || basicTemplates.standard;
+      return normalizeTemplate(defaultTemplate, resolveAccessContext());
     } catch (error) {
       console.error('Error getting default template:', error);
-      return basicTemplates.standard;
+      return normalizeTemplate(basicTemplates.standard, resolveAccessContext());
     }
   },
 
   // Get templates by category
   getTemplatesByCategory(category) {
     const allTemplates = this.getAllTemplates();
-    return allTemplates.filter(t => t.category === category);
+    const normalizedCategory = String(category || '').trim().toUpperCase();
+    return allTemplates.filter(t => t.category === normalizedCategory);
   },
 
   // Get favorite templates
@@ -1413,22 +1742,21 @@ export const templateStorage = {
     const allTemplates = this.getAllTemplates();
     const favoriteIds = JSON.parse(localStorage.getItem('template_favorites') || '{}');
     
-    return allTemplates.filter(template => {
-      if (allTemplates[template.id]) {
-        return favoriteIds[template.id] === true;
-      }
-      return template.isFavorite;
-    });
+    return allTemplates.filter(template =>
+      (favoriteIds[template.id] ?? template.isFavorite) === true
+    );
   },
 
   // Get premium templates
   getPremiumTemplates() {
-    return Object.values(premiumTemplates);
+    return this.getAllTemplates().filter((template) =>
+      template.category === TEMPLATE_TIER.PREMIUM || template.category === TEMPLATE_TIER.ELITE
+    );
   },
 
   // Get basic (free) templates
   getBasicTemplates() {
-    return Object.values(basicTemplates);
+    return this.getAllTemplates().filter((template) => template.category === TEMPLATE_TIER.STANDARD);
   },
 
   // Search templates
@@ -1454,7 +1782,7 @@ export const templateStorage = {
       const templatesWithIds = newTemplates.map(template => ({
         ...template,
         id: template.id || `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        category: template.category || 'custom',
+        category: template.category || TEMPLATE_TIER.CUSTOM,
         isPremium: false,
         createdAt: template.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -1483,8 +1811,13 @@ export const templateStorage = {
 
   // Get template statistics
   getTemplateStats() {
-    const userTemplates = this.getTemplates();
-    const builtInTemplates = Object.values(allTemplates);
+    const context = resolveAccessContext();
+    const builtInTemplates = Object.values(allTemplates)
+      .map((template) => normalizeTemplate(template, context))
+      .filter(Boolean);
+    const userTemplates = this.getTemplates()
+      .map((template) => normalizeTemplate(template, context))
+      .filter(Boolean);
     const allTemplatesList = [...builtInTemplates, ...userTemplates];
     
     const stats = {
@@ -1492,8 +1825,9 @@ export const templateStorage = {
       builtIn: builtInTemplates.length,
       userCreated: userTemplates.length,
       favorites: this.getFavoriteTemplates().length,
-      premium: builtInTemplates.filter(t => t.isPremium).length,
-      accessiblePremium: builtInTemplates.filter(t => t.isPremium && hasTemplateAccess(t.id)).length,
+      premium: builtInTemplates.filter(t => t.category === TEMPLATE_TIER.PREMIUM || t.category === TEMPLATE_TIER.ELITE).length,
+      accessiblePremium: builtInTemplates.filter(t => (t.category === TEMPLATE_TIER.PREMIUM || t.category === TEMPLATE_TIER.ELITE) && t.hasAccess).length,
+      locked: builtInTemplates.filter(t => !t.hasAccess).length,
       byCategory: allTemplatesList.reduce((acc, template) => {
         acc[template.category] = (acc[template.category] || 0) + 1;
         return acc;
@@ -1692,7 +2026,7 @@ export const createTemplateFromInvoice = (invoiceData, templateName) => {
     id: `template_${Date.now()}`,
     name: templateName || `Template from ${invoiceData.invoiceNumber}`,
     description: 'Custom template created from invoice',
-    category: 'custom',
+    category: TEMPLATE_TIER.CUSTOM,
     isPremium: false,
     isDefault: false,
     isFavorite: false,
@@ -1715,6 +2049,13 @@ export const createTemplateFromInvoice = (invoiceData, templateName) => {
     updatedAt: new Date().toISOString(),
     features: ['Created from Invoice', 'Custom Layout', 'User Defined']
   };
+};
+
+export {
+  TEMPLATE_BUNDLE_ID,
+  TEMPLATE_BUNDLE_PRICE,
+  TEMPLATE_TIER,
+  PLAN_DEFINITIONS
 };
 
 // Default export

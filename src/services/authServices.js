@@ -22,7 +22,7 @@ function initAdmin() {
       country: "United States",
       currencyCode: "USD",
       currencySymbol: "$",
-      role: "admin",
+      role: "super_admin",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -119,7 +119,7 @@ export function isAuthenticated() {
 // Check if user is admin
 export function isAdmin() {
   const user = getCurrentUser();
-  return user && user.role === "admin";
+  return user && (user.role === "admin" || user.role === "super_admin");
 }
 
 // Update user profile
@@ -182,7 +182,7 @@ export function getInvoices() {
     const invoices = JSON.parse(localStorage.getItem(INVOICES_KEY)) || [];
     
     // Filter invoices by user (admin sees all)
-    if (currentUser.role === "admin") {
+    if (currentUser.role === "admin" || currentUser.role === "super_admin") {
       return invoices;
     }
     
@@ -239,7 +239,11 @@ export function updateInvoice(invoiceId, updates) {
 
     // Check permissions (admin or owner)
     const invoice = invoices[invoiceIndex];
-    if (currentUser.role !== "admin" && invoice.userId !== currentUser.id) {
+    if (
+      currentUser.role !== "admin" &&
+      currentUser.role !== "super_admin" &&
+      invoice.userId !== currentUser.id
+    ) {
       return { success: false, message: "Unauthorized" };
     }
 
@@ -275,7 +279,11 @@ export function deleteInvoice(invoiceId) {
 
     // Check permissions (admin or owner)
     const invoice = invoices[invoiceIndex];
-    if (currentUser.role !== "admin" && invoice.userId !== currentUser.id) {
+    if (
+      currentUser.role !== "admin" &&
+      currentUser.role !== "super_admin" &&
+      invoice.userId !== currentUser.id
+    ) {
       return { success: false, message: "Unauthorized" };
     }
 
@@ -305,7 +313,11 @@ export function getInvoiceById(invoiceId) {
     }
 
     // Check permissions (admin or owner)
-    if (currentUser.role !== "admin" && invoice.userId !== currentUser.id) {
+    if (
+      currentUser.role !== "admin" &&
+      currentUser.role !== "super_admin" &&
+      invoice.userId !== currentUser.id
+    ) {
       return null;
     }
 

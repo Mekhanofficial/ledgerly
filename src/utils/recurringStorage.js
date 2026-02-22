@@ -1,10 +1,35 @@
 // src/utils/recurringStorage.js
+const STORAGE_PREFIX = 'ledgerly_recurring';
+
+const resolveUserId = (explicitUserId) => {
+  if (explicitUserId) return explicitUserId;
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    return user?.id || user?._id || null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const getStorageKey = (userId) => (userId ? `${STORAGE_PREFIX}_${userId}` : STORAGE_PREFIX);
+
+const readInvoices = (userId) => {
+  const storageKey = getStorageKey(userId);
+  return JSON.parse(localStorage.getItem(storageKey) || '[]');
+};
+
+const writeInvoices = (userId, invoices) => {
+  const storageKey = getStorageKey(userId);
+  localStorage.setItem(storageKey, JSON.stringify(invoices));
+};
+
 export const recurringStorage = {
   // Get all recurring invoices
-  getRecurringInvoices: () => {
+  getRecurringInvoices: (userId = null) => {
     try {
-      const invoices = JSON.parse(localStorage.getItem('ledgerly_recurring')) || [];
-      return invoices;
+      const resolvedUserId = resolveUserId(userId);
+      const invoices = readInvoices(resolvedUserId);
+      return Array.isArray(invoices) ? invoices : [];
     } catch (error) {
       console.error('Error getting recurring invoices:', error);
       return [];
@@ -12,9 +37,10 @@ export const recurringStorage = {
   },
 
   // Save a recurring invoice
-  saveRecurring: (invoice) => {
+  saveRecurring: (invoice, userId = null) => {
     try {
-      const invoices = recurringStorage.getRecurringInvoices();
+      const resolvedUserId = resolveUserId(userId);
+      const invoices = recurringStorage.getRecurringInvoices(resolvedUserId);
       const existingIndex = invoices.findIndex(inv => inv.id === invoice.id);
       
       if (existingIndex >= 0) {
@@ -23,7 +49,7 @@ export const recurringStorage = {
         invoices.push(invoice);
       }
       
-      localStorage.setItem('ledgerly_recurring', JSON.stringify(invoices));
+      writeInvoices(resolvedUserId, invoices);
       return invoice;
     } catch (error) {
       console.error('Error saving recurring invoice:', error);
@@ -32,14 +58,15 @@ export const recurringStorage = {
   },
 
   // Update a recurring invoice
-  updateRecurring: (id, updates) => {
+  updateRecurring: (id, updates, userId = null) => {
     try {
-      const invoices = recurringStorage.getRecurringInvoices();
+      const resolvedUserId = resolveUserId(userId);
+      const invoices = recurringStorage.getRecurringInvoices(resolvedUserId);
       const invoiceIndex = invoices.findIndex(inv => inv.id === id);
       
       if (invoiceIndex >= 0) {
         invoices[invoiceIndex] = { ...invoices[invoiceIndex], ...updates };
-        localStorage.setItem('ledgerly_recurring', JSON.stringify(invoices));
+        writeInvoices(resolvedUserId, invoices);
         return invoices[invoiceIndex];
       }
       return null;
@@ -50,14 +77,15 @@ export const recurringStorage = {
   },
 
   // Delete a recurring invoice
-  deleteRecurring: (id) => {
+  deleteRecurring: (id, userId = null) => {
     try {
-      let invoices = recurringStorage.getRecurringInvoices();
+      const resolvedUserId = resolveUserId(userId);
+      let invoices = recurringStorage.getRecurringInvoices(resolvedUserId);
       const invoiceToDelete = invoices.find(inv => inv.id === id);
       
       if (invoiceToDelete) {
         invoices = invoices.filter(inv => inv.id !== id);
-        localStorage.setItem('ledgerly_recurring', JSON.stringify(invoices));
+        writeInvoices(resolvedUserId, invoices);
         return invoiceToDelete;
       }
       return null;
@@ -68,14 +96,15 @@ export const recurringStorage = {
   },
 
   // Delete multiple recurring invoices
-  deleteMultipleRecurring: (ids) => {
+  deleteMultipleRecurring: (ids, userId = null) => {
     try {
-      let invoices = recurringStorage.getRecurringInvoices();
+      const resolvedUserId = resolveUserId(userId);
+      let invoices = recurringStorage.getRecurringInvoices(resolvedUserId);
       const deletedInvoices = invoices.filter(inv => ids.includes(inv.id));
       
       if (deletedInvoices.length > 0) {
         invoices = invoices.filter(inv => !ids.includes(inv.id));
-        localStorage.setItem('ledgerly_recurring', JSON.stringify(invoices));
+        writeInvoices(resolvedUserId, invoices);
         return deletedInvoices;
       }
       return [];
@@ -86,10 +115,12 @@ export const recurringStorage = {
   },
 
   // Delete ALL recurring invoices
-  deleteAllRecurring: () => {
+  deleteAllRecurring: (userId = null) => {
     try {
-      const allInvoices = recurringStorage.getRecurringInvoices();
-      localStorage.removeItem('ledgerly_recurring');
+      const resolvedUserId = resolveUserId(userId);
+      const allInvoices = recurringStorage.getRecurringInvoices(resolvedUserId);
+      const storageKey = getStorageKey(resolvedUserId);
+      localStorage.removeItem(storageKey);
       return allInvoices;
     } catch (error) {
       console.error('Error deleting all recurring invoices:', error);
@@ -98,24 +129,24 @@ export const recurringStorage = {
   },
 
   // Pause a recurring invoice
-  pauseRecurring: (id) => {
-    return recurringStorage.updateRecurring(id, { status: 'paused' });
+  pauseRecurring: (id, userId = null) => {
+    return recurringStorage.updateRecurring(id, { status: 'paused' }, userId);
   },
 
   // Resume a recurring invoice
-  resumeRecurring: (id) => {
-    return recurringStorage.updateRecurring(id, { status: 'active' });
+  resumeRecurring: (id, userId = null) => {
+    return recurringStorage.updateRecurring(id, { status: 'active' }, userId);
   },
 
   // Get active recurring invoices
-  getActiveRecurring: () => {
-    const invoices = recurringStorage.getRecurringInvoices();
+  getActiveRecurring: (userId = null) => {
+    const invoices = recurringStorage.getRecurringInvoices(userId);
     return invoices.filter(inv => inv.status === 'active');
   },
 
   // Get recurring invoices by customer
-  getRecurringByCustomer: (customerId) => {
-    const invoices = recurringStorage.getRecurringInvoices();
+  getRecurringByCustomer: (customerId, userId = null) => {
+    const invoices = recurringStorage.getRecurringInvoices(userId);
     return invoices.filter(inv => inv.customerId === customerId);
   }
 };

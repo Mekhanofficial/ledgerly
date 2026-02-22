@@ -10,6 +10,7 @@ import React, {
 import { useDispatch, useSelector } from 'react-redux';
 import { useToast } from './ToastContext';
 import { useNotifications } from './NotificationContext';
+import { useAccount } from './AccountContext';
 import api from '../services/api';
 import {
   fetchProducts,
@@ -20,6 +21,8 @@ import {
   fetchStockAdjustments
 } from '../store/slices/productSlide';
 import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter';
+import { getAdjustmentTimestamp } from '../utils/adjustmentDate';
+import { formatCurrency } from '../utils/currency';
 
 export const InventoryContext = createContext();
 
@@ -34,9 +37,22 @@ export const useInventory = () => {
 export const InventoryProvider = ({ children }) => {
   const { addToast } = useToast();
   const { addNotification } = useNotifications();
+  const { accountInfo } = useAccount();
   const dispatch = useDispatch();
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  const authUser = useSelector((state) => state.auth?.user);
   const { products: rawProducts, stockAdjustments: storeAdjustments } = useSelector((state) => state.products);
+  const normalizedRole = String(authUser?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const canAccessInventory = ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
+  const canAccessStockAdjustments = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = useCallback(
+    (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency),
+    [baseCurrency]
+  );
   
   // State - EMPTY BY DEFAULT
   const products = useMemo(() => {
@@ -48,28 +64,86 @@ export const InventoryProvider = ({ children }) => {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const normalizeListPayload = useCallback((payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.data?.data)) return payload.data.data;
+    if (Array.isArray(payload?.items)) return payload.items;
+    return [];
+  }, []);
+
+  const fetchAllPages = useCallback(async (path, params = {}, pageSize = 200) => {
+    const limit = params.limit ?? pageSize;
+    let page = params.page ?? 1;
+    let combined = [];
+    let resolvedPages = 1;
+    let lastPayload = null;
+
+    for (let guard = 0; guard < 200; guard += 1) {
+      const response = await api.get(path, { params: { ...params, page, limit } });
+      const payload = response.data;
+      lastPayload = payload;
+      const data = normalizeListPayload(payload);
+      combined = combined.concat(data);
+
+      const hasPagination = payload?.pages !== undefined || payload?.total !== undefined;
+      if (!hasPagination) {
+        return data;
+      }
+
+      resolvedPages = payload?.pages ?? Math.ceil((payload?.total ?? combined.length) / limit);
+      if (data.length === 0 || page >= resolvedPages) {
+        return combined;
+      }
+      page += 1;
+    }
+
+    return combined;
+  }, [normalizeListPayload]);
+
+  const normalizeCategory = useCallback((category = {}) => {
+    if (!category || typeof category !== 'object') return category;
+    const id = category.id || category._id || category.value || category.categoryId || '';
+    return {
+      ...category,
+      id
+    };
+  }, []);
+
   const loadCategories = useCallback(async () => {
+    if (!canAccessInventory) {
+      setCategories([]);
+      return;
+    }
     try {
-      const response = await api.get('/categories');
-      setCategories(response.data.data || []);
+      const data = await fetchAllPages('/categories', { limit: 200 }, 200);
+      setCategories(Array.isArray(data) ? data.map(normalizeCategory) : []);
     } catch (error) {
       console.error('Error loading categories:', error);
-      addToast('Failed to load categories', 'error');
+      if (![401, 403].includes(error?.response?.status)) {
+        addToast('Failed to load categories', 'error');
+      }
     }
-  }, [addToast]);
+  }, [addToast, normalizeCategory, canAccessInventory, fetchAllPages]);
 
   const loadSuppliers = useCallback(async () => {
+    if (!canAccessInventory) {
+      setSuppliers([]);
+      return;
+    }
     try {
-      const response = await api.get('/suppliers');
-      setSuppliers(response.data.data || []);
+      const data = await fetchAllPages('/suppliers', { limit: 200 }, 200);
+      setSuppliers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading suppliers:', error);
-      addToast('Failed to load suppliers', 'error');
+      if (![401, 403].includes(error?.response?.status)) {
+        addToast('Failed to load suppliers', 'error');
+      }
     }
-  }, [addToast]);
+  }, [addToast, canAccessInventory, fetchAllPages]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !canAccessInventory) {
       setLoading(false);
       setCategories([]);
       setSuppliers([]);
@@ -79,12 +153,17 @@ export const InventoryProvider = ({ children }) => {
     const initialize = async () => {
       setLoading(true);
       try {
-        await Promise.all([
+        const initialLoads = [
           dispatch(fetchProducts({ isActive: true })),
-          dispatch(fetchStockAdjustments({ limit: 200 })),
           loadCategories(),
           loadSuppliers()
-        ]);
+        ];
+
+        if (canAccessStockAdjustments) {
+          initialLoads.push(dispatch(fetchStockAdjustments({ limit: 200 })));
+        }
+
+        await Promise.all(initialLoads);
       } catch (error) {
         console.error('Error initializing inventory state:', error);
         addToast('Error loading inventory data', 'error');
@@ -94,7 +173,7 @@ export const InventoryProvider = ({ children }) => {
     };
 
     initialize();
-  }, [dispatch, loadCategories, loadSuppliers, addToast, isAuthenticated]);
+  }, [dispatch, loadCategories, loadSuppliers, addToast, isAuthenticated, canAccessInventory, canAccessStockAdjustments]);
 
   // Helper function to parse numeric values safely
   const parseNumber = (value, defaultValue = 0) => {
@@ -176,7 +255,7 @@ export const InventoryProvider = ({ children }) => {
         type: 'inventory',
         title: 'New Product Added',
         description: `${newProduct.name} (${newProduct.sku})`,
-        details: `Quantity: ${newProduct.stock} | Price: $${newProduct.price}`,
+        details: `Quantity: ${newProduct.stock} | Price: ${formatMoney(newProduct.price, baseCurrency)}`,
         time: 'Just now',
         action: 'View Product',
         color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
@@ -250,7 +329,7 @@ export const InventoryProvider = ({ children }) => {
     
     setCategories(prevCategories => 
       prevCategories.map(cat => {
-        if (cat.id === categoryId) {
+        if (cat.id === categoryId || cat._id === categoryId) {
           const newCount = Math.max(0, (cat.productCount || 0) + change);
           return {
             ...cat,
@@ -286,7 +365,7 @@ export const InventoryProvider = ({ children }) => {
   const addCategory = async (categoryData) => {
     try {
       const response = await api.post('/categories', categoryData);
-      const newCategory = response.data.data;
+      const newCategory = normalizeCategory(response.data.data);
       setCategories(prev => [newCategory, ...prev]);
       addToast(`Category "${newCategory.name}" created successfully!`, 'success');
       addNotification({
@@ -313,8 +392,12 @@ export const InventoryProvider = ({ children }) => {
   const updateCategory = async (id, updates) => {
     try {
       const response = await api.put(`/categories/${id}`, updates);
-      const updatedCategory = response.data.data;
-      setCategories(prev => prev.map(cat => (cat._id === updatedCategory._id ? updatedCategory : cat)));
+      const updatedCategory = normalizeCategory(response.data.data);
+      setCategories(prev => prev.map(cat => {
+        const catId = cat?.id || cat?._id;
+        const updatedId = updatedCategory?.id || updatedCategory?._id;
+        return catId === updatedId ? updatedCategory : cat;
+      }));
       addToast('Category updated successfully!', 'success');
       await loadCategories();
       return updatedCategory;
@@ -335,7 +418,7 @@ export const InventoryProvider = ({ children }) => {
       }
 
       await api.delete(`/categories/${id}`);
-      setCategories(prev => prev.filter(c => c._id !== id));
+      setCategories(prev => prev.filter(c => (c.id || c._id) !== id));
       addToast('Category deleted successfully!', 'success');
       await loadCategories();
       return true;
@@ -349,6 +432,9 @@ export const InventoryProvider = ({ children }) => {
   // Add stock adjustment
   const addStockAdjustment = async (adjustmentData) => {
     try {
+      if (!canAccessStockAdjustments) {
+        return null;
+      }
       const payload = {
         id: adjustmentData.productId,
         quantity: adjustmentData.quantity,
@@ -361,7 +447,9 @@ export const InventoryProvider = ({ children }) => {
       };
 
       const result = await dispatch(adjustStockThunk(payload)).unwrap();
-      await dispatch(fetchStockAdjustments({ limit: 200 }));
+      if (canAccessStockAdjustments) {
+        await dispatch(fetchStockAdjustments({ limit: 200 }));
+      }
 
       const product = result.product;
       const newStock = result.transaction?.newStock ?? product?.stock ?? 0;
@@ -402,8 +490,9 @@ export const InventoryProvider = ({ children }) => {
       name: product.name,
       price: parseNumber(product.price),
       sku: product.sku,
-      category: product.categoryId ? 
-        categories.find(c => c.id === product.categoryId)?.name : 'Uncategorized',
+      category: product.categoryId
+        ? categories.find(c => (c.id || c._id) === product.categoryId)?.name
+        : 'Uncategorized',
       stock: parseNumber(product.quantity),
       status: product.status,
       image: product.image,
@@ -451,7 +540,7 @@ export const InventoryProvider = ({ children }) => {
         }
       }
 
-      if (adjustments.length > 0) {
+      if (adjustments.length > 0 && canAccessStockAdjustments) {
         await dispatch(fetchStockAdjustments({ limit: 200 }));
         addNotification({
           type: 'inventory',
@@ -501,7 +590,7 @@ export const InventoryProvider = ({ children }) => {
     
     // Get recent adjustments
     const recentAdjustments = [...stockAdjustments]
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .sort((a, b) => getAdjustmentTimestamp(b) - getAdjustmentTimestamp(a))
       .slice(0, 5);
     
     return {
@@ -552,7 +641,9 @@ export const InventoryProvider = ({ children }) => {
       setCategories([]);
       setSuppliers([]);
       dispatch(fetchProducts({ isActive: true }));
-      dispatch(fetchStockAdjustments({ limit: 0 }));
+      if (canAccessStockAdjustments) {
+        dispatch(fetchStockAdjustments({ limit: 0 }));
+      }
       addToast('All inventory data cleared', 'success');
     }
   };
@@ -564,7 +655,9 @@ export const InventoryProvider = ({ children }) => {
       setCategories([]);
       setSuppliers([]);
       dispatch(fetchProducts({ isActive: true }));
-      dispatch(fetchStockAdjustments({ limit: 100 }));
+      if (canAccessStockAdjustments) {
+        dispatch(fetchStockAdjustments({ limit: 100 }));
+      }
       
       addToast('Inventory state reset successfully', 'success');
     } catch (error) {

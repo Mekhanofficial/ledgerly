@@ -6,7 +6,7 @@ const TemplateStats = ({ templates = [] }) => {
   const { isDarkMode } = useTheme();
   
   const defaultTemplate = templates.find(t => t.isDefault);
-  const customTemplates = templates.filter(t => t.category === 'custom');
+  const customTemplates = templates.filter(t => t.category === 'CUSTOM');
   const favoriteTemplates = templates.filter(t => t.isFavorite);
   
   const stats = [

@@ -5,12 +5,17 @@ import { useTheme } from '../../context/ThemeContext';
 import { usePayments } from '../../context/PaymentContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useToast } from '../../context/ToastContext';
+import { useAccount } from '../../context/AccountContext';
+import { formatCurrency, getCurrencySymbol } from '../../utils/currency';
 
 const PaymentProcessingModal = ({ isOpen, onClose, invoice = null }) => {
   const { isDarkMode } = useTheme();
   const { paymentMethods, processPayment } = usePayments();
   const { invoices } = useInvoice();
   const { addToast } = useToast();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
   
   const [selectedMethod, setSelectedMethod] = useState('');
   const [amount, setAmount] = useState(0);
@@ -111,6 +116,8 @@ const PaymentProcessingModal = ({ isOpen, onClose, invoice = null }) => {
   };
 
   const selectedInvoice = invoice || invoices[0];
+  const invoiceCurrency = selectedInvoice?.currency || baseCurrency;
+  const currencySymbol = getCurrencySymbol(invoiceCurrency);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -159,7 +166,7 @@ const PaymentProcessingModal = ({ isOpen, onClose, invoice = null }) => {
                       </div>
                       <div className="text-right">
                         <div className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                          ${(selectedInvoice.totalAmount || selectedInvoice.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          {formatMoney(selectedInvoice.totalAmount || selectedInvoice.amount || 0, invoiceCurrency)}
                         </div>
                         <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                           Total due
@@ -174,8 +181,10 @@ const PaymentProcessingModal = ({ isOpen, onClose, invoice = null }) => {
                   <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     Payment Amount
                   </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                      {currencySymbol}
+                    </span>
                     <input
                       type="number"
                       value={amount}
@@ -309,7 +318,7 @@ const PaymentProcessingModal = ({ isOpen, onClose, invoice = null }) => {
                 Payment Successful!
               </h3>
               <p className={`text-sm mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Payment of ${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} has been processed successfully.
+                Payment of {formatMoney(amount, invoiceCurrency)} has been processed successfully.
               </p>
               <div className={`text-xs p-3 rounded-lg ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
                 You will be redirected shortly...

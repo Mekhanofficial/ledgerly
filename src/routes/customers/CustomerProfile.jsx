@@ -9,15 +9,20 @@ import {
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
+import { useAccount } from '../../context/AccountContext';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchCustomerById, updateCustomer as updateCustomerThunk, deleteCustomer as deleteCustomerThunk } from '../../store/slices/customerSlice';
 import { fetchInvoices } from '../../store/slices/invoiceSlice';
 import { buildCustomerPayload, mapCustomerFromApi } from '../../utils/customerAdapter';
+import { formatCurrency } from '../../utils/currency';
 
 const CustomerProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
   const { addToast } = useToast();
   const dispatch = useDispatch();
   const { currentCustomer, loading: customerLoading, error: customerError } = useSelector((state) => state.customers);
@@ -314,7 +319,9 @@ const CustomerProfile = () => {
                     ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
                     : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
                 }`}>
-                  {customer.outstanding === 0 ? 'No Balance' : `$${customer.outstanding.toLocaleString()} Outstanding`}
+                  {customer.outstanding === 0
+                    ? 'No Balance'
+                    : `${formatMoney(customer.outstanding, baseCurrency)} Outstanding`}
                 </div>
               </div>
 
@@ -353,7 +360,7 @@ const CustomerProfile = () => {
                     <div className="flex items-center justify-between">
                       <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Total Spent:</span>
                       <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        ${customer.totalSpent?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
+                        {formatMoney(customer.totalSpent || 0, baseCurrency)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -449,7 +456,7 @@ const CustomerProfile = () => {
                             <div className={`text-sm font-semibold ${
                               isDarkMode ? 'text-white' : 'text-gray-900'
                             }`}>
-                              ${(invoice.totalAmount || invoice.amount || invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              {formatMoney(invoice.totalAmount || invoice.amount || invoice.total || 0, invoice.currency || baseCurrency)}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -526,7 +533,7 @@ const CustomerProfile = () => {
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Total Value</span>
                   </div>
                   <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    ${stats.totalAmount?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
+                    {formatMoney(stats.totalAmount || 0, baseCurrency)}
                   </span>
                 </div>
                 
@@ -536,7 +543,7 @@ const CustomerProfile = () => {
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Paid Amount</span>
                   </div>
                   <span className={`font-bold text-emerald-600 dark:text-emerald-400`}>
-                    ${stats.paidAmount?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
+                    {formatMoney(stats.paidAmount || 0, baseCurrency)}
                   </span>
                 </div>
                 
@@ -546,7 +553,7 @@ const CustomerProfile = () => {
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Pending Amount</span>
                   </div>
                   <span className={`font-bold text-amber-600 dark:text-amber-400`}>
-                    ${stats.pendingAmount?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
+                    {formatMoney(stats.pendingAmount || 0, baseCurrency)}
                   </span>
                 </div>
                 
@@ -556,7 +563,7 @@ const CustomerProfile = () => {
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Overdue Amount</span>
                   </div>
                   <span className={`font-bold text-red-600 dark:text-red-400`}>
-                    ${stats.overdueAmount?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
+                    {formatMoney(stats.overdueAmount || 0, baseCurrency)}
                   </span>
                 </div>
                 
@@ -566,7 +573,7 @@ const CustomerProfile = () => {
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Avg Invoice Value</span>
                   </div>
                   <span className={`font-bold text-primary-600 dark:text-primary-400`}>
-                    ${stats.avgInvoiceValue?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
+                    {formatMoney(stats.avgInvoiceValue || 0, baseCurrency)}
                   </span>
                 </div>
               </div>

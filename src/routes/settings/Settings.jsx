@@ -1,16 +1,41 @@
-import React, { useState } from 'react';
-import { Settings as SettingsIcon, Save } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Save } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
-import SettingsSidebar from '../../components/settings/SettingsSidebar';
 import AccountSettings from '../../components/settings/AccountSettings';
 import NotificationSettings from '../../components/settings/NotificationSettings';
+import BillingSettings from '../../components/settings/BillingSettings';
 import { useTheme } from '../../context/ThemeContext';
 import TeamManagementPanel from '../../components/team/TeamManagementPanel';
 
+const SETTINGS_SECTIONS = [
+  { id: 'account', label: 'Account' },
+  { id: 'security', label: 'Security' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'billing', label: 'Billing & Plan' },
+  { id: 'team', label: 'Team' },
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'data', label: 'Data & Privacy' },
+  { id: 'integrations', label: 'Integrations' }
+];
+
+const SETTINGS_SECTION_IDS = new Set(SETTINGS_SECTIONS.map((section) => section.id));
+
 const Settings = () => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, toggleTheme, setTheme } = useTheme();
+  const location = useLocation();
   const [activeSection, setActiveSection] = useState('account');
   const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const section = params.get('section');
+    if (!section) return;
+    const normalized = section.trim().toLowerCase();
+    if (SETTINGS_SECTION_IDS.has(normalized)) {
+      setActiveSection(normalized);
+    }
+  }, [location.search]);
 
   const renderSection = () => {
     switch (activeSection) {
@@ -55,25 +80,6 @@ const Settings = () => {
     </div>
   );
 
-  const BillingSettings = () => (
-    <div className={`border rounded-xl p-6 ${
-      isDarkMode 
-        ? 'bg-gray-800 border-gray-700' 
-        : 'bg-white border-gray-200'
-    }`}>
-      <h3 className={`text-lg font-semibold ${
-        isDarkMode ? 'text-white' : 'text-gray-900'
-      }`}>
-        Billing & Plan
-      </h3>
-      <p className={`mt-1 ${
-        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-      }`}>
-        Manage subscription, payment methods, and invoices
-      </p>
-    </div>
-  );
-
   const TeamSettings = () => <TeamManagementPanel />;
 
   const AppearanceSettings = () => (
@@ -82,16 +88,85 @@ const Settings = () => {
         ? 'bg-gray-800 border-gray-700' 
         : 'bg-white border-gray-200'
     }`}>
-      <h3 className={`text-lg font-semibold ${
-        isDarkMode ? 'text-white' : 'text-gray-900'
-      }`}>
-        Appearance
-      </h3>
-      <p className={`mt-1 ${
-        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-      }`}>
-        Customize theme, colors, and layout
-      </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h3 className={`text-lg font-semibold ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            Appearance
+          </h3>
+          <p className={`mt-1 ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            Customize theme, colors, and layout
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTheme('light')}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${
+              !isDarkMode
+                ? 'bg-primary-600 text-white border-primary-600'
+                : isDarkMode
+                  ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                  : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            Light
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme('dark')}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${
+              isDarkMode
+                ? 'bg-primary-600 text-white border-primary-600'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            Dark
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+              Dark mode
+            </div>
+            <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Toggle the overall interface theme
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isDarkMode}
+            onClick={toggleTheme}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              isDarkMode ? 'bg-primary-600' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isDarkMode ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className={`border rounded-lg p-4 ${
+          isDarkMode ? 'border-gray-700 bg-gray-900/30' : 'border-gray-200 bg-gray-50'
+        }`}>
+          <div className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+            Colors & layout
+          </div>
+          <div className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            Additional color themes and layout controls are coming soon.
+          </div>
+        </div>
+      </div>
     </div>
   );
 
@@ -160,17 +235,39 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <SettingsSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+        {/* Top Tabs */}
+        <div className={`border rounded-xl p-2 ${
+          isDarkMode
+            ? 'bg-gray-800 border-gray-700'
+            : 'bg-white border-gray-200'
+        }`}>
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {SETTINGS_SECTIONS.map((section) => {
+              const isActive = activeSection === section.id;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveSection(section.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                    isActive
+                      ? 'bg-primary-600 text-white'
+                      : isDarkMode
+                        ? 'text-gray-300 hover:bg-gray-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  {section.label}
+                </button>
+              );
+            })}
           </div>
+        </div>
 
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {renderSection()}
-          </div>
+        {/* Main Content */}
+        <div>
+          {renderSection()}
         </div>
 
         {/* System Info */}

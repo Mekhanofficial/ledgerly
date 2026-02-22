@@ -2,7 +2,8 @@ import React, { createContext, useState, useContext, useEffect, useCallback, use
 import { useDispatch, useSelector } from 'react-redux';
 import { useToast } from './ToastContext';
 import { useNotifications } from './NotificationContext';
-import templateStorage, { hasTemplateAccess } from '../utils/templateStorage';
+import { useAccount } from './AccountContext';
+import templateStorage, { enrichTemplateAccess, ensureTemplateAccessOwner } from '../utils/templateStorage';
 import { fetchTemplates } from '../services/templateService';
 import {
   fetchInvoices,
@@ -29,6 +30,7 @@ import { mapCustomerFromApi, buildCustomerPayload } from '../utils/customerAdapt
 import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter';
 import { draftStorage } from '../utils/draftStorage';
 import { recurringStorage } from '../utils/recurringStorage';
+import { formatCurrency } from '../utils/currency';
 
 const dedupeTemplates = (templates = []) => {
   const map = new Map();
@@ -53,11 +55,26 @@ export const useInvoice = () => {
 export const InvoiceProvider = ({ children }) => {
   const { addToast } = useToast();
   const { addNotification } = useNotifications();
+  const { accountInfo } = useAccount();
   const dispatch = useDispatch();
   const { invoices: rawInvoices, loading: invoicesLoading } = useSelector((state) => state.invoices);
   const { customers: rawCustomers } = useSelector((state) => state.customers);
   const { products: rawProducts } = useSelector((state) => state.products);
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  const authUser = useSelector((state) => state.auth?.user);
+  const recurringUserId = useMemo(() => authUser?.id || authUser?._id || null, [authUser]);
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = useCallback(
+    (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency),
+    [baseCurrency]
+  );
+
+  useEffect(() => {
+    const ownerId = authUser?.id || authUser?._id;
+    if (ownerId) {
+      ensureTemplateAccessOwner(ownerId);
+    }
+  }, [authUser]);
 
   const invoices = useMemo(() => {
     const source = Array.isArray(rawInvoices) ? rawInvoices : [];
@@ -72,6 +89,26 @@ export const InvoiceProvider = ({ children }) => {
     return source.map((product) => mapProductFromApi(product));
   }, [rawProducts]);
 
+  const normalizedRole = useMemo(() => {
+    return String(authUser?.role || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_');
+  }, [authUser]);
+
+  const canRecordPayment = useMemo(() => {
+    return ['admin', 'accountant', 'client', 'super_admin'].includes(normalizedRole);
+  }, [normalizedRole]);
+  const canAccessCustomers = useMemo(() => {
+    return ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
+  }, [normalizedRole]);
+  const canAccessProducts = useMemo(() => {
+    return ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
+  }, [normalizedRole]);
+  const canAccessTemplates = useMemo(() => {
+    return ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
+  }, [normalizedRole]);
+
   const [drafts, setDrafts] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [recurringInvoices, setRecurringInvoices] = useState([]);
@@ -80,24 +117,55 @@ export const InvoiceProvider = ({ children }) => {
   useEffect(() => {
     if (!isAuthenticated) return;
     dispatch(fetchInvoices());
-    dispatch(fetchCustomers());
-    dispatch(fetchProducts({ isActive: true }));
-  }, [dispatch, isAuthenticated]);
+    if (canAccessCustomers) {
+      dispatch(fetchCustomers());
+    }
+    if (canAccessProducts) {
+      dispatch(fetchProducts({ isActive: true }));
+    }
+  }, [dispatch, isAuthenticated, canAccessCustomers, canAccessProducts]);
 
   const refreshTemplates = useCallback(async () => {
+    if (!canAccessTemplates) {
+      const fallback = dedupeTemplates(templateStorage.getAllTemplates());
+      const resolvedFallback = fallback.map((template) => {
+        const local = enrichTemplateAccess(template);
+        const hasAccess = typeof template?.hasAccess === 'boolean' ? template.hasAccess : local?.hasAccess;
+        const requiredPlan = template?.requiredPlan || local?.requiredPlan;
+        const accessSource = template?.accessSource || local?.accessSource;
+        const canPurchase = typeof template?.canPurchase === 'boolean' ? template.canPurchase : local?.canPurchase;
+        return {
+          ...local,
+          ...template,
+          hasAccess: Boolean(hasAccess),
+          requiredPlan,
+          accessSource,
+          canPurchase
+        };
+      });
+      setTemplates(resolvedFallback);
+      return resolvedFallback;
+    }
     try {
       const payload = await fetchTemplates();
       const data = Array.isArray(payload?.data) ? payload.data : [];
       const fallback = dedupeTemplates(templateStorage.getAllTemplates());
       const uniqueTemplates = dedupeTemplates([...data, ...fallback]);
       const resolvedTemplates = uniqueTemplates.map((template) => {
-        const isPremium = Boolean(template?.isPremium);
-        if (!isPremium) {
-          return { ...template, hasAccess: true };
-        }
-        const localAccess = hasTemplateAccess(template.id);
-        const apiAccess = typeof template?.hasAccess === 'boolean' ? template.hasAccess : false;
-        return { ...template, hasAccess: apiAccess || localAccess };
+        const local = enrichTemplateAccess(template);
+        const apiAccess = typeof template?.hasAccess === 'boolean' ? template.hasAccess : undefined;
+        const hasAccess = apiAccess !== undefined ? apiAccess : local?.hasAccess;
+        const requiredPlan = template?.requiredPlan || local?.requiredPlan;
+        const accessSource = template?.accessSource || local?.accessSource;
+        const canPurchase = typeof template?.canPurchase === 'boolean' ? template.canPurchase : local?.canPurchase;
+        return {
+          ...local,
+          ...template,
+          hasAccess: Boolean(hasAccess),
+          requiredPlan,
+          accessSource,
+          canPurchase
+        };
       });
       setTemplates(resolvedTemplates);
       return resolvedTemplates;
@@ -105,33 +173,49 @@ export const InvoiceProvider = ({ children }) => {
       console.error('Error loading templates from backend:', error);
       const fallback = dedupeTemplates(templateStorage.getAllTemplates());
       const resolvedFallback = fallback.map((template) => {
-        const isPremium = Boolean(template?.isPremium);
-        if (!isPremium) {
-          return { ...template, hasAccess: true };
-        }
-        return { ...template, hasAccess: hasTemplateAccess(template.id) };
+        const local = enrichTemplateAccess(template);
+        const hasAccess = typeof template?.hasAccess === 'boolean' ? template.hasAccess : local?.hasAccess;
+        const requiredPlan = template?.requiredPlan || local?.requiredPlan;
+        const accessSource = template?.accessSource || local?.accessSource;
+        const canPurchase = typeof template?.canPurchase === 'boolean' ? template.canPurchase : local?.canPurchase;
+        return {
+          ...local,
+          ...template,
+          hasAccess: Boolean(hasAccess),
+          requiredPlan,
+          accessSource,
+          canPurchase
+        };
       });
       setTemplates(resolvedFallback);
       return resolvedFallback;
     }
-  }, []);
+  }, [canAccessTemplates]);
 
   useEffect(() => {
     let isMounted = true;
     const load = async () => {
       try {
         setDrafts(draftStorage.getDrafts());
-        setRecurringInvoices(recurringStorage.getRecurringInvoices());
+        setRecurringInvoices(recurringStorage.getRecurringInvoices(recurringUserId));
 
         if (isAuthenticated) {
           await refreshTemplates();
         } else {
           const fallbackTemplates = dedupeTemplates(templateStorage.getAllTemplates()).map((template) => {
-            const isPremium = Boolean(template?.isPremium);
-            if (!isPremium) {
-              return { ...template, hasAccess: true };
-            }
-            return { ...template, hasAccess: hasTemplateAccess(template.id) };
+            const local = enrichTemplateAccess(template);
+            const hasAccess = typeof template?.hasAccess === 'boolean' ? template.hasAccess : local?.hasAccess;
+            const requiredPlan = template?.requiredPlan || local?.requiredPlan;
+            const accessSource = template?.accessSource || local?.accessSource;
+            const canPurchase = typeof template?.canPurchase === 'boolean' ? template.canPurchase : local?.canPurchase;
+            return {
+              ...local,
+              ...template,
+              hasAccess: Boolean(hasAccess),
+              requiredPlan,
+              accessSource,
+              canPurchase
+            };
           });
           setTemplates(fallbackTemplates);
         }
@@ -149,7 +233,7 @@ export const InvoiceProvider = ({ children }) => {
     return () => {
       isMounted = false;
     };
-  }, [addToast, refreshTemplates, isAuthenticated]);
+  }, [addToast, refreshTemplates, isAuthenticated, recurringUserId]);
 
   const allowedInvoiceStatuses = useMemo(
     () => new Set(['draft', 'sent', 'viewed', 'partial', 'paid', 'overdue', 'cancelled', 'void']),
@@ -329,7 +413,7 @@ export const InvoiceProvider = ({ children }) => {
         type: 'new-invoice',
         title: 'New Invoice Created',
         description: `Invoice #${mappedInvoice.invoiceNumber || mappedInvoice.number} created`,
-        details: `Amount: $${(mappedInvoice.totalAmount || 0).toLocaleString()}`,
+        details: `Amount: ${formatMoney(mappedInvoice.totalAmount || 0, mappedInvoice.currency || baseCurrency)}`,
         time: 'Just now',
         action: 'View Invoice',
         color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800',
@@ -421,6 +505,9 @@ export const InvoiceProvider = ({ children }) => {
   const markAsPaid = async (id, paymentData = {}, options = {}) => {
     const showToast = options.showToast ?? true;
     try {
+      if (!canRecordPayment) {
+        return null;
+      }
       const invoice = invoices.find(inv => inv.id === id);
       const defaultAmount = invoice?.balance ?? invoice?.totalAmount ?? invoice?.amount ?? 0;
       const amount = paymentData.amount ?? defaultAmount;
@@ -444,6 +531,9 @@ export const InvoiceProvider = ({ children }) => {
       })).unwrap();
 
       const updatedInvoice = mapInvoiceFromApi(result?.invoice || result);
+      if (canAccessCustomers) {
+        dispatch(fetchCustomers());
+      }
       if (showToast) {
         addToast('Payment recorded successfully', 'success');
       }
@@ -452,13 +542,16 @@ export const InvoiceProvider = ({ children }) => {
         payment: result?.payment,
         receipt: result?.receipt
       };
-    } catch (error) {
-      if (showToast) {
-        addToast(error?.message || 'Error recording payment', 'error');
+      } catch (error) {
+        if (showToast) {
+          const message = typeof error === 'string'
+            ? error
+            : (error?.response?.data?.error || error?.message);
+          addToast(message || 'Error recording payment', 'error');
+        }
+        return null;
       }
-      return null;
-    }
-  };
+    };
 
   // Calculate real-time stats
   const getInvoiceStats = () => {
@@ -487,10 +580,10 @@ export const InvoiceProvider = ({ children }) => {
 
     return {
       totalInvoices: totalInvoices.toString(),
-      totalAmount: `$${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      paidAmount: `$${paidAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      overdueAmount: `$${overdueAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      pendingAmount: `$${pendingAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      totalAmount: formatMoney(totalAmount, baseCurrency),
+      paidAmount: formatMoney(paidAmount, baseCurrency),
+      overdueAmount: formatMoney(overdueAmount, baseCurrency),
+      pendingAmount: formatMoney(pendingAmount, baseCurrency),
       pendingCount: pendingPayments.length,
       sentInvoices,
       draftInvoices,
@@ -670,12 +763,12 @@ export const InvoiceProvider = ({ children }) => {
       },
       { 
         label: 'Total Outstanding', 
-        value: `$${totalOutstanding.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        value: formatMoney(totalOutstanding, baseCurrency),
         description: `Across ${outstandingCustomers} customers`
       },
       { 
         label: 'Avg Transaction Value', 
-        value: `$${avgTransactionValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        value: formatMoney(avgTransactionValue, baseCurrency),
         description: '+4.2% vs last month'
       }
     ];
@@ -723,7 +816,7 @@ export const InvoiceProvider = ({ children }) => {
     
     return {
       totalProducts,
-      totalValue: `$${totalValue.toFixed(2)}`,
+      totalValue: formatMoney(totalValue, baseCurrency),
       lowStock,
       outOfStock,
       inStock: totalProducts - outOfStock
@@ -823,7 +916,7 @@ export const InvoiceProvider = ({ children }) => {
         inv.customerEmail || '',
         inv.issueDate || new Date(inv.createdAt).toLocaleDateString(),
         inv.dueDate || '',
-        `$${(inv.totalAmount || inv.amount || 0).toFixed(2)}`,
+        formatMoney(inv.totalAmount || inv.amount || 0, inv.currency || baseCurrency),
         inv.status || '',
         new Date(inv.createdAt).toLocaleDateString()
       ]);
@@ -891,14 +984,19 @@ export const InvoiceProvider = ({ children }) => {
   // Recurring invoice functions
   const saveRecurringInvoice = (recurringData) => {
     try {
+      const resolvedUserId = recurringUserId;
       const newRecurring = {
         id: `rec_${Date.now()}`,
         ...recurringData,
         created: new Date().toISOString(),
-        status: 'active'
+        status: 'active',
+        ownerId: resolvedUserId || recurringData?.ownerId || undefined
       };
-      const updatedRecurring = [...recurringInvoices, newRecurring];
-      setRecurringInvoices(updatedRecurring);
+      recurringStorage.saveRecurring(newRecurring, resolvedUserId);
+      setRecurringInvoices((prev) => {
+        const filtered = prev.filter((inv) => inv.id !== newRecurring.id);
+        return [...filtered, newRecurring];
+      });
       
       return newRecurring;
     } catch (error) {

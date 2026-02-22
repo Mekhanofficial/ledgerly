@@ -31,6 +31,24 @@ const AccountSettings = () => {
   const fileInputRef = useRef(null);
   const previewRef = useRef(null);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
+  const defaultCurrencyOptions = [
+    { value: 'USD', label: 'USD' },
+    { value: 'EUR', label: 'EUR' },
+    { value: 'GBP', label: 'GBP' },
+    { value: 'CAD', label: 'CAD' },
+    { value: 'AUD', label: 'AUD' }
+  ];
+  const currencyOptions = (() => {
+    const currentCurrency = (formData.currency || '').toUpperCase();
+    if (!currentCurrency) {
+      return defaultCurrencyOptions;
+    }
+    const hasCurrent = defaultCurrencyOptions.some((option) => option.value === currentCurrency);
+    if (hasCurrent) {
+      return defaultCurrencyOptions;
+    }
+    return [{ value: currentCurrency, label: `${currentCurrency} (Selected)` }, ...defaultCurrencyOptions];
+  })();
 
   useEffect(() => {
     setFormData({
@@ -189,9 +207,6 @@ const AccountSettings = () => {
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-gray-400">
-              Photos are stored on the Ledgerly backend and sync immediately.
-            </p>
           </div>
         </div>
         <input
@@ -461,11 +476,11 @@ const AccountSettings = () => {
                       : 'border-gray-300 text-gray-900'
                   }`}
                 >
-                  <option>USD</option>
-                  <option>EUR</option>
-                  <option>GBP</option>
-                  <option>CAD</option>
-                  <option>AUD</option>
+                  {currencyOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

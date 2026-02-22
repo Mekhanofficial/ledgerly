@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { mapProductFromApi } from '../../utils/productAdapter';
+import { getAdjustmentDate, formatAdjustmentDate } from '../../utils/adjustmentDate';
 import { fetchProducts, fetchStockAdjustments } from '../../store/slices/productSlide';
 
 const StockAdjustments = () => {
@@ -95,7 +96,8 @@ const StockAdjustments = () => {
     { 
       label: 'This Month', 
       value: adjustments.filter(a => {
-        const adjDate = new Date(a.date);
+        const adjDate = getAdjustmentDate(a);
+        if (!adjDate) return false;
         const now = new Date();
         return adjDate.getMonth() === now.getMonth() && adjDate.getFullYear() === now.getFullYear();
       }).length, 
@@ -110,11 +112,7 @@ const StockAdjustments = () => {
     const productName = getProductName(adj.productId);
     const productSku = getProductSku(adj.productId);
     const adjustmentId = adj.id || adj._id || 'N/A';
-    const formattedDate = new Date(adj.date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    const formattedDate = formatAdjustmentDate(adj);
 
     return (
       <div className={`p-4 border rounded-lg mb-3 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
@@ -407,11 +405,7 @@ const StockAdjustments = () => {
                     const TypeIcon = getTypeIcon(adj.type);
                     const productName = getProductName(adj.productId);
                     const productSku = getProductSku(adj.productId);
-                    const formattedDate = new Date(adj.date).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric'
-                    });
+                    const formattedDate = formatAdjustmentDate(adj);
 
                     return (
                       <tr key={adj.id || adj._id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>

@@ -35,7 +35,9 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNotifications } from '../../../context/NotificationContext';
+import { useAccount } from '../../../context/AccountContext';
 import { getAvatarSeed, getAvatarUrl, getUserDisplayName, getUserEmail, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
+import { formatCurrency, getCurrencySymbol } from '../../../utils/currency';
 
 const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -47,9 +49,23 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
     clearAll,
     getRecentNotifications 
   } = useNotifications();
+  const { accountInfo } = useAccount();
   
   const authUser = useSelector((state) => state.auth?.user);
   const user = resolveAuthUser(authUser);
+  const baseCurrency = accountInfo?.currency || user?.currencyCode || user?.currency || 'USD';
+  const normalizedRole = String(user?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const isClient = normalizedRole === 'client';
+  const canCreate = !isClient && normalizedRole !== 'super_admin';
+  const canAccessSettings = ['admin', 'super_admin'].includes(normalizedRole);
+  const canAccessReports = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canAccessReceipts = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canManageInventoryAdmin = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canCreateCustomer = ['admin', 'staff', 'super_admin'].includes(normalizedRole);
+  const canRecordPayments = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
   const dicebearAvatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${getAvatarSeed(user)}&backgroundColor=4f46e5&backgroundType=solid&hairColor=262626&mouth=smile&eyes=happy&eyebrows=raised`;
   const computedAvatarUrl = getAvatarUrl(user) || dicebearAvatarUrl;
   const [avatarLoadError, setAvatarLoadError] = useState(false);
@@ -111,21 +127,33 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   const showAvatarImage = Boolean(computedAvatarUrl) && !avatarLoadError;
 
   const formatRevenue = (value) => {
-    if (!Number.isFinite(value) || value <= 0) {
-      return '$0';
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return formatCurrency(0, baseCurrency, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
 
-    if (value >= 1000) {
-      return `$${(value / 1000).toFixed(1)}k`;
+    if (numeric >= 1000) {
+      const symbol = getCurrencySymbol(baseCurrency);
+      return `${symbol}${(numeric / 1000).toFixed(1)}k`;
     }
 
-    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    return formatCurrency(numeric, baseCurrency, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   };
 
   const getUserStats = () => {
     const totalInvoices = invoices?.length || 0;
     const totalCustomers = customers?.length || 0;
     const totalRevenue = invoices?.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0) || 0;
+
+    if (isClient) {
+      const paidCount = invoices?.filter(inv => inv.status === 'paid').length || 0;
+      const dueCount = invoices?.filter(inv => inv.status !== 'paid').length || 0;
+      return [
+        { label: 'Invoices', value: totalInvoices.toString(), icon: FileText },
+        { label: 'Paid', value: paidCount.toString(), icon: CheckCircle },
+        { label: 'Due', value: dueCount.toString(), icon: Clock }
+      ];
+    }
 
     return [
       { label: 'Invoices', value: totalInvoices.toString(), icon: FileText },
@@ -199,23 +227,26 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       description: 'Quick POS receipt',
       icon: Receipt,
       color: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-300',
-      path: '/receipts'
+      path: '/receipts',
+      requiresRole: canAccessReceipts
     },
     {
       title: 'Add Product',
       description: 'Add to inventory',
       icon: Package,
       color: 'bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300',
-      path: '/inventory/products/new'
+      path: '/inventory/products/new',
+      requiresRole: canManageInventoryAdmin
     },
     {
       title: 'Add Customer',
       description: 'New customer record',
       icon: Users,
       color: 'bg-amber-100 dark:bg-amber-900 text-amber-600 dark:text-amber-300',
-      path: '/customers'
+      path: '/customers',
+      requiresRole: canCreateCustomer
     }
-  ];
+  ].filter((item) => item.requiresRole !== false);
 
   // More create items for second column
   const createItemsColumn2 = [
@@ -224,7 +255,8 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       description: 'Generate analytics report',
       icon: BarChart,
       color: 'bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300',
-      path: '/reports/new'
+      path: '/reports',
+      requiresRole: canAccessReports
     },
     {
       title: 'Create Quote',
@@ -245,13 +277,14 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       description: 'Record received payment',
       icon: CreditCard,
       color: 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300',
-      path: '/payments/new'
+      path: '/payments/process',
+      requiresRole: canRecordPayments
     }
-  ];
+  ].filter((item) => item.requiresRole !== false);
 
   // User menu items
   const userMenuItems = [
-    { label: 'Account Settings', icon: Settings, path: '/settings' },
+    ...(canAccessSettings ? [{ label: 'Account Settings', icon: Settings, path: '/settings' }] : []),
     { label: 'Help & Support', icon: HelpCircle, path: '/support' },
     { label: 'Sign Out', icon: LogOut, path: '/login', isLogout: true }
   ];
@@ -303,7 +336,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleSearch}
+                onKeyDown={handleSearch}
                 placeholder="Search invoices, customers..."
                 className="pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:focus:ring-primary-400 dark:bg-gray-800 dark:text-white w-full"
                 aria-label="Search"
@@ -344,8 +377,8 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleSearch}
-                placeholder="Search invoices, customers, products, reports..."
+                onKeyDown={handleSearch}
+                placeholder={isClient ? 'Search invoices...' : 'Search invoices, customers, products, reports...'}
                 className="pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:focus:ring-primary-400 dark:bg-gray-800 dark:text-white w-full"
                 aria-label="Search"
               />
@@ -379,114 +412,118 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
             </button>
 
             {/* Create Button with Dropdown - Hide text on mobile */}
-            <div className="relative hidden sm:block" ref={createMenuRef}>
-              <button
-                onClick={() => setCreateMenuOpen(!createMenuOpen)}
-                className="flex items-center px-3 sm:px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
-                aria-label="Create new"
-                aria-expanded={createMenuOpen}
-              >
-                <Plus className="w-5 h-5" />
-                <span className="font-medium hidden md:inline ml-2">Create</span>
-                <ChevronDown className={`w-4 h-4 hidden md:block ml-2 transition-transform ${createMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
+            {canCreate && (
+              <div className="relative hidden sm:block" ref={createMenuRef}>
+                <button
+                  onClick={() => setCreateMenuOpen(!createMenuOpen)}
+                  className="flex items-center px-3 sm:px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
+                  aria-label="Create new"
+                  aria-expanded={createMenuOpen}
+                >
+                  <Plus className="w-5 h-5" />
+                  <span className="font-medium hidden md:inline ml-2">Create</span>
+                  <ChevronDown className={`w-4 h-4 hidden md:block ml-2 transition-transform ${createMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
 
-              {createMenuOpen && (
-                <div className="absolute right-0 mt-2 w-[320px] sm:w-[640px] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50 overflow-hidden">
-                  {/* Header */}
-                  <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create New</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose what you want to create</p>
-                  </div>
-                  
-                  {/* Responsive grid for create items */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
-                    {/* First Column */}
-                    <div className="sm:border-r border-gray-200 dark:border-gray-700">
-                      {createItems.map((item, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleCreateItemClick(item.path)}
-                          className="flex items-center w-full px-4 sm:px-6 py-4 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
-                        >
-                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${item.color} flex items-center justify-center mr-3 sm:mr-4`}>
-                            <item.icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                          </div>
-                          <div className="text-left flex-1">
-                            <div className="font-medium dark:text-white text-sm sm:text-base">{item.title}</div>
-                            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{item.description}</div>
-                          </div>
-                        </button>
-                      ))}
+                {createMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-[320px] sm:w-[640px] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50 overflow-hidden">
+                    {/* Header */}
+                    <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create New</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose what you want to create</p>
                     </div>
                     
-                    {/* Second Column - Hidden on mobile */}
-                    <div className="hidden sm:block">
-                      {createItemsColumn2.map((item, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleCreateItemClick(item.path)}
-                          className="flex items-center w-full px-6 py-4 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
-                        >
-                          <div className={`w-12 h-12 rounded-xl ${item.color} flex items-center justify-center mr-4`}>
-                            <item.icon className="w-6 h-6" />
-                          </div>
-                          <div className="text-left flex-1">
-                            <div className="font-medium dark:text-white">{item.title}</div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{item.description}</div>
-                          </div>
-                        </button>
-                      ))}
+                    {/* Responsive grid for create items */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
+                      {/* First Column */}
+                      <div className="sm:border-r border-gray-200 dark:border-gray-700">
+                        {createItems.map((item, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleCreateItemClick(item.path)}
+                            className="flex items-center w-full px-4 sm:px-6 py-4 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                          >
+                            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${item.color} flex items-center justify-center mr-3 sm:mr-4`}>
+                              <item.icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                            </div>
+                            <div className="text-left flex-1">
+                              <div className="font-medium dark:text-white text-sm sm:text-base">{item.title}</div>
+                              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{item.description}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Second Column - Hidden on mobile */}
+                      <div className="hidden sm:block">
+                        {createItemsColumn2.map((item, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleCreateItemClick(item.path)}
+                            className="flex items-center w-full px-6 py-4 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                          >
+                            <div className={`w-12 h-12 rounded-xl ${item.color} flex items-center justify-center mr-4`}>
+                              <item.icon className="w-6 h-6" />
+                            </div>
+                            <div className="text-left flex-1">
+                              <div className="font-medium dark:text-white">{item.title}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{item.description}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Footer */}
+                    <div className="px-4 sm:px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+                      <Link
+                        to="/templates"
+                        className="flex items-center justify-center w-full px-4 py-2 text-sm text-primary-600 dark:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        View all templates
+                      </Link>
                     </div>
                   </div>
-                  
-                  {/* Footer */}
-                  <div className="px-4 sm:px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                    <Link
-                      to="/templates"
-                      className="flex items-center justify-center w-full px-4 py-2 text-sm text-primary-600 dark:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      View all templates
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Mobile Create Button - Icon only */}
-            <div className="relative sm:hidden" ref={createMenuRef}>
-              <button
-                onClick={() => setCreateMenuOpen(!createMenuOpen)}
-                className="p-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-sm"
-                aria-label="Create new"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+            {canCreate && (
+              <div className="relative sm:hidden" ref={createMenuRef}>
+                <button
+                  onClick={() => setCreateMenuOpen(!createMenuOpen)}
+                  className="p-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-sm"
+                  aria-label="Create new"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
 
-              {createMenuOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
-                  <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Create New</h3>
+                {createMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Create New</h3>
+                    </div>
+                    {createItems.map((item, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleCreateItemClick(item.path)}
+                        className="flex items-center w-full px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center mr-3`}>
+                          <item.icon className="w-5 h-5" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-medium dark:text-white">{item.title}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{item.description}</div>
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                  {createItems.map((item, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleCreateItemClick(item.path)}
-                      className="flex items-center w-full px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center mr-3`}>
-                        <item.icon className="w-5 h-5" />
-                      </div>
-                      <div className="text-left">
-                        <div className="font-medium dark:text-white">{item.title}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{item.description}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Notifications Bell */}
             <div className="relative" ref={notificationsRef}>
@@ -646,12 +683,18 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                           {getUserEmail(user)}
                         </p>
                         <div className="flex items-center mt-1">
-                          {getUserRoleLabel(user) === 'Admin' ? (
+                          {['Admin', 'Super Admin'].includes(getUserRoleLabel(user)) ? (
                             <Shield className="w-3 h-3 text-green-500 dark:text-green-400 mr-1" />
                           ) : (
                             <User className="w-3 h-3 text-blue-500 dark:text-blue-400 mr-1" />
                           )}
-                          <span className={`text-xs ${getUserRoleLabel(user) === 'Admin' ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                          <span
+                            className={`text-xs ${
+                              ['Admin', 'Super Admin'].includes(getUserRoleLabel(user))
+                                ? 'text-green-600 dark:text-green-400'
+                                : 'text-blue-600 dark:text-blue-400'
+                            }`}
+                          >
                             {getUserRoleLabel(user)}
                           </span>
                         </div>

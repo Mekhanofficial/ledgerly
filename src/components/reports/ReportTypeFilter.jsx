@@ -4,7 +4,7 @@ import React from 'react';
 const ReportTypeFilter = ({ reportType, onReportTypeChange, isDarkMode }) => {
   return (
     <div className="flex flex-wrap gap-2">
-      {['all', 'sales', 'revenue', 'inventory', 'customer', 'profit', 'expenses'].map((type) => (
+      {['all', 'sales', 'revenue', 'inventory', 'customer', 'profit', 'expenses', 'summary', 'performance'].map((type) => (
         <button
           key={type}
           onClick={() => onReportTypeChange(type)}

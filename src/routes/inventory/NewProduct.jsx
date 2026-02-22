@@ -1,12 +1,13 @@
 // src/routes/inventory/NewProduct.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, Save, X, DollarSign, Hash, AlertCircle } from 'lucide-react';
+import { Package, Save, X, Hash, AlertCircle } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useDispatch } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useInventory } from '../../context/InventoryContext';
+import { useAccount } from '../../context/AccountContext';
 import { createProduct } from '../../store/slices/productSlide';
 import { buildProductPayload } from '../../utils/productAdapter';
 
@@ -14,8 +15,23 @@ const NewProduct = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
   const { categories, suppliers } = useInventory();
+  const { accountInfo } = useAccount();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const currencyCode = (accountInfo?.currency || 'USD').toUpperCase();
+  const formatCurrency = (amount) => {
+    const value = Number.isFinite(amount) ? amount : 0;
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currencyCode,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(value);
+    } catch (error) {
+      return `${currencyCode} ${value.toFixed(2)}`;
+    }
+  };
   
   const [formData, setFormData] = useState({
     name: '',
@@ -199,7 +215,11 @@ const NewProduct = () => {
                   Selling Price *
                 </label>
                 <div className="relative">
-                  <DollarSign className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`} />
+                  <span className={`absolute left-3 top-1/2 transform -translate-y-1/2 text-xs font-semibold ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-500'
+                  }`}>
+                    {currencyCode}
+                  </span>
                   <input
                     type="number"
                     name="price"
@@ -207,7 +227,7 @@ const NewProduct = () => {
                     onChange={handleChange}
                     step="0.01"
                     min="0.01"
-                    className={`w-full pl-10 pr-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    className={`w-full pl-14 pr-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                       isDarkMode 
                         ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
                         : 'border-gray-300'
@@ -295,7 +315,11 @@ const NewProduct = () => {
                   Cost Price
                 </label>
                 <div className="relative">
-                  <DollarSign className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-400'}`} />
+                  <span className={`absolute left-3 top-1/2 transform -translate-y-1/2 text-xs font-semibold ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-500'
+                  }`}>
+                    {currencyCode}
+                  </span>
                   <input
                     type="number"
                     name="costPrice"
@@ -303,7 +327,7 @@ const NewProduct = () => {
                     onChange={handleChange}
                     step="0.01"
                     min="0"
-                    className={`w-full pl-10 pr-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    className={`w-full pl-14 pr-4 py-3 rounded-lg border focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                       isDarkMode 
                         ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
                         : 'border-gray-300'
@@ -448,7 +472,7 @@ const NewProduct = () => {
                   </div>
                   <div>
                     <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Price:</span>
-                    <span className="font-bold ml-2">${formData.price.toFixed(2)}</span>
+                    <span className="font-bold ml-2">{formatCurrency(formData.price)}</span>
                   </div>
                   <div>
                     <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Stock:</span>

@@ -11,16 +11,31 @@ import {
   ChevronDown,
   Filter,
   Check,
+  CheckCircle,
   Plus,
   X
 } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../context/InvoiceContext';
+import { useAccount } from '../../context/AccountContext';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { formatCurrency, getCurrencySymbol } from '../../utils/currency';
 
 const InvoiceList = () => {
   const { isDarkMode } = useTheme();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
+  const currencySymbol = getCurrencySymbol(baseCurrency);
+  const authUser = useSelector((state) => state.auth?.user);
+  const normalizedRole = String(authUser?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const isClient = normalizedRole === 'client';
+  const canRecordPayment = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
   const { 
     invoices, 
     sendInvoice, 
@@ -122,6 +137,8 @@ const InvoiceList = () => {
     return texts[status] || status;
   };
 
+  const canMarkAsPaid = (status) => ['sent', 'partial', 'overdue', 'viewed'].includes(status);
+
   const handleExport = () => {
     if (selectedInvoices.length > 0) {
       exportInvoices(selectedInvoices);
@@ -186,20 +203,22 @@ const InvoiceList = () => {
       <div className={`p-4 border rounded-lg mb-3 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         <div className="flex justify-between items-start mb-3">
           <div className="flex items-center flex-1 min-w-0">
-            <input
-              type="checkbox"
-              checked={selectedInvoices.includes(invoice.id)}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setSelectedInvoices([...selectedInvoices, invoice.id]);
-                } else {
-                  setSelectedInvoices(selectedInvoices.filter(id => id !== invoice.id));
-                }
-              }}
-              className={`h-4 w-4 text-primary-600 focus:ring-primary-500 rounded flex-shrink-0 ${
-                isDarkMode ? 'border-gray-600' : 'border-gray-300'
-              }`}
-            />
+            {!isClient && (
+              <input
+                type="checkbox"
+                checked={selectedInvoices.includes(invoice.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedInvoices([...selectedInvoices, invoice.id]);
+                  } else {
+                    setSelectedInvoices(selectedInvoices.filter(id => id !== invoice.id));
+                  }
+                }}
+                className={`h-4 w-4 text-primary-600 focus:ring-primary-500 rounded flex-shrink-0 ${
+                  isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                }`}
+              />
+            )}
             <div className="ml-3 min-w-0">
               <div className={`font-medium truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {invoice.number || invoice.invoiceNumber}
@@ -226,7 +245,7 @@ const InvoiceList = () => {
           <div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Amount</div>
             <div className={`text-sm font-semibold truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              ${(invoice.totalAmount || invoice.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              {formatMoney(invoice.totalAmount || invoice.amount || 0, invoice.currency || baseCurrency)}
             </div>
           </div>
           <div>
@@ -247,74 +266,76 @@ const InvoiceList = () => {
             <Eye className="w-3 h-3 inline mr-1 align-text-bottom" /> View
           </button>
           
-          <div className="relative">
-            <button
-              onClick={() => setShowMobileActions(isActionsOpen ? null : invoice.id)}
-              className={`px-3 py-1.5 rounded-lg ${
-                isDarkMode 
-                  ? 'hover:bg-gray-700 text-gray-400' 
-                  : 'hover:bg-gray-100 text-gray-600'
-              }`}
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
-            
-            {isActionsOpen && (
-              <>
-                <div 
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowMobileActions(null)}
-                />
-                <div className={`absolute right-0 mt-1 w-48 rounded-lg shadow-lg py-1 z-20 ${
-                  isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
-                }`}>
-                  {invoice.status !== 'sent' && invoice.status !== 'paid' && invoice.status !== 'draft' && (
-                    <button 
-                      onClick={() => {
-                        handleSendInvoice(invoice.id);
-                        setShowMobileActions(null);
-                      }}
-                      className={`w-full px-4 py-2 text-sm text-left flex items-center ${
-                        isDarkMode 
-                          ? 'hover:bg-gray-700 text-gray-300' 
-                          : 'hover:bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      <Mail className="w-4 h-4 mr-2" /> Send
-                    </button>
-                  )}
-                  {invoice.status === 'sent' && (
-                    <button 
-                      onClick={() => {
-                        handleMarkAsPaid(invoice.id);
-                        setShowMobileActions(null);
-                      }}
-                      className={`w-full px-4 py-2 text-sm text-left flex items-center ${
-                        isDarkMode 
+          {!isClient && (
+            <div className="relative">
+              <button
+                onClick={() => setShowMobileActions(isActionsOpen ? null : invoice.id)}
+                className={`px-3 py-1.5 rounded-lg ${
+                  isDarkMode 
+                    ? 'hover:bg-gray-700 text-gray-400' 
+                    : 'hover:bg-gray-100 text-gray-600'
+                }`}
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              
+              {isActionsOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowMobileActions(null)}
+                  />
+                  <div className={`absolute right-0 mt-1 w-48 rounded-lg shadow-lg py-1 z-20 ${
+                    isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+                  }`}>
+                    {invoice.status !== 'sent' && invoice.status !== 'paid' && invoice.status !== 'draft' && (
+                      <button 
+                        onClick={() => {
+                          handleSendInvoice(invoice.id);
+                          setShowMobileActions(null);
+                        }}
+                        className={`w-full px-4 py-2 text-sm text-left flex items-center ${
+                          isDarkMode 
+                            ? 'hover:bg-gray-700 text-gray-300' 
+                            : 'hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <Mail className="w-4 h-4 mr-2" /> Send
+                      </button>
+                    )}
+                    {canMarkAsPaid(invoice.status) && canRecordPayment && (
+                      <button 
+                        onClick={() => {
+                          handleMarkAsPaid(invoice.id);
+                          setShowMobileActions(null);
+                        }}
+                        className={`w-full px-4 py-2 text-sm text-left flex items-center ${
+                          isDarkMode 
                           ? 'hover:bg-gray-700 text-emerald-400' 
                           : 'hover:bg-gray-100 text-emerald-600'
+                        }`}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" /> Mark as Paid
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => {
+                        handleDeleteInvoice(invoice.id);
+                        setShowMobileActions(null);
+                      }}
+                      className={`w-full px-4 py-2 text-sm text-left flex items-center ${
+                        isDarkMode 
+                          ? 'hover:bg-gray-700 text-red-400' 
+                          : 'hover:bg-gray-100 text-red-600'
                       }`}
                     >
-                      <Download className="w-4 h-4 mr-2" /> Mark as Paid
+                      <X className="w-4 h-4 mr-2" /> Delete
                     </button>
-                  )}
-                  <button 
-                    onClick={() => {
-                      handleDeleteInvoice(invoice.id);
-                      setShowMobileActions(null);
-                    }}
-                    className={`w-full px-4 py-2 text-sm text-left flex items-center ${
-                      isDarkMode 
-                        ? 'hover:bg-gray-700 text-red-400' 
-                        : 'hover:bg-gray-100 text-red-600'
-                    }`}
-                  >
-                    <X className="w-4 h-4 mr-2" /> Delete
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -330,24 +351,28 @@ const InvoiceList = () => {
               Invoices
             </h1>
             <p className={`mt-1 text-sm md:text-base ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Manage and track all your invoices
+              {isClient ? 'View and track your invoices' : 'Manage and track all your invoices'}
             </p>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            <button
-              onClick={() => navigate('/invoices/drafts')}
-              className="flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm whitespace-nowrap"
-            >
-              Drafts
-            </button>
-            <button
-              onClick={handleCreateInvoice}
-              className="flex items-center justify-center px-3 py-2 md:px-4 md:py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm md:text-base whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
-              <span className="hidden sm:inline">New Invoice</span>
-              <span className="sm:hidden">New</span>
-            </button>
+            {!isClient && (
+              <>
+                <button
+                  onClick={() => navigate('/invoices/drafts')}
+                  className="flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm whitespace-nowrap"
+                >
+                  Drafts
+                </button>
+                <button
+                  onClick={handleCreateInvoice}
+                  className="flex items-center justify-center px-3 py-2 md:px-4 md:py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm md:text-base whitespace-nowrap"
+                >
+                  <Plus className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">New Invoice</span>
+                  <span className="sm:hidden">New</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -437,7 +462,7 @@ const InvoiceList = () => {
                     type="number"
                     value={amountRange.min}
                     onChange={(e) => setAmountRange({...amountRange, min: e.target.value})}
-                    placeholder="$0"
+                    placeholder={`${currencySymbol}0`}
                     className={`w-full px-3 py-2 rounded-lg border text-sm ${
                       isDarkMode 
                         ? 'bg-gray-700 border-gray-600 text-white' 
@@ -453,7 +478,7 @@ const InvoiceList = () => {
                     type="number"
                     value={amountRange.max}
                     onChange={(e) => setAmountRange({...amountRange, max: e.target.value})}
-                    placeholder="$10000"
+                    placeholder={`${currencySymbol}10000`}
                     className={`w-full px-3 py-2 rounded-lg border text-sm ${
                       isDarkMode 
                         ? 'bg-gray-700 border-gray-600 text-white' 
@@ -539,13 +564,15 @@ const InvoiceList = () => {
             </div>
             
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleExport}
-                className="flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </button>
+              {!isClient && (
+                <button
+                  onClick={handleExport}
+                  className="flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -587,7 +614,7 @@ const InvoiceList = () => {
         </div>
 
         {/* Selection Bar */}
-        {selectedInvoices.length > 0 && (
+        {!isClient && selectedInvoices.length > 0 && (
           <div className={`sticky top-16 z-10 p-3 md:p-4 rounded-lg ${
             isDarkMode 
               ? 'bg-gray-800 border border-gray-700' 
@@ -677,7 +704,7 @@ const InvoiceList = () => {
                   <tr>
                     <td colSpan="7" className="px-4 md:px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                       {invoices.length === 0 
-                        ? 'No invoices found. Create your first invoice!' 
+                        ? (isClient ? 'No invoices found.' : 'No invoices found. Create your first invoice!') 
                         : searchTerm 
                           ? 'No invoices match your search. Try a different search term.' 
                           : 'No invoices match the selected filters.'
@@ -689,21 +716,23 @@ const InvoiceList = () => {
                     <tr key={invoice.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedInvoices.includes(invoice.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedInvoices([...selectedInvoices, invoice.id]);
-                              } else {
-                                setSelectedInvoices(selectedInvoices.filter(id => id !== invoice.id));
-                              }
-                            }}
-                            className={`h-4 w-4 text-primary-600 focus:ring-primary-500 rounded ${
-                              isDarkMode ? 'border-gray-600' : 'border-gray-300'
-                            }`}
-                          />
-                          <div className="ml-3 md:ml-4">
+                          {!isClient && (
+                            <input
+                              type="checkbox"
+                              checked={selectedInvoices.includes(invoice.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedInvoices([...selectedInvoices, invoice.id]);
+                                } else {
+                                  setSelectedInvoices(selectedInvoices.filter(id => id !== invoice.id));
+                                }
+                              }}
+                              className={`h-4 w-4 text-primary-600 focus:ring-primary-500 rounded ${
+                                isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                              }`}
+                            />
+                          )}
+                          <div className={`${!isClient ? 'ml-3 md:ml-4' : ''}`}>
                             <div className={`text-sm font-medium ${
                               isDarkMode ? 'text-white' : 'text-gray-900'
                             }`}>
@@ -749,7 +778,7 @@ const InvoiceList = () => {
                         <div className={`text-sm font-semibold ${
                           isDarkMode ? 'text-white' : 'text-gray-900'
                         }`}>
-                          ${(invoice.totalAmount || invoice.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          {formatMoney(invoice.totalAmount || invoice.amount || 0, invoice.currency || baseCurrency)}
                         </div>
                       </td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap">
@@ -770,43 +799,47 @@ const InvoiceList = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {invoice.status !== 'sent' && invoice.status !== 'paid' && invoice.status !== 'draft' && (
-                            <button 
-                              onClick={() => handleSendInvoice(invoice.id)}
-                              className={`p-1 rounded ${
-                                isDarkMode 
-                                  ? 'hover:bg-gray-700 text-gray-400' 
-                                  : 'hover:bg-gray-100 text-gray-600'
-                              }`} 
-                              title="Send"
-                            >
-                              <Mail className="w-4 h-4" />
-                            </button>
+                          {!isClient && (
+                            <>
+                              {invoice.status !== 'sent' && invoice.status !== 'paid' && invoice.status !== 'draft' && (
+                                <button 
+                                  onClick={() => handleSendInvoice(invoice.id)}
+                                  className={`p-1 rounded ${
+                                    isDarkMode 
+                                      ? 'hover:bg-gray-700 text-gray-400' 
+                                      : 'hover:bg-gray-100 text-gray-600'
+                                  }`} 
+                                  title="Send"
+                                >
+                                  <Mail className="w-4 h-4" />
+                                </button>
+                              )}
+                              {canMarkAsPaid(invoice.status) && canRecordPayment && (
+                                <button 
+                                  onClick={() => handleMarkAsPaid(invoice.id)}
+                                  className={`p-1 rounded ${
+                                    isDarkMode 
+                                      ? 'hover:bg-gray-700 text-emerald-400' 
+                                      : 'hover:bg-gray-100 text-emerald-600'
+                                  }`} 
+                                  title="Mark as Paid"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </button>
+                              )}
+                              <button 
+                                onClick={() => handleDeleteInvoice(invoice.id)}
+                                className={`p-1 rounded ${
+                                  isDarkMode 
+                                    ? 'hover:bg-gray-700 text-red-400' 
+                                    : 'hover:bg-gray-100 text-red-600'
+                                }`}
+                                title="Delete"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
-                          {invoice.status === 'sent' && (
-                            <button 
-                              onClick={() => handleMarkAsPaid(invoice.id)}
-                              className={`p-1 rounded ${
-                                isDarkMode 
-                                  ? 'hover:bg-gray-700 text-emerald-400' 
-                                  : 'hover:bg-gray-100 text-emerald-600'
-                              }`} 
-                              title="Mark as Paid"
-                            >
-                              <Download className="w-4 h-4" />
-                            </button>
-                          )}
-                          <button 
-                            onClick={() => handleDeleteInvoice(invoice.id)}
-                            className={`p-1 rounded ${
-                              isDarkMode 
-                                ? 'hover:bg-gray-700 text-red-400' 
-                                : 'hover:bg-gray-100 text-red-600'
-                            }`}
-                            title="Delete"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -826,7 +859,7 @@ const InvoiceList = () => {
                 : 'bg-white border-gray-200 text-gray-500'
             }`}>
               {invoices.length === 0 
-                ? 'No invoices found. Create your first invoice!' 
+                ? (isClient ? 'No invoices found.' : 'No invoices found. Create your first invoice!') 
                 : searchTerm 
                   ? 'No invoices match your search. Try a different search term.' 
                   : 'No invoices match the selected filters.'

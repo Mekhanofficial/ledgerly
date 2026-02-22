@@ -22,6 +22,7 @@ import { useInvoice } from '../../context/InvoiceContext';
 import { usePayments } from '../../context/PaymentContext';
 import { useAccount } from '../../context/AccountContext';
 import { generateReceiptPDF, getReceiptTemplatePreference } from '../../utils/receiptPdfGenerator';
+import { formatCurrency, getCurrencySymbol } from '../../utils/currency';
 
 const ProcessPayment = () => {
   const { isDarkMode } = useTheme();
@@ -29,6 +30,9 @@ const ProcessPayment = () => {
   const { invoices, customers, products, getInvoicesForPayment } = useInvoice();
   const { accountInfo } = useAccount();
   const { processPayment, paymentMethods, addPendingPayment, removePendingPayment } = usePayments();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
+  const resolveInvoiceCurrency = (invoice) => invoice?.currency || baseCurrency;
   
   const location = useLocation();
   const navigate = useNavigate();
@@ -183,6 +187,9 @@ const ProcessPayment = () => {
     return paymentMethods.find(m => m.isDefault) || paymentMethods[0];
   };
 
+  const selectedCurrency = resolveInvoiceCurrency(selectedInvoice);
+  const currencySymbol = getCurrencySymbol(selectedCurrency);
+
   return (
     <DashboardLayout>
       <div className={`min-h-screen p-4 md:p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -232,7 +239,10 @@ const ProcessPayment = () => {
                   </h3>
                   <div className="flex items-center space-x-4">
                     <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Total: ${pendingInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount), 0).toFixed(2)}
+                      Total: {formatMoney(
+                        pendingInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount), 0),
+                        baseCurrency
+                      )}
                     </span>
                   </div>
                 </div>
@@ -287,7 +297,7 @@ const ProcessPayment = () => {
                                 </span>
                               </div>
                               <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                ${(invoice.totalAmount || invoice.amount).toFixed(2)}
+                                {formatMoney(invoice.totalAmount || invoice.amount, resolveInvoiceCurrency(invoice))}
                               </div>
                             </div>
                             
@@ -357,7 +367,7 @@ const ProcessPayment = () => {
                     </div>
                     <div className="text-right">
                       <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        ${(selectedInvoice.totalAmount || selectedInvoice.amount).toFixed(2)}
+                        {formatMoney(selectedInvoice.totalAmount || selectedInvoice.amount, selectedCurrency)}
                       </div>
                       <div className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Total Amount
@@ -445,7 +455,7 @@ const ProcessPayment = () => {
                               </td>
                               <td className="px-4 py-3">
                                 <div className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
-                                  ${item.rate?.toFixed(2) || '0.00'}
+                                  {formatMoney(item.rate || 0, selectedCurrency)}
                                 </div>
                               </td>
                               <td className="px-4 py-3">
@@ -461,7 +471,7 @@ const ProcessPayment = () => {
                               </td>
                               <td className="px-4 py-3">
                                 <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                  ${((item.rate || 0) * (item.quantity || 1)).toFixed(2)}
+                                  {formatMoney((item.rate || 0) * (item.quantity || 1), selectedCurrency)}
                                 </div>
                               </td>
                             </tr>
@@ -476,13 +486,13 @@ const ProcessPayment = () => {
                         <div className="flex justify-between">
                           <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Subtotal:</span>
                           <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            ${selectedInvoice.subtotal?.toFixed(2) || selectedInvoice.amount?.toFixed(2) || '0.00'}
+                            {formatMoney(selectedInvoice.subtotal ?? selectedInvoice.amount ?? 0, selectedCurrency)}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Tax:</span>
                           <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            ${selectedInvoice.tax?.toFixed(2) || '0.00'}
+                            {formatMoney(selectedInvoice.tax || 0, selectedCurrency)}
                           </span>
                         </div>
                         <div className="flex justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
@@ -492,7 +502,7 @@ const ProcessPayment = () => {
                           <span className={`text-2xl font-bold ${
                             isDarkMode ? 'text-green-400' : 'text-green-600'
                           }`}>
-                            ${(selectedInvoice.totalAmount || selectedInvoice.amount).toFixed(2)}
+                            {formatMoney(selectedInvoice.totalAmount || selectedInvoice.amount, selectedCurrency)}
                           </span>
                         </div>
                       </div>
@@ -672,7 +682,7 @@ const ProcessPayment = () => {
                       <div className="flex justify-between">
                         <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Total to Pay:</span>
                         <span className={`text-xl font-bold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
-                          ${(selectedInvoice.totalAmount || selectedInvoice.amount).toFixed(2)}
+                          {formatMoney(selectedInvoice.totalAmount || selectedInvoice.amount, selectedCurrency)}
                         </span>
                       </div>
                     </div>
@@ -719,7 +729,7 @@ const ProcessPayment = () => {
                         </div>
                       </div>
                       <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        ${selectedInvoice.subtotal?.toFixed(2) || selectedInvoice.amount?.toFixed(2) || '0.00'}
+                        {formatMoney(selectedInvoice.subtotal ?? selectedInvoice.amount ?? 0, selectedCurrency)}
                       </span>
                     </div>
                     
@@ -736,7 +746,7 @@ const ProcessPayment = () => {
                         </div>
                       </div>
                       <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        ${selectedInvoice.tax?.toFixed(2) || '0.00'}
+                        {formatMoney(selectedInvoice.tax || 0, selectedCurrency)}
                       </span>
                     </div>
                     
@@ -754,7 +764,7 @@ const ProcessPayment = () => {
                           </div>
                         </div>
                         <span className={`text-lg font-bold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
-                          ${(selectedInvoice.totalAmount || selectedInvoice.amount).toFixed(2)}
+                          {formatMoney(selectedInvoice.totalAmount || selectedInvoice.amount, selectedCurrency)}
                         </span>
                       </div>
                     </div>

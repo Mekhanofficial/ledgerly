@@ -1,6 +1,7 @@
 // src/context/ToastContext.js
 import React, { createContext, useState, useContext, useCallback } from 'react';
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react';
+import { isAccessDeniedMessage } from '../utils/accessControl';
 
 const ToastContext = createContext();
 
@@ -10,6 +11,9 @@ export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((message, type = 'info', duration = 5000) => {
+    if ((type === 'error' || type === 'warning') && isAccessDeniedMessage(message)) {
+      return;
+    }
     const id = Date.now() + Math.random(); // Add random to ensure unique keys
     const newToast = { 
       id, 

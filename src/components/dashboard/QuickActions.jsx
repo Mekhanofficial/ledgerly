@@ -1,8 +1,23 @@
 import React from 'react';
-import { FileText, Receipt, Package, Mail, BarChart3 } from 'lucide-react';
+import { FileText, Receipt, Package, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
 const QuickActions = () => {
+  const authUser = useSelector((state) => state.auth?.user);
+  const normalizedRole = String(authUser?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const isClient = normalizedRole === 'client';
+  const canViewReports = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canAccessReceipts = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canManageInventoryAdmin = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+
+  if (isClient) {
+    return null;
+  }
+
   const actions = [
     {
       icon: FileText,
@@ -16,23 +31,26 @@ const QuickActions = () => {
       label: 'Generate Receipt',
       description: 'Quick POS receipt',
       color: 'bg-gradient-to-br from-emerald-500 to-green-500',
-      action: '/receipts'
+      action: '/receipts',
+      requiresRole: canAccessReceipts
     },
     {
       icon: Package,
       label: 'Add Product',
       description: 'Add to inventory',
       color: 'bg-gradient-to-br from-violet-500 to-purple-500',
-      action: '/products/create'
+      action: '/inventory/products/new',
+      requiresRole: canManageInventoryAdmin
     },
     {
       icon: BarChart3,
       label: 'Create Report',
       description: 'Generate business insights',
       color: 'bg-gradient-to-br from-orange-500 to-amber-500',
-      action: '/reports'
+      action: '/reports',
+      requiresRole: canViewReports
     },
-  ];
+  ].filter((action) => action.requiresRole !== false);
 
   return (
     <div className="card p-4 md:p-6">
@@ -41,7 +59,7 @@ const QuickActions = () => {
           Quick Actions
         </h2>
         <Link 
-          to="/actions" 
+          to="/invoices" 
           className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium transition-colors duration-200"
         >
           View all actions →

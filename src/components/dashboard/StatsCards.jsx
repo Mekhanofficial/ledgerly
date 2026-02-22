@@ -1,43 +1,54 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, DollarSign, FileText, Users, Package } from 'lucide-react';
+import { useAccount } from '../../context/AccountContext';
+import { formatCurrency } from '../../utils/currency';
 
 const StatsCards = ({ statsData }) => {
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const periodLabel = statsData?.periodLabel || 'This month';
+
+  const revenueTrend = statsData?.revenueChange?.startsWith('+') ? 'up' : 'down';
+  const invoiceTrend = statsData?.invoiceChange?.startsWith('+') ? 'up' : 'down';
+  const activeCustomersTrend = statsData?.activeCustomersChange?.startsWith('+') ? 'up' : 'down';
+  const overdueTrend = statsData?.overdueChange?.startsWith('-') ? 'up' : 'down';
+
   const stats = [
     {
       title: 'Total Revenue',
-      value: statsData?.totalRevenue || '$0.00',
+      value: statsData?.totalRevenue || formatCurrency(0, baseCurrency),
       change: statsData?.revenueChange || '0%',
-      trend: statsData?.revenueChange?.startsWith('+') ? 'up' : 'down',
+      trend: revenueTrend,
       icon: DollarSign,
       color: 'bg-gradient-to-br from-emerald-500 to-green-500',
-      period: 'This month'
+      period: periodLabel
     },
     {
       title: 'Total Invoices',
       value: statsData?.totalInvoices || '0',
       change: statsData?.invoiceChange || '0%',
-      trend: statsData?.invoiceChange?.startsWith('+') ? 'up' : 'down',
+      trend: invoiceTrend,
       icon: FileText,
       color: 'bg-gradient-to-br from-blue-500 to-cyan-500',
-      period: 'This month'
+      period: periodLabel
     },
     {
       title: 'Active Customers',
       value: statsData?.activeCustomers || '0',
-      change: '+5.1%',
-      trend: 'up',
+      change: statsData?.activeCustomersChange || '0%',
+      trend: activeCustomersTrend,
       icon: Users,
       color: 'bg-gradient-to-br from-violet-500 to-purple-500',
-      period: 'Total'
+      period: periodLabel
     },
     {
       title: 'Overdue Invoices',
       value: statsData?.overdueInvoices || '0',
-      change: 'Urgent',
-      trend: 'down',
+      change: statsData?.overdueChange || '0%',
+      trend: overdueTrend,
       icon: Package,
       color: 'bg-gradient-to-br from-amber-500 to-orange-500',
-      period: 'Needs attention'
+      period: periodLabel
     }
   ];
 

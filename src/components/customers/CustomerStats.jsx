@@ -2,11 +2,15 @@ import React, { useMemo } from 'react';
 import { Users, UserCheck, DollarSign, TrendingUp } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
+import { useAccount } from '../../context/AccountContext';
 import { mapCustomerFromApi } from '../../utils/customerAdapter';
+import { formatCurrency } from '../../utils/currency';
 
 const CustomerStats = ({ customers: customersProp }) => {
   const { isDarkMode } = useTheme();
+  const { accountInfo } = useAccount();
   const storeCustomers = useSelector((state) => state.customers?.customers || []);
+  const baseCurrency = accountInfo?.currency || 'USD';
 
   const customers = useMemo(() => {
     if (customersProp) {
@@ -57,16 +61,16 @@ const CustomerStats = ({ customers: customersProp }) => {
       },
       {
         label: 'Total Outstanding',
-        value: `$${totalOutstanding.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        value: formatCurrency(totalOutstanding, baseCurrency),
         description: 'Across all customers'
       },
       {
         label: 'Avg Transaction Value',
-        value: `$${avgTransactionValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        value: formatCurrency(avgTransactionValue, baseCurrency),
         description: '+4.2% vs last month'
       }
     ];
-  }, [customers]);
+  }, [customers, baseCurrency]);
   
   const stats = [
     {
@@ -85,14 +89,14 @@ const CustomerStats = ({ customers: customersProp }) => {
     },
     {
       label: 'Total Outstanding',
-      value: statsData[2]?.value || '$0.00',
+      value: statsData[2]?.value || formatCurrency(0, baseCurrency),
       description: 'Across all customers',
       icon: DollarSign,
       color: 'bg-amber-500'
     },
     {
       label: 'Avg Transaction Value',
-      value: statsData[3]?.value || '$0.00',
+      value: statsData[3]?.value || formatCurrency(0, baseCurrency),
       description: '+4.2% vs last month',
       icon: TrendingUp,
       color: 'bg-violet-500'

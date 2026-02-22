@@ -10,7 +10,8 @@ const LineItemsTable = ({
   currency
 }) => {
   const handleUpdate = (id, field, value) => {
-    if (field === 'quantity' || field === 'rate' || field === 'tax') {
+    if (field === 'tax') return;
+    if (field === 'quantity' || field === 'rate') {
       const numValue = parseFloat(value) || 0;
       updateLineItem(id, field, numValue);
     } else {
@@ -47,7 +48,7 @@ const LineItemsTable = ({
                 Rate
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
-                Tax %
+                Tax (Global)
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                 Amount
@@ -91,9 +92,9 @@ const LineItemsTable = ({
                 <td className="px-4 py-3">
                   <input
                     type="number"
-                    value={item.tax}
-                    onChange={(e) => handleUpdate(item.id, 'tax', e.target.value)}
-                    className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    value={0}
+                    disabled
+                    className="w-20 px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-700 text-gray-400"
                     min="0"
                     max="100"
                   />

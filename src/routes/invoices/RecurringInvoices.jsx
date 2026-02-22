@@ -14,9 +14,11 @@ import {
   ChevronDown,
   Check
 } from 'lucide-react';
+import { useSelector } from 'react-redux';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
+import { useAccount } from '../../context/AccountContext';
 import { recurringStorage } from '../../utils/recurringStorage';
 import { generateInvoicePDF } from '../../utils/pdfGenerator';
 import { saveInvoice } from '../../utils/invoiceStorage';
@@ -24,6 +26,10 @@ import { saveInvoice } from '../../utils/invoiceStorage';
 const RecurringInvoices = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
+  const { accountInfo } = useAccount();
+  const baseCurrency = accountInfo?.currency || 'USD';
+  const authUser = useSelector((state) => state.auth?.user);
+  const recurringUserId = authUser?.id || authUser?._id || null;
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [recurringInvoices, setRecurringInvoices] = useState([]);
@@ -34,12 +40,12 @@ const RecurringInvoices = () => {
 
   useEffect(() => {
     loadRecurringInvoices();
-  }, []);
+  }, [recurringUserId]);
 
   const loadRecurringInvoices = () => {
     setLoading(true);
     try {
-      const invoices = recurringStorage.getRecurringInvoices();
+      const invoices = recurringStorage.getRecurringInvoices(recurringUserId);
       setRecurringInvoices(invoices);
     } catch (error) {
       console.error('Error loading recurring invoices:', error);
@@ -57,10 +63,10 @@ const RecurringInvoices = () => {
       const newStatus = invoice.status === 'active' ? 'paused' : 'active';
       
       if (newStatus === 'paused') {
-        recurringStorage.pauseRecurring(invoiceId);
+        recurringStorage.pauseRecurring(invoiceId, recurringUserId);
         addToast('Recurring invoice paused', 'success');
       } else {
-        recurringStorage.resumeRecurring(invoiceId);
+        recurringStorage.resumeRecurring(invoiceId, recurringUserId);
         addToast('Recurring invoice resumed', 'success');
       }
       
@@ -79,7 +85,7 @@ const RecurringInvoices = () => {
   const handleDelete = (invoiceId) => {
     if (window.confirm('Are you sure you want to delete this recurring invoice profile?')) {
       try {
-        recurringStorage.deleteRecurring(invoiceId);
+        recurringStorage.deleteRecurring(invoiceId, recurringUserId);
         addToast('Recurring invoice deleted', 'success');
         // Remove from selected if it was selected
         setSelectedInvoices(prev => prev.filter(id => id !== invoiceId));
@@ -98,7 +104,7 @@ const RecurringInvoices = () => {
 
     if (window.confirm(`Are you sure you want to delete ${selectedInvoices.length} selected recurring invoice(s)?`)) {
       try {
-        selectedInvoices.forEach(id => recurringStorage.deleteRecurring(id));
+        selectedInvoices.forEach(id => recurringStorage.deleteRecurring(id, recurringUserId));
         addToast('Selected recurring invoices deleted', 'success');
         setSelectedInvoices([]);
         loadRecurringInvoices();
@@ -112,6 +118,7 @@ const RecurringInvoices = () => {
     try {
       const invoice = recurringInvoices.find(inv => inv.id === invoiceId);
       if (!invoice) return;
+      const invoiceCurrency = invoice.currency || baseCurrency;
 
       // Generate invoice from recurring profile
       const newInvoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -130,7 +137,7 @@ const RecurringInvoices = () => {
         totalAmount: invoice.amount,
         notes: 'Generated from recurring invoice profile',
         terms: '',
-        currency: 'USD',
+        currency: invoiceCurrency,
         status: 'sent',
         sentAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -148,7 +155,7 @@ const RecurringInvoices = () => {
       recurringStorage.updateRecurring(invoiceId, { 
         cyclesCompleted: updatedCycles,
         nextRun: calculateNextRun(invoice.frequency, invoice.startDate, updatedCycles)
-      });
+      }, recurringUserId);
 
       addToast(`Invoice generated: ${newInvoiceNumber}`, 'success');
       loadRecurringInvoices();
@@ -248,6 +255,14 @@ const RecurringInvoices = () => {
     }
   };
 
+  const formatCurrency = (value, currencyCode = baseCurrency) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: 2
+    }).format(value || 0);
+  };
+
   // Calculate stats
   const activeInvoices = recurringInvoices.filter(inv => inv.status === 'active');
   const totalValue = activeInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
@@ -313,7 +328,7 @@ const RecurringInvoices = () => {
             <div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Amount</div>
               <div className={`text-sm font-semibold truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                ${(invoice.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                {formatCurrency(invoice.amount, invoice.currency || baseCurrency)}
               </div>
             </div>
           </div>
@@ -583,8 +598,8 @@ const RecurringInvoices = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
-            const displayValue = index === 1 
-              ? `$${stat.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}/mo`
+            const displayValue = index === 1
+              ? `${formatCurrency(stat.value)}/mo`
               : stat.value.toString();
             
             return (
@@ -812,7 +827,7 @@ const RecurringInvoices = () => {
                         <td className="px-4 md:px-6 py-4">
                           <div className="flex items-center space-x-2">
                             <div className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                              ${(invoice.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              {formatCurrency(invoice.amount, invoice.currency || baseCurrency)}
                             </div>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFrequencyColor(getFrequencyLabel(invoice.frequency))}`}>
                               {getFrequencyLabel(invoice.frequency)}
