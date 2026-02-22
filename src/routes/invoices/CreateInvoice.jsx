@@ -487,9 +487,17 @@ const CreateInvoice = () => {
     return customers.find(c => c.id === selectedCustomer);
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     try {
-      const customer = getSelectedCustomer();
+      let customer = getSelectedCustomer();
+      if (!customer && newCustomer.name && newCustomer.email) {
+        try {
+          customer = await addCustomer(newCustomer, { showNotificationToast: false });
+        } catch (customerError) {
+          // Allow local draft fallback if customer creation fails.
+          console.warn('Unable to auto-create customer for draft sync:', customerError);
+        }
+      }
       
       const invoiceData = {
         id: `draft_${Date.now()}`,
@@ -498,6 +506,7 @@ const CreateInvoice = () => {
         dueDate,
         paymentTerms,
         customer: customer || newCustomer,
+        customerId: customer?.id,
         lineItems: lineItems.map(item => ({
           description: item.description,
           quantity: item.quantity,
@@ -532,8 +541,7 @@ const CreateInvoice = () => {
         savedAt: new Date().toISOString()
       };
 
-      saveDraft(invoiceData);
-      addToast('Draft saved successfully!', 'success');
+      await saveDraft(invoiceData);
       navigate('/invoices/drafts');
     } catch (error) {
       addToast('Error saving draft: ' + error.message, 'error');

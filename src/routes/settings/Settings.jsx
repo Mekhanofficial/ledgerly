@@ -5,17 +5,25 @@ import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import AccountSettings from '../../components/settings/AccountSettings';
 import NotificationSettings from '../../components/settings/NotificationSettings';
 import BillingSettings from '../../components/settings/BillingSettings';
+import TaxConfigurationSettings from '../../components/settings/TaxConfigurationSettings';
+import RolePermissionsSettings from '../../components/settings/RolePermissionsSettings';
+import DataBackupSettings from '../../components/settings/DataBackupSettings';
+import IntegrationsSettings from '../../components/settings/IntegrationsSettings';
+import AuditLogSettings from '../../components/settings/AuditLogSettings';
 import { useTheme } from '../../context/ThemeContext';
 import TeamManagementPanel from '../../components/team/TeamManagementPanel';
 
 const SETTINGS_SECTIONS = [
   { id: 'account', label: 'Account' },
+  { id: 'tax', label: 'Tax Config' },
   { id: 'security', label: 'Security' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'billing', label: 'Billing & Plan' },
   { id: 'team', label: 'Team' },
+  { id: 'permissions', label: 'Role Permissions' },
   { id: 'appearance', label: 'Appearance' },
-  { id: 'data', label: 'Data & Privacy' },
+  { id: 'data', label: 'Data & Backup' },
+  { id: 'audit', label: 'Audit Log' },
   { id: 'integrations', label: 'Integrations' }
 ];
 
@@ -41,6 +49,8 @@ const Settings = () => {
     switch (activeSection) {
       case 'account':
         return <AccountSettings />;
+      case 'tax':
+        return <TaxConfigurationSettings />;
       case 'notifications':
         return <NotificationSettings />;
       case 'security':
@@ -49,10 +59,14 @@ const Settings = () => {
         return <BillingSettings />;
       case 'team':
         return <TeamSettings />;
+      case 'permissions':
+        return <RolePermissionsSettings />;
       case 'appearance':
         return <AppearanceSettings />;
       case 'data':
         return <DataSettings />;
+      case 'audit':
+        return <AuditSettings />;
       case 'integrations':
         return <IntegrationSettings />;
       default:
@@ -171,41 +185,15 @@ const Settings = () => {
   );
 
   const DataSettings = () => (
-    <div className={`border rounded-xl p-6 ${
-      isDarkMode 
-        ? 'bg-gray-800 border-gray-700' 
-        : 'bg-white border-gray-200'
-    }`}>
-      <h3 className={`text-lg font-semibold ${
-        isDarkMode ? 'text-white' : 'text-gray-900'
-      }`}>
-        Data & Privacy
-      </h3>
-      <p className={`mt-1 ${
-        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-      }`}>
-        Manage data export, backup, and privacy settings
-      </p>
-    </div>
+    <DataBackupSettings />
+  );
+
+  const AuditSettings = () => (
+    <AuditLogSettings />
   );
 
   const IntegrationSettings = () => (
-    <div className={`border rounded-xl p-6 ${
-      isDarkMode 
-        ? 'bg-gray-800 border-gray-700' 
-        : 'bg-white border-gray-200'
-    }`}>
-      <h3 className={`text-lg font-semibold ${
-        isDarkMode ? 'text-white' : 'text-gray-900'
-      }`}>
-        Integrations
-      </h3>
-      <p className={`mt-1 ${
-        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-      }`}>
-        Connect with other apps and services
-      </p>
-    </div>
+    <IntegrationsSettings />
   );
 
   return (

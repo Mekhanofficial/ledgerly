@@ -14,24 +14,27 @@ const Drafts = () => {
   const baseCurrency = accountInfo?.currency || 'USD';
   const [selectedDrafts, setSelectedDrafts] = useState([]);
 
-  const handleDeleteDraft = (id, e) => {
+  const handleDeleteDraft = async (id, e) => {
     e?.stopPropagation();
     if (window.confirm('Are you sure you want to delete this draft?')) {
-      deleteDraft(id);
-      addToast('Draft deleted successfully', 'success');
+      const deleted = await deleteDraft(id);
+      if (!deleted) {
+        addToast('Unable to delete draft', 'error');
+      }
     }
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedDrafts.length === 0) {
       addToast('No drafts selected', 'warning');
       return;
     }
 
     if (window.confirm(`Delete ${selectedDrafts.length} selected draft(s)?`)) {
-      selectedDrafts.forEach(id => deleteDraft(id));
+      const results = await Promise.all(selectedDrafts.map((id) => deleteDraft(id)));
+      const deletedCount = results.filter(Boolean).length;
       setSelectedDrafts([]);
-      addToast(`${selectedDrafts.length} draft(s) deleted`, 'success');
+      addToast(`${deletedCount} draft(s) deleted`, deletedCount > 0 ? 'success' : 'error');
     }
   };
 

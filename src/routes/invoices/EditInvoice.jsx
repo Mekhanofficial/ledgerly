@@ -14,17 +14,27 @@ import AttachmentsSection from '../../components/invoices/create/AttachmentsSect
 import EmailTemplateSection from '../../components/invoices/create/EmailTemplateSection';
 import QuickActions from '../../components/invoices/create/QuickActions';
 import { useToast } from '../../context/ToastContext';
+import { useInvoice } from '../../context/InvoiceContext';
 import { useAccount } from '../../context/AccountContext';
 import { isMultiCurrencyPlan } from '../../utils/subscription';
 import { draftStorage } from '../../utils/draftStorage';
 import { generateInvoicePDF } from '../../utils/pdfGenerator';
-import { saveInvoice } from '../../utils/invoiceStorage';
 import { fetchTaxSettings } from '../../services/taxSettingsService';
 
 const EditInvoice = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const {
+    drafts,
+    customers: invoiceCustomers,
+    addCustomer: addCustomerFromContext,
+    addInvoice,
+    updateInvoice: updateInvoiceFromContext,
+    sendInvoice: sendInvoiceFromContext,
+    deleteDraft: deleteDraftFromContext,
+    loading: invoicesLoading
+  } = useInvoice();
   const { accountInfo } = useAccount();
   const baseCurrency = accountInfo?.currency || 'USD';
   const canUseMultiCurrency = isMultiCurrencyPlan(accountInfo?.plan, accountInfo?.subscriptionStatus);
@@ -43,11 +53,7 @@ const EditInvoice = () => {
   
   // Customer state
   const [selectedCustomer, setSelectedCustomer] = useState('');
-  const [customers, setCustomers] = useState([
-    { id: 'nextgen', name: 'NextGen Technologies', email: 'contact@nextgentech.com', address: '123 Innovation Drive, Tech Valley, CA 94025', phone: '+1 (555) 123-4567' },
-    { id: 'acme', name: 'Acme Corp', email: 'billing@acmecorp.com', address: '456 Business Ave, Suite 100, New York, NY 10001', phone: '+1 (555) 987-6543' },
-    { id: 'techstart', name: 'TechStart Inc', email: 'finance@techstart.com', address: '789 Startup Blvd, San Francisco, CA 94107', phone: '+1 (555) 456-7890' },
-  ]);
+  const [customers, setCustomers] = useState([]);
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', address: '' });
   
   // Line items state
@@ -69,6 +75,7 @@ const EditInvoice = () => {
   const [isSending, setIsSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [originalInvoice, setOriginalInvoice] = useState(null);
+  const [isBackendDraft, setIsBackendDraft] = useState(false);
   
   const roundMoney = (value) => {
     const number = Number(value);
@@ -111,10 +118,27 @@ const EditInvoice = () => {
     }
   }, [baseCurrency, canUseMultiCurrency]);
 
+  useEffect(() => {
+    setLoading(true);
+  }, [id]);
+
+  useEffect(() => {
+    if (!Array.isArray(invoiceCustomers)) return;
+    setCustomers(invoiceCustomers.map((customer) => ({
+      id: customer.id || customer._id,
+      name: customer.name || '',
+      email: customer.email || '',
+      address: customer.address || '',
+      phone: customer.phone || ''
+    })));
+  }, [invoiceCustomers]);
+
   // Load draft data
   useEffect(() => {
+    if (invoicesLoading) return;
+    if (!loading) return;
     loadDraftData();
-  }, [id]);
+  }, [id, drafts, invoicesLoading, loading]);
 
   useEffect(() => {
     let isMounted = true;
@@ -142,13 +166,16 @@ const EditInvoice = () => {
 
   const loadDraftData = () => {
     try {
-      const draft = draftStorage.getDraft(id);
+      const backendDraft = drafts.find((draft) => draft.id === id);
+      const localDraft = draftStorage.getDraft(id);
+      const draft = backendDraft || localDraft;
       if (!draft) {
         addToast('Draft not found', 'error');
         navigate('/invoices/drafts');
         return;
       }
 
+      setIsBackendDraft(Boolean(backendDraft) && !String(id).startsWith('draft_'));
       setOriginalInvoice(draft);
       setInvoiceNumber(draft.invoiceNumber || '');
       setIssueDate(draft.issueDate || new Date().toISOString().split('T')[0]);
@@ -169,12 +196,20 @@ const EditInvoice = () => {
       }
       
       if (draft.customer) {
+        const draftCustomerId = draft.customer.id || draft.customer._id || draft.customerId || '';
+        const normalizedDraftCustomer = {
+          id: draftCustomerId,
+          name: draft.customer.name || draft.customerName || '',
+          email: draft.customer.email || draft.customerEmail || '',
+          address: draft.customer.address || draft.customerAddress || '',
+          phone: draft.customer.phone || draft.customerPhone || ''
+        };
         // Add customer to list if not already there
-        const existingCustomer = customers.find(c => c.id === draft.customer.id);
+        const existingCustomer = customers.find(c => c.id === draftCustomerId);
         if (!existingCustomer) {
-          setCustomers(prev => [...prev, draft.customer]);
+          setCustomers(prev => [...prev, normalizedDraftCustomer]);
         }
-        setSelectedCustomer(draft.customer.id);
+        setSelectedCustomer(draftCustomerId);
       }
       
       if (draft.attachments) {
@@ -225,34 +260,48 @@ const EditInvoice = () => {
     }
   };
 
-  const handleAddCustomer = () => {
+  const handleAddCustomer = async () => {
     if (!newCustomer.name || !newCustomer.email) {
       addToast('Please enter customer name and email', 'error');
       return;
     }
-    
-    const newCustomerId = `cust_${Date.now()}`;
-    const customerToAdd = {
-      id: newCustomerId,
-      name: newCustomer.name,
-      email: newCustomer.email,
-      phone: newCustomer.phone,
-      address: newCustomer.address
-    };
-    
-    setCustomers([...customers, customerToAdd]);
-    setSelectedCustomer(newCustomerId);
-    setNewCustomer({ name: '', email: '', phone: '', address: '' });
-    addToast('Customer added successfully', 'success');
+
+    try {
+      const addedCustomer = await addCustomerFromContext(newCustomer, { showNotificationToast: false });
+      const normalizedCustomer = {
+        id: addedCustomer.id || addedCustomer._id,
+        name: addedCustomer.name || newCustomer.name,
+        email: addedCustomer.email || newCustomer.email,
+        phone: addedCustomer.phone || newCustomer.phone,
+        address: addedCustomer.address || newCustomer.address
+      };
+      setCustomers((prev) => {
+        if (prev.some((customer) => customer.id === normalizedCustomer.id)) {
+          return prev;
+        }
+        return [...prev, normalizedCustomer];
+      });
+      setSelectedCustomer(normalizedCustomer.id);
+      setNewCustomer({ name: '', email: '', phone: '', address: '' });
+      addToast('Customer added successfully', 'success');
+    } catch (error) {
+      addToast(error?.message || 'Error adding customer', 'error');
+    }
   };
 
   const getSelectedCustomer = () => {
     return customers.find(c => c.id === selectedCustomer);
   };
 
-  const handleUpdateDraft = () => {
+  const handleUpdateDraft = async () => {
     try {
       const customer = getSelectedCustomer();
+      const customerId = customer?.id || customer?._id || originalInvoice?.customerId || originalInvoice?.customer?._id || originalInvoice?.customer?.id || '';
+      const normalizedLineItems = lineItems.map(item => ({
+        ...item,
+        tax: 0,
+        amount: item.quantity * item.rate
+      }));
       
       const updatedInvoiceData = {
         ...originalInvoice,
@@ -261,11 +310,8 @@ const EditInvoice = () => {
         dueDate,
         paymentTerms,
         customer,
-        lineItems: lineItems.map(item => ({
-          ...item,
-          tax: 0,
-          amount: item.quantity * item.rate
-        })),
+        customerId,
+        lineItems: normalizedLineItems,
         subtotal,
         totalTax,
         totalAmount,
@@ -286,6 +332,24 @@ const EditInvoice = () => {
         updatedAt: new Date().toISOString(),
       };
 
+      if (isBackendDraft) {
+        if (!customerId) {
+          addToast('Please select a customer to sync this draft', 'error');
+          return;
+        }
+        const updated = await updateInvoiceFromContext(id, {
+          ...updatedInvoiceData,
+          status: 'draft'
+        });
+        if (updated) {
+          addToast('Draft updated successfully!', 'success');
+          navigate('/invoices/drafts');
+        } else {
+          addToast('Failed to update draft', 'error');
+        }
+        return;
+      }
+
       const saved = draftStorage.updateDraft(id, updatedInvoiceData);
       
       if (saved) {
@@ -304,24 +368,24 @@ const EditInvoice = () => {
       addToast('Please select a customer', 'error');
       return;
     }
-    
+
     const customer = getSelectedCustomer();
     if (!customer?.email) {
       addToast('Customer email is required to send invoice', 'error');
       return;
     }
-    
+
     setIsSending(true);
-    
+
     try {
-      const invoiceData = {
-        id: `inv_${Date.now()}`,
+      const draftPayload = {
         invoiceNumber,
         issueDate,
         dueDate,
         paymentTerms,
         customer,
-        lineItems: lineItems.map(item => ({
+        customerId: customer.id || customer._id,
+        lineItems: lineItems.map((item) => ({
           ...item,
           tax: 0,
           amount: item.quantity * item.rate
@@ -335,70 +399,37 @@ const EditInvoice = () => {
         isTaxOverridden,
         notes,
         terms,
-        currency: resolvedCurrency,
-        status: 'sent',
-        sentAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
+        currency: resolvedCurrency
       };
 
-      // Save to sent invoices
-      saveInvoice(invoiceData);
+      let targetInvoiceId = id;
+      if (isBackendDraft) {
+        const updatedDraft = await updateInvoiceFromContext(id, {
+          ...draftPayload,
+          status: 'draft'
+        });
+        if (!updatedDraft) {
+          throw new Error('Failed to update draft before sending');
+        }
+      } else {
+        const createdDraft = await addInvoice({
+          ...draftPayload,
+          status: 'draft'
+        });
+        if (!createdDraft?.id) {
+          throw new Error('Failed to sync local draft before sending');
+        }
+        targetInvoiceId = createdDraft.id;
+        await deleteDraftFromContext(id);
+      }
 
-      // Remove from drafts
-      draftStorage.deleteDraft(id);
+      const sentInvoice = await sendInvoiceFromContext(targetInvoiceId);
+      if (!sentInvoice) {
+        throw new Error('Failed to send invoice');
+      }
 
-      // Generate PDF
-      const pdfDoc = generateInvoicePDF(invoiceData);
-      
-      // Generate email body
-      const taxLine = taxEnabled
-        ? `${taxName} (${baseTaxRate}%): ${resolvedCurrency} ${totalTax.toFixed(2)}`
-        : '';
-      const emailBody = `
-${emailMessage}
-
-INVOICE DETAILS
-===============
-Invoice #: ${invoiceNumber}
-Issue Date: ${new Date(issueDate).toLocaleDateString()}
-Due Date: ${new Date(dueDate).toLocaleDateString()}
-Subtotal: ${resolvedCurrency} ${subtotal.toFixed(2)}
-${taxLine ? `${taxLine}\n` : ''}Total Amount: ${resolvedCurrency} ${totalAmount.toFixed(2)}
-
-ITEMS:
-${lineItems.map(item => `- ${item.description}: ${item.quantity} × ${resolvedCurrency}${item.rate} = ${resolvedCurrency}${item.amount.toFixed(2)}`).join('\n')}
-
-Thank you for your business!
-      `;
-      
-      // Convert PDF to Blob for download
-      const pdfBlob = pdfDoc.output('blob');
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      
-      // Create download link for the PDF
-      const downloadLink = document.createElement('a');
-      downloadLink.href = pdfUrl;
-      downloadLink.download = `${invoiceNumber}.pdf`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(pdfUrl);
-      
-      // Create mailto link
-      const subject = encodeURIComponent(emailSubject);
-      const body = encodeURIComponent(emailBody);
-      const mailtoLink = `mailto:${customer.email}?subject=${subject}&body=${body}`;
-      
-      // Open email client
-      window.open(mailtoLink, '_blank');
-      
-      addToast(`Invoice sent to ${customer.email} successfully! PDF downloaded.`, 'success');
-      
-      // Navigate to invoices list
-      setTimeout(() => {
-        navigate('/invoices');
-      }, 2000);
-      
+      addToast(`Invoice ${sentInvoice.invoiceNumber || invoiceNumber} sent successfully!`, 'success');
+      navigate('/invoices');
     } catch (error) {
       addToast('Error sending invoice: ' + error.message, 'error');
     } finally {
@@ -439,11 +470,14 @@ Thank you for your business!
     setShowPreview(true);
   };
 
-  const handleDeleteDraft = () => {
+  const handleDeleteDraft = async () => {
     if (window.confirm('Are you sure you want to delete this draft?')) {
-      draftStorage.deleteDraft(id);
-      addToast('Draft deleted successfully', 'success');
-      navigate('/invoices/drafts');
+      const deleted = await deleteDraftFromContext(id);
+      if (deleted) {
+        navigate('/invoices/drafts');
+      } else {
+        addToast('Failed to delete draft', 'error');
+      }
     }
   };
 
@@ -644,4 +678,5 @@ Thank you for your business!
 };
 
 export default EditInvoice;
+
 

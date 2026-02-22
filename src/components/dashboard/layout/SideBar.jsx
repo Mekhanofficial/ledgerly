@@ -42,6 +42,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const canManageInventory = ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
   const canManageInventoryAdmin = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
   const canAccessSettings = ['admin', 'super_admin'].includes(normalizedRole);
+  const canManageTeam = ['admin', 'super_admin'].includes(normalizedRole);
   
   useTheme();
 
@@ -77,6 +78,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         }]
       : []),
     { icon: Users, label: 'Customers', path: '/customers' },
+    ...(canManageTeam ? [{ icon: Mail, label: 'Team', path: '/team' }] : []),
     ...(canAccessReports ? [{ icon: BarChart3, label: 'Reports', path: '/reports' }] : []),
     ...(canAccessPayments ? [{ icon: CreditCard, label: 'Payments', path: '/payments' }] : [])
   ];
@@ -117,6 +119,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
       : [
           { icon: HelpCircle, label: 'Help & Support', path: '/support' },
           ...(canAccessSettings ? [{ icon: Settings, label: 'Settings', path: '/settings' }] : []),
+          ...(canAccessSettings ? [{ icon: CreditCard, label: 'Pricing & Plans', path: '/payments/pricing' }] : []),
           {
             icon: Bell,
             label: 'Notifications',

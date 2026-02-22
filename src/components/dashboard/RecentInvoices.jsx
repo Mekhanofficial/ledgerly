@@ -19,8 +19,10 @@ const RecentInvoices = () => {
   const isClient = normalizedRole === 'client';
   const canRecordPayment = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
 
-  // Get recent 5 invoices sorted by date
-  const recentInvoices = [...invoices]
+  const recentEligibleInvoices = invoices.filter((invoice) => invoice.status !== 'draft');
+
+  // Get recent 5 non-draft invoices sorted by date
+  const recentInvoices = [...recentEligibleInvoices]
     .sort((a, b) => new Date(b.createdAt || b.issueDate) - new Date(a.createdAt || a.issueDate))
     .slice(0, 5);
 
@@ -90,7 +92,7 @@ const RecentInvoices = () => {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Invoices</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Latest {Math.min(5, invoices.length)} of {invoices.length} total invoices
+            Latest {Math.min(5, recentEligibleInvoices.length)} of {recentEligibleInvoices.length} non-draft invoices
           </p>
         </div>
         <Link to="/invoices" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium">
@@ -98,14 +100,14 @@ const RecentInvoices = () => {
         </Link>
       </div>
 
-      {invoices.length === 0 ? (
+      {recentEligibleInvoices.length === 0 ? (
         <div className="text-center py-8">
           <FileText className="w-12 h-12 mx-auto text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            No invoices yet
+            No recent invoices yet
           </h3>
           <p className="text-gray-600 dark:text-gray-300 mb-4">
-            {isClient ? 'Your invoices will appear here once issued.' : 'Create your first invoice to get started'}
+            {isClient ? 'Your sent invoices will appear here once issued.' : 'Create and send an invoice to see it here'}
           </p>
           {!isClient && (
             <Link
@@ -225,7 +227,7 @@ const RecentInvoices = () => {
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                Showing {recentInvoices.length} of {invoices.length} total invoices
+                Showing {recentInvoices.length} of {recentEligibleInvoices.length} non-draft invoices
               </div>
               <div className="flex space-x-2">
                 <button className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">

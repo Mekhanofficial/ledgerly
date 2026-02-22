@@ -109,10 +109,32 @@ export const InvoiceProvider = ({ children }) => {
     return ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
   }, [normalizedRole]);
 
-  const [drafts, setDrafts] = useState([]);
+  const [localDrafts, setLocalDrafts] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [recurringInvoices, setRecurringInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const drafts = useMemo(() => {
+    const backendDrafts = invoices
+      .filter((invoice) => invoice?.status === 'draft')
+      .map((invoice) => ({
+        ...invoice,
+        savedAt: invoice.raw?.updatedAt || invoice.raw?.createdAt || invoice.updatedAt || invoice.createdAt || new Date().toISOString()
+      }));
+
+    const merged = new Map();
+    backendDrafts.forEach((draft) => {
+      if (draft?.id) {
+        merged.set(draft.id, draft);
+      }
+    });
+    (Array.isArray(localDrafts) ? localDrafts : []).forEach((draft) => {
+      if (draft?.id && !merged.has(draft.id)) {
+        merged.set(draft.id, draft);
+      }
+    });
+    return Array.from(merged.values());
+  }, [invoices, localDrafts]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -196,7 +218,7 @@ export const InvoiceProvider = ({ children }) => {
     let isMounted = true;
     const load = async () => {
       try {
-        setDrafts(draftStorage.getDrafts());
+        setLocalDrafts(draftStorage.getDrafts());
         setRecurringInvoices(recurringStorage.getRecurringInvoices(recurringUserId));
 
         if (isAuthenticated) {
@@ -824,18 +846,45 @@ export const InvoiceProvider = ({ children }) => {
   };
 
   // Draft Functions
-  const saveDraft = (draftData) => {
+  const saveDraft = async (draftData) => {
     try {
+      const resolvedCustomerId = draftData?.customerId
+        || draftData?.customer?._id
+        || draftData?.customer?.id
+        || '';
+      const normalizedLineItems = Array.isArray(draftData?.lineItems)
+        ? draftData.lineItems.filter((item) => item && String(item.description || '').trim())
+        : [];
+
+      // Prefer backend drafts so web/mobile stay in sync. Fall back locally for incomplete drafts.
+      if (resolvedCustomerId && normalizedLineItems.length > 0) {
+        try {
+          const created = await dispatch(createInvoiceThunk(buildInvoicePayload({
+            ...draftData,
+            customerId: resolvedCustomerId,
+            status: 'draft'
+          }))).unwrap();
+          const mappedDraft = mapInvoiceFromApi(created);
+          addToast('Draft saved successfully!', 'success');
+          return {
+            ...mappedDraft,
+            savedAt: created?.updatedAt || created?.createdAt || new Date().toISOString()
+          };
+        } catch (backendError) {
+          console.warn('Falling back to local draft save:', backendError);
+        }
+      }
+
       const newDraft = {
         id: `draft_${Date.now()}`,
         ...draftData,
         savedAt: new Date().toISOString(),
         status: 'draft'
       };
-      const updatedDrafts = [...drafts, newDraft];
-      setDrafts(updatedDrafts);
+      draftStorage.saveDraft(newDraft);
+      setLocalDrafts((prev) => [...(Array.isArray(prev) ? prev : []), newDraft]);
       
-      addToast('Draft saved successfully!', 'success');
+      addToast('Draft saved locally (not synced yet). Complete customer and item details to sync draft.', 'warning');
       return newDraft;
     } catch (error) {
       addToast('Error saving draft', 'error');
@@ -843,11 +892,21 @@ export const InvoiceProvider = ({ children }) => {
     }
   };
 
-  const deleteDraft = (id) => {
+  const deleteDraft = async (id) => {
     try {
-      const draftToDelete = drafts.find(d => d.id === id);
-      const updatedDrafts = drafts.filter(draft => draft.id !== id);
-      setDrafts(updatedDrafts);
+      const backendDraft = invoices.find((invoice) => invoice.id === id && invoice.status === 'draft');
+      if (backendDraft) {
+        const updated = await updateInvoice(id, { status: 'void' });
+        if (!updated) {
+          return false;
+        }
+        addToast(`Draft ${backendDraft.invoiceNumber || ''} deleted successfully!`, 'success');
+        return true;
+      }
+
+      const draftToDelete = localDrafts.find(d => d.id === id);
+      draftStorage.deleteDraft(id);
+      setLocalDrafts((prev) => prev.filter((draft) => draft.id !== id));
       
       addToast(`Draft ${draftToDelete?.invoiceNumber || ''} deleted successfully!`, 'success');
       return true;
@@ -868,6 +927,17 @@ export const InvoiceProvider = ({ children }) => {
         throw new Error('Draft not found');
       }
 
+      if (!String(draftId).startsWith('draft_')) {
+        const updatedDraft = await updateInvoice(draftId, {
+          status: 'sent',
+          sentAt: new Date().toISOString()
+        });
+        if (!updatedDraft) {
+          throw new Error('Unable to convert backend draft');
+        }
+        return updatedDraft;
+      }
+
       const invoiceData = {
         ...draft,
         id: `inv_${Date.now()}`,
@@ -880,7 +950,7 @@ export const InvoiceProvider = ({ children }) => {
       delete invoiceData.savedAt;
       
       const newInvoice = await addInvoice(invoiceData);
-      deleteDraft(draftId);
+      await deleteDraft(draftId);
 
       return newInvoice;
     } catch (error) {

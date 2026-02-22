@@ -49,8 +49,10 @@ import EditProduct from './routes/inventory/EditProduct'
 import NewSupplier from './routes/inventory/NewSupplier'
 import NewStockAdjustment from './routes/inventory/NewStockAdjustment'
 import AcceptInvite from './routes/team/AcceptInvite'
+import Team from './routes/team/Team'
 import Documents from './routes/documents/Documents'
 import SearchPage from './routes/search/Search'
+import PricingPage from './routes/payments/Pricing'
 
 const App = () => {
   const businessRoles = ['admin', 'accountant', 'staff']
@@ -60,6 +62,7 @@ const App = () => {
   const reportsRoles = ['admin', 'accountant']
   const inventoryManageRoles = ['admin', 'accountant']
   const settingsRoles = ['admin']
+  const teamRoles = ['admin', 'super_admin']
   const documentsRoles = ['admin', 'accountant', 'staff']
 
   return (
@@ -287,6 +290,14 @@ const App = () => {
                             </RequireAuth>
                           }
                         />
+                        <Route
+                          path="/payments/pricing"
+                          element={
+                            <RequireAuth allowedRoles={['admin', 'accountant', 'super_admin']}>
+                              <PricingPage />
+                            </RequireAuth>
+                          }
+                        />
 
                         {/* Reports & Analytics */}
                         <Route
@@ -336,6 +347,14 @@ const App = () => {
                           element={
                             <RequireAuth allowedRoles={appRoles}>
                               <SearchPage />
+                            </RequireAuth>
+                          }
+                        />
+                        <Route
+                          path="/team"
+                          element={
+                            <RequireAuth allowedRoles={teamRoles}>
+                              <Team />
                             </RequireAuth>
                           }
                         />
