@@ -8,7 +8,7 @@ const FAQSection = () => {
     {
       id: 1,
       question: "How do I get started with Ledgerly?",
-      answer: "Sign up, complete your business profile, and choose a plan starting at $9/month. You can start creating invoices immediately after setup.",
+      answer: "Sign up, complete your business profile, and choose a plan starting at ₦9/month. You can start creating invoices immediately after setup.",
       icon: <Zap className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
     {

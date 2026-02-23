@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HelpCircle, Mail, Phone, MessageSquare, Clock } from 'lucide-react';
+import { HelpCircle, Mail, Phone, MessageSquare, Clock, ChevronDown, Sparkles } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import SupportStats from '../../components/support/SupportStats';
 import KnowledgeBase from '../../components/support/KnowledgeBase';
@@ -56,12 +56,41 @@ const initialTickets = [
   }
 ];
 
+const FAQ_ITEMS = [
+  {
+    question: 'How do I reset my password?',
+    answer: 'Go to Settings > Account > Security and click "Reset Password".',
+    tag: 'Security'
+  },
+  {
+    question: 'Can I export my data?',
+    answer: 'Yes, you can export your data in CSV, Excel, or PDF format from the Reports section.',
+    tag: 'Reports'
+  },
+  {
+    question: 'How do I set up recurring invoices?',
+    answer: 'Navigate to Invoices > Recurring, click "New Recurring Profile", and set your schedule.',
+    tag: 'Invoices'
+  },
+  {
+    question: 'Is there a mobile app?',
+    answer: 'Yes, you can download our mobile app from the App Store or Google Play Store.',
+    tag: 'Mobile'
+  },
+  {
+    question: 'How do I add team members?',
+    answer: 'Go to Team from the sidebar, then click Invite/Add Member and enter their email address.',
+    tag: 'Team'
+  }
+];
+
 const Support = () => {
   const { addNotification } = useNotifications();
   const { addToast } = useToast();
   const { accountInfo } = useAccount();
   const { isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState('knowledge-base');
+  const [openFaqIndex, setOpenFaqIndex] = useState(0);
   const [tickets, setTickets] = useState(initialTickets);
   const [supportForm, setSupportForm] = useState({
     subject: '',
@@ -439,54 +468,170 @@ const Support = () => {
           <SupportTickets tickets={tickets} onViewTicket={handleViewTicket} />
         )}
         {activeTab === 'faq' && (
-          <div className={`border rounded-xl p-6 ${
-            isDarkMode 
-              ? 'bg-gray-800 border-gray-700' 
+          <div className={`border rounded-2xl overflow-hidden ${
+            isDarkMode
+              ? 'bg-gray-800 border-gray-700'
               : 'bg-white border-gray-200'
           }`}>
-            <h3 className={`text-lg font-semibold mb-6 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
+            <div className={`relative px-6 py-6 border-b ${
+              isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-100 bg-white'
             }`}>
-              Frequently Asked Questions
-            </h3>
-            <div className="space-y-4">
-              {[
-                {
-                  question: 'How do I reset my password?',
-                  answer: 'Go to Settings > Account > Security and click "Reset Password".'
-                },
-                {
-                  question: 'Can I export my data?',
-                  answer: 'Yes, you can export all your data in CSV, Excel, or PDF format from the Reports section.'
-                },
-                {
-                  question: 'How do I set up recurring invoices?',
-                  answer: 'Navigate to Invoices > Recurring, click "New Recurring Profile", and set your schedule.'
-                },
-                {
-                  question: 'Is there a mobile app?',
-                  answer: 'Yes, you can download our mobile app from the App Store or Google Play Store.'
-                },
-                {
-                  question: 'How do I add team members?',
-                  answer: 'Go to Settings > Team > Add Member and enter their email address.'
-                }
-              ].map((faq, index) => (
-                <div key={index} className={`border-b pb-4 last:border-0 last:pb-0 ${
-                  isDarkMode ? 'border-gray-700' : 'border-gray-100'
-                }`}>
-                  <h4 className={`font-medium ${
+              <div className="pointer-events-none absolute inset-0 opacity-70">
+                <div className={`absolute -top-10 right-8 h-24 w-24 rounded-full blur-2xl ${
+                  isDarkMode ? 'bg-primary-500/15' : 'bg-primary-200/60'
+                }`} />
+                <div className={`absolute -bottom-8 left-6 h-20 w-20 rounded-full blur-2xl ${
+                  isDarkMode ? 'bg-cyan-500/10' : 'bg-cyan-100/70'
+                }`} />
+              </div>
+
+              <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
+                    isDarkMode ? 'bg-gray-700 text-gray-200 border border-gray-600' : 'bg-gray-100 text-gray-700 border border-gray-200'
+                  }`}>
+                    <Sparkles className="w-3.5 h-3.5 text-primary-500" />
+                    Help Center
+                  </div>
+                  <h3 className={`mt-3 text-xl font-semibold ${
                     isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    {faq.question}
-                  </h4>
-                  <p className={`mt-2 ${
+                    Frequently Asked Questions
+                  </h3>
+                  <p className={`mt-1 text-sm ${
                     isDarkMode ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    {faq.answer}
+                    Quick answers to the most common setup and workflow questions.
                   </p>
                 </div>
-              ))}
+
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                  {['Security', 'Invoices', 'Reports', 'Team'].map((pill) => (
+                    <span
+                      key={pill}
+                      className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-medium ${
+                        isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {pill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 md:p-6">
+              <div className="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)] gap-4 md:gap-6">
+                <div className={`rounded-2xl border p-4 h-fit ${
+                  isDarkMode ? 'border-gray-700 bg-gray-900/30' : 'border-gray-200 bg-gray-50'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      isDarkMode ? 'bg-primary-900/30' : 'bg-primary-100'
+                    }`}>
+                      <HelpCircle className="w-5 h-5 text-primary-600" />
+                    </div>
+                    <div>
+                      <div className={`text-sm font-semibold ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        Need more help?
+                      </div>
+                      <div className={`text-xs ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        If your answer is not here, contact support directly.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => handleContactMethodClick('Send Email')}
+                      className="w-full text-left px-3 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700"
+                    >
+                      Contact Support
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('knowledge-base')}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium border ${
+                        isDarkMode
+                          ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                          : 'border-gray-200 text-gray-700 hover:bg-white'
+                      }`}
+                    >
+                      Browse Knowledge Base
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {FAQ_ITEMS.map((faq, index) => {
+                    const isOpen = openFaqIndex === index;
+                    return (
+                      <div
+                        key={faq.question}
+                        className={`rounded-2xl border transition-all ${
+                          isOpen
+                            ? isDarkMode
+                              ? 'border-primary-500/40 bg-gray-900/30'
+                              : 'border-primary-200 bg-primary-50/40'
+                            : isDarkMode
+                              ? 'border-gray-700 bg-gray-800/40 hover:border-gray-600'
+                              : 'border-gray-200 bg-white hover:border-gray-300'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setOpenFaqIndex(isOpen ? -1 : index)}
+                          className="w-full flex items-start justify-between gap-3 p-4 md:p-5 text-left"
+                          aria-expanded={isOpen}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                                isOpen
+                                  ? 'bg-primary-600 text-white'
+                                  : isDarkMode
+                                    ? 'bg-gray-700 text-gray-300'
+                                    : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {faq.tag}
+                              </span>
+                            </div>
+                            <h4 className={`font-semibold leading-snug ${
+                              isDarkMode ? 'text-white' : 'text-gray-900'
+                            }`}>
+                              {faq.question}
+                            </h4>
+                          </div>
+                          <span className={`mt-0.5 flex-shrink-0 rounded-lg p-1.5 transition ${
+                            isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+                          } ${isOpen ? 'rotate-180' : ''}`}>
+                            <ChevronDown className={`w-4 h-4 ${
+                              isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                            }`} />
+                          </span>
+                        </button>
+
+                        {isOpen && (
+                          <div className={`px-4 md:px-5 pb-4 md:pb-5 ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>
+                            <div className={`pl-0 md:pl-0 pt-1 text-sm leading-relaxed border-t ${
+                              isDarkMode ? 'border-gray-700' : 'border-gray-100'
+                            }`}>
+                              <p className="pt-3">{faq.answer}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         )}

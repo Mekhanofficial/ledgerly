@@ -108,7 +108,7 @@ const RolePermissionsSettings = () => {
             </h3>
           </div>
           <p className={`mt-1 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Configure default permission templates for each role. These templates apply to new invites and role changes.
+            Configure default permission templates for each role. These templates are saved to settings and apply to new invites and future role changes (not existing users automatically).
           </p>
         </div>
         <div className="flex gap-2">
@@ -236,4 +236,3 @@ const RolePermissionsSettings = () => {
 };
 
 export default RolePermissionsSettings;
-

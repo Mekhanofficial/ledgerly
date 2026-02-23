@@ -14,6 +14,18 @@ const Pricing = () => {
   const { addToast } = useToast();
   const { accountInfo } = useAccount();
   const currentPlan = useMemo(() => normalizePlanId(accountInfo?.plan), [accountInfo]);
+  const pricingCurrency = 'NGN';
+  const formatNgn = (value) => {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return value;
+    const hasWholeAmount = Number.isInteger(amount);
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: pricingCurrency,
+      minimumFractionDigits: hasWholeAmount ? 0 : 2,
+      maximumFractionDigits: hasWholeAmount ? 0 : 2
+    }).format(amount);
+  };
 
   const toYearlyPrice = (monthly) => Number((Number(monthly) * 12 * 0.8).toFixed(2));
 
@@ -87,19 +99,19 @@ const Pricing = () => {
   const templateTiers = [
     {
       name: 'Standard',
-      price: '$5',
+      price: '₦5',
       description: 'Clean, professional templates included in Starter+',
       gradient: 'from-blue-500 to-cyan-500'
     },
     {
       name: 'Premium',
-      price: '$12',
+      price: '₦12',
       description: 'Advanced designs included in Professional+',
       gradient: 'from-purple-500 to-pink-500'
     },
     {
       name: 'Elite',
-      price: '$25',
+      price: '₦25',
       description: 'Top-tier designs included in Enterprise',
       gradient: 'from-amber-500 to-yellow-500'
     }
@@ -108,24 +120,24 @@ const Pricing = () => {
   const addOns = [
     {
       name: 'White-label Add-on',
-      price: '$49/month',
+      price: '₦49/month',
       description: 'Remove Ledgerly branding (Professional only).'
     },
     {
       name: 'Extra Team Member',
-      price: '$5/month',
+      price: '₦5/month',
       description: 'Add additional seats beyond your plan.'
     },
     {
       name: 'Advanced Analytics AI',
-      price: '$10/month',
+      price: '₦10/month',
       description: 'AI insights and forecasting.'
     }
   ];
 
   const bundle = {
     name: 'All Templates Lifetime Bundle',
-    price: '$79',
+    price: '₦79',
     description: 'Unlock all templates forever. Non-refundable.'
   };
 
@@ -163,6 +175,9 @@ const Pricing = () => {
           </h1>
           <p className={`text-lg md:text-xl mb-6 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
             Upgrade to unlock premium and elite templates, recurring invoices, and team features.
+          </p>
+          <p className={`text-sm mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            All prices in NGN (Paystack checkout).
           </p>
 
           <div className="flex items-center justify-center gap-2">
@@ -235,7 +250,7 @@ const Pricing = () => {
                   <div className="mb-6">
                     <div className="flex items-baseline">
                       <span className={`text-4xl md:text-5xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        ${price}
+                        {formatNgn(price)}
                       </span>
                       <span className={`ml-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         /{periodLabel}

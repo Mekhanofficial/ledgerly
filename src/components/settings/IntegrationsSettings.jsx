@@ -269,7 +269,7 @@ const IntegrationsSettings = () => {
             </h3>
           </div>
           <p className={`mt-1 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Configure payment gateways, accounting sync, messaging providers, automation hooks, and API settings.
+            Configure business-level integrations (payment gateways, accounting sync, messaging providers, automation hooks, and API settings). This is for admins/business setup, not end-user profile preferences.
           </p>
         </div>
         <button
@@ -384,4 +384,3 @@ const IntegrationsSettings = () => {
 };
 
 export default IntegrationsSettings;
-

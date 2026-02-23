@@ -6,7 +6,7 @@ const Pricing = () => {
   const plans = [
     {
       name: 'Starter',
-      price: '$9',
+      price: '₦9',
       period: '/month',
       description: 'Perfect for freelancers & solo entrepreneurs',
       popular: false,
@@ -28,7 +28,7 @@ const Pricing = () => {
     },
     {
       name: 'Professional',
-      price: '$29',
+      price: '₦29',
       period: '/month',
       description: 'For growing businesses & small teams',
       popular: true,
@@ -50,7 +50,7 @@ const Pricing = () => {
     },
     {
       name: 'Enterprise',
-      price: '$79',
+      price: '₦79',
       period: '/month',
       description: 'For established companies & large teams',
       popular: false,
@@ -75,7 +75,7 @@ const Pricing = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-2xl mb-6">
-            <span className="text-2xl font-bold text-primary-700 dark:text-primary-400">$</span>
+            <span className="text-2xl font-bold text-primary-700 dark:text-primary-400">₦</span>
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
             Simple, Transparent
@@ -83,6 +83,9 @@ const Pricing = () => {
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             Choose the perfect plan for your business needs. All plans include core features.
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mt-2">
+            Pricing shown in NGN.
           </p>
         </div>
         

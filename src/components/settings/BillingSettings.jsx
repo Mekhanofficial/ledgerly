@@ -106,6 +106,7 @@ const BillingSettings = () => {
   }, [billing]);
 
   const currentSubscription = billing?.subscription || {};
+  const pricingCurrency = billing?.pricingCurrency || 'NGN';
   const currentPlan = currentSubscription?.plan || 'starter';
   const currentCycle = currentSubscription?.billingCycle || 'monthly';
   const currentStatus = String(currentSubscription?.status || 'active').toLowerCase();
@@ -125,10 +126,9 @@ const BillingSettings = () => {
   const formatCurrency = (value) => {
     const amount = Number(value);
     if (!Number.isFinite(amount)) return value;
-    const currency = billing?.currency || 'USD';
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-NG', {
       style: 'currency',
-      currency
+      currency: pricingCurrency
     }).format(amount);
   };
 
@@ -334,17 +334,17 @@ const BillingSettings = () => {
             }`}>
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <CreditCard className="w-4 h-4" />
-                Currency
+                Pricing Currency
               </div>
               <div className={`mt-2 text-xl font-semibold ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                {billing?.currency || 'USD'}
+                {pricingCurrency}
               </div>
               <div className={`mt-2 text-xs ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-500'
               }`}>
-                Business: {billing?.businessName || 'Ledgerly'}
+                Paystack checkout currency for plans and add-ons
               </div>
             </div>
           </div>
@@ -477,7 +477,7 @@ const BillingSettings = () => {
             <div className={`text-sm ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              You will be redirected to Paystack to complete payment. Plan updates after verification.
+              You will be redirected to Paystack to complete payment in NGN. Plan updates after verification.
             </div>
             <button
               type="button"
@@ -554,7 +554,7 @@ const BillingSettings = () => {
                     <p className={`text-xs ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-500'
                     }`}>
-                      $5 per additional seat
+                      ₦5 per additional seat
                     </p>
                   </div>
                   <Users className="w-5 h-5 text-primary-500" />
@@ -599,7 +599,7 @@ const BillingSettings = () => {
                     <p className={`text-xs ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-500'
                     }`}>
-                      $10 per month
+                      ₦10 per month
                     </p>
                   </div>
                   <Zap className="w-5 h-5 text-primary-500" />

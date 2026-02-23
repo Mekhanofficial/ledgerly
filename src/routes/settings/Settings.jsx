@@ -1,6 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { Save } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  User,
+  Receipt,
+  Shield,
+  Bell,
+  CreditCard,
+  KeyRound,
+  Palette,
+  Database,
+  FileText,
+  Globe
+} from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import AccountSettings from '../../components/settings/AccountSettings';
 import NotificationSettings from '../../components/settings/NotificationSettings';
@@ -11,20 +23,18 @@ import DataBackupSettings from '../../components/settings/DataBackupSettings';
 import IntegrationsSettings from '../../components/settings/IntegrationsSettings';
 import AuditLogSettings from '../../components/settings/AuditLogSettings';
 import { useTheme } from '../../context/ThemeContext';
-import TeamManagementPanel from '../../components/team/TeamManagementPanel';
 
 const SETTINGS_SECTIONS = [
-  { id: 'account', label: 'Account' },
-  { id: 'tax', label: 'Tax Config' },
-  { id: 'security', label: 'Security' },
-  { id: 'notifications', label: 'Notifications' },
-  { id: 'billing', label: 'Billing & Plan' },
-  { id: 'team', label: 'Team' },
-  { id: 'permissions', label: 'Role Permissions' },
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'data', label: 'Data & Backup' },
-  { id: 'audit', label: 'Audit Log' },
-  { id: 'integrations', label: 'Integrations' }
+  { id: 'account', label: 'Account', icon: User },
+  { id: 'tax', label: 'Tax Config', icon: Receipt },
+  { id: 'security', label: 'Security', icon: Shield },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'billing', label: 'Billing & Plan', icon: CreditCard },
+  { id: 'permissions', label: 'Role Permissions', icon: KeyRound, adminOnly: true },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'data', label: 'Data & Backup', icon: Database },
+  { id: 'audit', label: 'Audit Log', icon: FileText, adminOnly: true },
+  { id: 'integrations', label: 'Integrations', icon: Globe, adminOnly: true }
 ];
 
 const SETTINGS_SECTION_IDS = new Set(SETTINGS_SECTIONS.map((section) => section.id));
@@ -32,8 +42,21 @@ const SETTINGS_SECTION_IDS = new Set(SETTINGS_SECTIONS.map((section) => section.
 const Settings = () => {
   const { isDarkMode, toggleTheme, setTheme } = useTheme();
   const location = useLocation();
+  const authUser = useSelector((state) => state.auth?.user);
+  const normalizedRole = String(authUser?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const canManageAdvancedSettings = ['admin', 'super_admin'].includes(normalizedRole);
   const [activeSection, setActiveSection] = useState('account');
-  const [hasChanges, setHasChanges] = useState(false);
+  const visibleSections = useMemo(
+    () => SETTINGS_SECTIONS.filter((section) => !section.adminOnly || canManageAdvancedSettings),
+    [canManageAdvancedSettings]
+  );
+  const visibleSectionIds = useMemo(
+    () => new Set(visibleSections.map((section) => section.id)),
+    [visibleSections]
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -44,6 +67,12 @@ const Settings = () => {
       setActiveSection(normalized);
     }
   }, [location.search]);
+
+  useEffect(() => {
+    if (!visibleSectionIds.has(activeSection)) {
+      setActiveSection(visibleSections[0]?.id || 'account');
+    }
+  }, [activeSection, visibleSectionIds, visibleSections]);
 
   const renderSection = () => {
     switch (activeSection) {
@@ -57,8 +86,6 @@ const Settings = () => {
         return <SecuritySettings />;
       case 'billing':
         return <BillingSettings />;
-      case 'team':
-        return <TeamSettings />;
       case 'permissions':
         return <RolePermissionsSettings />;
       case 'appearance':
@@ -93,8 +120,6 @@ const Settings = () => {
       </p>
     </div>
   );
-
-  const TeamSettings = () => <TeamManagementPanel />;
 
   const AppearanceSettings = () => (
     <div className={`border rounded-xl p-6 ${
@@ -200,56 +225,76 @@ const Settings = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between">
-          <div>
-            <h1 className={`text-2xl md:text-3xl font-bold ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              Settings
-            </h1>
-            <p className={`mt-1 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Manage your account and preferences
-            </p>
-          </div>
-          <div className="flex items-center space-x-3 mt-4 md:mt-0">
-            {hasChanges && (
-              <button className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-                <Save className="w-4 h-4 mr-2" />
-                Save Changes
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Top Tabs */}
-        <div className={`border rounded-xl p-2 ${
-          isDarkMode
-            ? 'bg-gray-800 border-gray-700'
-            : 'bg-white border-gray-200'
+        <div className={`overflow-hidden rounded-2xl border ${
+          isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
         }`}>
-          <div className="flex items-center gap-2 overflow-x-auto">
-            {SETTINGS_SECTIONS.map((section) => {
-              const isActive = activeSection === section.id;
-              return (
-                <button
-                  key={section.id}
-                  type="button"
-                  onClick={() => setActiveSection(section.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                    isActive
-                      ? 'bg-primary-600 text-white'
-                      : isDarkMode
-                        ? 'text-gray-300 hover:bg-gray-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  {section.label}
-                </button>
-              );
-            })}
+          <div className={`p-5 md:p-6 ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+              <div>
+                <div className={`text-xs uppercase tracking-[0.16em] font-semibold ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                }`}>
+                  Admin / Settings
+                </div>
+                <h1 className={`mt-2 text-2xl md:text-3xl font-semibold tracking-tight ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Business </span>
+                  <span className="text-primary-600">Settings</span>
+                </h1>
+                <p className={`mt-2 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  Manage account preferences, automation, and business configuration.
+                </p>
+              </div>
+              <div className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium ${
+                isDarkMode ? 'border-gray-600 text-gray-300 bg-gray-900/40' : 'border-gray-200 text-gray-700 bg-gray-50'
+              }`}>
+                {canManageAdvancedSettings ? 'Admin settings access' : 'Standard settings access'}
+              </div>
+            </div>
+          </div>
+
+          {/* Top Tabs - image-style underline nav */}
+          <div className={`border-t ${
+            isDarkMode ? 'border-gray-700 bg-gray-800/70' : 'border-gray-200 bg-white'
+          }`}>
+            <div className="overflow-x-auto">
+              <div className="flex min-w-max items-center gap-1 px-3 md:px-4">
+                {visibleSections.map((section) => {
+                  const isActive = activeSection === section.id;
+                  const Icon = section.icon;
+                  return (
+                    <button
+                      key={section.id}
+                      type="button"
+                      onClick={() => setActiveSection(section.id)}
+                      className={`relative inline-flex items-center gap-2 rounded-t-xl px-3 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
+                        isActive
+                          ? 'text-primary-600'
+                          : isDarkMode
+                            ? 'text-gray-300 hover:text-white'
+                            : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-primary-600' : ''}`} />
+                      <span>{section.label}</span>
+                      <span
+                        className={`absolute bottom-0 left-3 right-3 h-0.5 rounded-full transition-opacity ${
+                          isActive
+                            ? 'opacity-100 bg-primary-600'
+                            : 'opacity-0 bg-transparent'
+                        }`}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 

@@ -1,5 +1,6 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 
 // Import components
 import HomePage from './routes/home'
@@ -53,8 +54,20 @@ import Team from './routes/team/Team'
 import Documents from './routes/documents/Documents'
 import SearchPage from './routes/search/Search'
 import PricingPage from './routes/payments/Pricing'
+import PublicInvoicePay from './routes/public/PublicInvoicePay'
+import PublicInvoicePaymentResult from './routes/public/PublicInvoicePaymentResult'
+import { resolveAuthUser } from './utils/userDisplay'
 
 const App = () => {
+  const authState = useSelector((state) => state.auth || {})
+  const authUser = resolveAuthUser(authState.user)
+  const sessionIdentity =
+    authUser?._id ||
+    authUser?.id ||
+    authUser?.email ||
+    'guest'
+  const sessionKey = `${authState.isAuthenticated ? 'auth' : 'guest'}:${sessionIdentity}`
+
   const businessRoles = ['admin', 'accountant', 'staff']
   const clientRoles = ['client']
   const appRoles = [...businessRoles, ...clientRoles]
@@ -69,7 +82,7 @@ const App = () => {
     <BrowserRouter>
       <ThemeProvider>
         <ToastProvider>
-          <NotificationProvider>
+          <NotificationProvider key={sessionKey}>
             <AccountProvider>
               <UserProvider> {/* Only add UserProvider, no route protection */}
                 <InventoryProvider>
@@ -86,6 +99,15 @@ const App = () => {
                         <Route path="/forgot-password" element={<ForgotPassword />} />
                         <Route path="/reset-password/:token" element={<ResetPassword />} />
                         <Route path="/team/accept-invite/:token" element={<AcceptInvite />} />
+                        <Route path="/invoice/pay/:slug" element={<PublicInvoicePay />} />
+                        <Route
+                          path="/invoice/success/:slug"
+                          element={<PublicInvoicePaymentResult mode="success" />}
+                        />
+                        <Route
+                          path="/invoice/failed/:slug"
+                          element={<PublicInvoicePaymentResult mode="failed" />}
+                        />
 
                         {/* Dashboard & Main App Routes */}
                         <Route
