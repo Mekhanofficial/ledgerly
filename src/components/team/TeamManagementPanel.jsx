@@ -4,6 +4,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useSelector } from 'react-redux';
 import api from '../../services/api';
+import TablePagination from '../ui/TablePagination';
+import { useTablePagination } from '../../hooks/usePagination';
 
 const roleOptions = [
   { value: 'super_admin', label: 'Super Admin', description: 'Full system control, users & roles' },
@@ -234,6 +236,13 @@ const TeamManagementPanel = () => {
   const visibleTeamMembers = canManageRoles
     ? teamMembers
     : teamMembers.filter((member) => member?.role !== 'super_admin');
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: paginatedTeamMembers
+  } = useTablePagination(visibleTeamMembers, { initialRowsPerPage: 10 });
 
   const activeCount = visibleTeamMembers.filter((member) => member.invitationAccepted && member.isActive).length;
   const invitedCount = visibleTeamMembers.length - activeCount;
@@ -318,7 +327,7 @@ const TeamManagementPanel = () => {
                     </td>
                   </tr>
                 ) : (
-                  visibleTeamMembers.map((member) => (
+                  paginatedTeamMembers.map((member) => (
                     <tr
                       key={member._id}
                       className={`${isDarkMode ? 'hover:bg-gray-900/30' : 'hover:bg-gray-50'} transition-colors`}
@@ -420,6 +429,18 @@ const TeamManagementPanel = () => {
               </tbody>
             </table>
           </div>
+          {!loading && visibleTeamMembers.length > 0 && (
+            <TablePagination
+              page={page}
+              totalItems={visibleTeamMembers.length}
+              rowsPerPage={rowsPerPage}
+              onPageChange={setPage}
+              onRowsPerPageChange={setRowsPerPage}
+              isDarkMode={isDarkMode}
+              itemLabel="members"
+              className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700"
+            />
+          )}
         </div>
 
         <div

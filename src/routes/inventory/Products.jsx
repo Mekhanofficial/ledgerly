@@ -9,6 +9,8 @@ import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
 import { fetchProducts, deleteProduct as deactivateProduct } from '../../store/slices/productSlide';
 import { mapProductFromApi } from '../../utils/productAdapter';
+import TablePagination from '../../components/ui/TablePagination';
+import { useTablePagination } from '../../hooks/usePagination';
 
 const Products = () => {
   const { isDarkMode } = useTheme();
@@ -85,6 +87,13 @@ const Products = () => {
   };
 
   const filteredProducts = calculateProductStats();
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: paginatedProducts
+  } = useTablePagination(filteredProducts, { initialRowsPerPage: 10 });
 
   const getCategoryName = (product) => {
     if (product.categoryName) return product.categoryName;
@@ -684,7 +693,7 @@ const Products = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredProducts.map((product) => {
+                  paginatedProducts.map((product) => {
                     const stock = product.stock || product.quantity || 0;
                     const totalValue = stock * (product.price || 0);
                     
@@ -830,11 +839,24 @@ const Products = () => {
               </p>
             </div>
           ) : (
-            filteredProducts.map((product) => (
+            paginatedProducts.map((product) => (
               <MobileProductCard key={product.id} product={product} />
             ))
           )}
         </div>
+
+        {filteredProducts.length > 0 && (
+          <TablePagination
+            page={page}
+            totalItems={filteredProducts.length}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={setRowsPerPage}
+            isDarkMode={isDarkMode}
+            itemLabel="products"
+            className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700"
+          />
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}

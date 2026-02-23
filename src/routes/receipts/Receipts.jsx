@@ -536,134 +536,224 @@ Thank you for shopping with us!
     return customers.find(c => c.id === selectedCustomerId);
   };
 
+  const cartSummary = calculateTotals();
+  const selectedCustomer = getSelectedCustomer();
+  const selectedStoredPaymentMethod = getSelectedPaymentMethod();
+  const paymentLabel = selectedStoredPaymentMethod?.name || paymentMethod || 'Cash';
+  const todayReceiptsCount = (receipts || []).filter((receipt) => {
+    const timestamp = receipt?.savedAt || receipt?.createdAt || receipt?.date;
+    if (!timestamp) return false;
+    const receiptDate = new Date(timestamp);
+    const now = new Date();
+    return (
+      receiptDate.getFullYear() === now.getFullYear() &&
+      receiptDate.getMonth() === now.getMonth() &&
+      receiptDate.getDate() === now.getDate()
+    );
+  }).length;
+
   return (
     <DashboardLayout>
       <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-        <div className="space-y-6 p-4 md:p-6">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between">
-            <div>
-              <h1 className={`text-2xl md:text-3xl font-bold ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}>
-                Generate Receipt
-              </h1>
-              <p className={`mt-1 ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-600'
-              }`}>
-                Create and manage customer receipts
-              </p>
+        <div className="mx-auto max-w-[1800px] space-y-6 p-4 md:p-6">
+          {/* Workspace Header */}
+          <section className={`relative overflow-hidden rounded-2xl border ${
+            isDarkMode ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'
+          }`}>
+            <div className="pointer-events-none absolute inset-0 opacity-70">
+              <div className={`absolute -top-16 right-12 h-40 w-40 rounded-full blur-3xl ${
+                isDarkMode ? 'bg-primary-500/20' : 'bg-primary-200/60'
+              }`} />
+              <div className={`absolute -bottom-12 left-8 h-32 w-32 rounded-full blur-2xl ${
+                isDarkMode ? 'bg-cyan-500/10' : 'bg-cyan-100/80'
+              }`} />
             </div>
-            <div className="flex items-center space-x-3 mt-4 md:mt-0">
-              <button 
-                onClick={handleNewReceipt}
-                className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                <span className="hidden md:inline">New Receipt</span>
-                <span className="md:hidden">New</span>
-              </button>
-            </div>
-          </div>
 
-          {/* Mobile Toggle for Receipt Preview */}
-          {isMobile && (
-            <div className="lg:hidden">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className={`text-lg font-semibold ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  {showMobileReceipt ? 'Receipt Preview' : 'Select Products'}
-                </h2>
-                {showMobileReceipt && (
+            <div className="relative p-5 md:p-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
+                    isDarkMode ? 'bg-gray-800 text-gray-300 border border-gray-700' : 'bg-gray-100 text-gray-700 border border-gray-200'
+                  }`}>
+                    <Receipt className="h-3.5 w-3.5" />
+                    Point of Sale
+                  </div>
+                  <h1 className={`mt-3 text-2xl md:text-3xl font-semibold tracking-tight ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    Receipts Workspace
+                  </h1>
+                  <p className={`mt-2 max-w-2xl text-sm md:text-base ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Add products fast, verify the order in a focused checkout panel, and issue polished receipts without fighting the layout.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setShowMobileReceipt(false)}
-                    className={`flex items-center px-3 py-2 text-sm ${
-                      isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-900'
-                    }`}
+                    onClick={handleNewReceipt}
+                    className="inline-flex items-center rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700"
                   >
-                    <ArrowLeft className="w-4 h-4 mr-1" />
-                    Back to Products
-                  </button>
-                )}
-              </div>
-              
-              <div className="mb-4">
-                <div className={`flex border-b ${
-                  isDarkMode ? 'border-gray-700' : 'border-gray-200'
-                }`}>
-                  <button
-                    onClick={() => setShowMobileReceipt(false)}
-                    className={`flex-1 py-3 text-center font-medium ${
-                      !showMobileReceipt
-                        ? 'text-primary-600 border-b-2 border-primary-600'
-                        : isDarkMode
-                          ? 'text-gray-500 hover:text-gray-400'
-                          : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Products ({cartItems.length})
-                  </button>
-                  <button
-                    onClick={() => setShowMobileReceipt(true)}
-                    className={`flex-1 py-3 text-center font-medium ${
-                      showMobileReceipt
-                        ? 'text-primary-600 border-b-2 border-primary-600'
-                        : isDarkMode
-                          ? 'text-gray-500 hover:text-gray-400'
-                          : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Receipt
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Receipt
                   </button>
                 </div>
               </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div className={`rounded-xl border p-3 ${
+                  isDarkMode ? 'border-gray-800 bg-gray-800/80' : 'border-gray-200 bg-gray-50'
+                }`}>
+                  <p className={`text-xs uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cart Items</p>
+                  <p className={`mt-1 text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cartItems.length}</p>
+                  <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                    {cartItems.reduce((sum, item) => sum + item.quantity, 0)} total units
+                  </p>
+                </div>
+                <div className={`rounded-xl border p-3 ${
+                  isDarkMode ? 'border-gray-800 bg-gray-800/80' : 'border-gray-200 bg-gray-50'
+                }`}>
+                  <p className={`text-xs uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Checkout Total</p>
+                  <p className={`mt-1 text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {formatMoney(cartSummary.total, baseCurrency)}
+                  </p>
+                  <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                    {formatMoney(cartSummary.subtotal, baseCurrency)} subtotal + tax
+                  </p>
+                </div>
+                <div className={`rounded-xl border p-3 ${
+                  isDarkMode ? 'border-gray-800 bg-gray-800/80' : 'border-gray-200 bg-gray-50'
+                }`}>
+                  <p className={`text-xs uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Customer</p>
+                  <p className={`mt-1 truncate text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {selectedCustomer?.name || customerName || 'Walk-in Customer'}
+                  </p>
+                  <p className={`truncate text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                    {selectedCustomer?.email || customerEmail || 'No email provided'}
+                  </p>
+                </div>
+                <div className={`rounded-xl border p-3 ${
+                  isDarkMode ? 'border-gray-800 bg-gray-800/80' : 'border-gray-200 bg-gray-50'
+                }`}>
+                  <p className={`text-xs uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Payment</p>
+                  <p className={`mt-1 text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {paymentLabel}
+                  </p>
+                  <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                    {todayReceiptsCount} receipt{todayReceiptsCount === 1 ? '' : 's'} today
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Mobile Workspace Switcher */}
+          {isMobile && (
+            <div className={`rounded-2xl border p-2 ${
+              isDarkMode ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'
+            }`}>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setShowMobileReceipt(false)}
+                  className={`rounded-xl px-4 py-3 text-left transition ${
+                    !showMobileReceipt
+                      ? 'bg-primary-600 text-white shadow-sm'
+                      : isDarkMode
+                        ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <div className="text-xs uppercase tracking-wider opacity-80">Catalog</div>
+                  <div className="mt-1 text-sm font-semibold">Products</div>
+                  <div className="text-xs opacity-80">{cartItems.length} in cart</div>
+                </button>
+                <button
+                  onClick={() => setShowMobileReceipt(true)}
+                  className={`rounded-xl px-4 py-3 text-left transition ${
+                    showMobileReceipt
+                      ? 'bg-primary-600 text-white shadow-sm'
+                      : isDarkMode
+                        ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <div className="text-xs uppercase tracking-wider opacity-80">Checkout</div>
+                  <div className="mt-1 text-sm font-semibold">Receipt</div>
+                  <div className="text-xs opacity-80">{formatMoney(cartSummary.total, baseCurrency)}</div>
+                </button>
+              </div>
+              {showMobileReceipt && (
+                <button
+                  onClick={() => setShowMobileReceipt(false)}
+                  className={`mt-2 inline-flex items-center px-2 py-1 text-xs ${
+                    isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+                  Back to product catalog
+                </button>
+              )}
             </div>
           )}
 
-          {/* Main Content Area - Responsive Layout */}
-          <div className={`${isMobile ? 'block' : 'grid grid-cols-1 lg:grid-cols-2 gap-6'}`}>
-            {/* Left Column - Products */}
-            <div className={`
-              ${isMobile && showMobileReceipt ? 'hidden' : 'block'}
-              ${!isMobile ? 'h-[calc(100vh-250px)] overflow-y-auto' : ''}
-            `}>
-              <div className="hidden lg:block mb-4">
-                <h2 className={`text-lg font-semibold ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
+          {/* Main POS Workspace */}
+          <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1.25fr)_minmax(380px,0.95fr)]'}`}>
+            <section className={`${isMobile && showMobileReceipt ? 'hidden' : 'block'}`}>
+              <div className={`rounded-2xl border ${
+                isDarkMode ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'
+              }`}>
+                <div className={`flex flex-col gap-2 border-b px-5 py-4 md:flex-row md:items-center md:justify-between ${
+                  isDarkMode ? 'border-gray-800' : 'border-gray-200'
                 }`}>
-                  Select Products
-                </h2>
-              </div>
-              <div className={`
-                ${!isMobile ? 'h-[calc(100vh-300px)]' : ''}
-                ${!isMobile ? 'overflow-y-auto pr-2' : ''}
-              `}>
-                <ProductGrid 
-                  onAddToCart={handleAddToCart} 
-                  cartItems={cartItems}
-                />
-              </div>
-            </div>
-
-            {/* Right Column - Receipt Preview */}
-            <div className={`
-              ${isMobile && !showMobileReceipt ? 'hidden' : 'block'}
-              ${!isMobile ? 'h-[calc(100vh-250px)]' : ''}
-            `}>
-              {!isMobile && (
-                <div className="mb-4">
-                  <h2 className={`text-lg font-semibold ${
-                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  <div>
+                    <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Product Catalog
+                    </h2>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Search inventory, compare stock status, and add items to the receipt.
+                    </p>
+                  </div>
+                  <div className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
+                    isDarkMode ? 'bg-gray-800 text-gray-300 border border-gray-700' : 'bg-gray-100 text-gray-700 border border-gray-200'
                   }`}>
-                    Receipt Preview
-                  </h2>
+                    {cartItems.length} selected item{cartItems.length === 1 ? '' : 's'}
+                  </div>
                 </div>
-              )}
-              <div className={`
-                ${!isMobile ? 'h-[calc(100vh-300px)] overflow-y-auto' : ''}
-                sticky top-6
-              `}>
+                <div className="p-4 md:p-5">
+                  <ProductGrid
+                    onAddToCart={handleAddToCart}
+                    cartItems={cartItems}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className={`${isMobile && !showMobileReceipt ? 'hidden' : 'block'}`}>
+              <div className={`${isMobile ? '' : 'sticky top-24'} space-y-4`}>
+                <div className={`rounded-2xl border px-5 py-4 ${
+                  isDarkMode ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'
+                }`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Checkout & Receipt
+                      </h2>
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Confirm customer, payment method, and issue the receipt.
+                      </p>
+                    </div>
+                    <div className={`rounded-xl px-3 py-2 text-right ${
+                      isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-gray-50 border border-gray-200'
+                    }`}>
+                      <div className={`text-[11px] uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Total</div>
+                      <div className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        {formatMoney(cartSummary.total, baseCurrency)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <ReceiptPreview
                   items={cartItems}
                   onUpdateQuantity={handleUpdateQuantity}
@@ -677,13 +767,13 @@ Thank you for shopping with us!
                   setCustomerName={setCustomerName}
                   selectedCustomerId={selectedCustomerId}
                   onSelectCustomer={() => setShowCustomerModal(true)}
-                  selectedCustomer={getSelectedCustomer()}
+                  selectedCustomer={selectedCustomer}
                   customers={customers}
                   paymentMethod={paymentMethod}
                   setPaymentMethod={setPaymentMethod}
                   selectedPaymentMethodId={selectedPaymentMethodId}
                   onSelectPaymentMethod={() => setShowPaymentMethodModal(true)}
-                  selectedPaymentMethod={getSelectedPaymentMethod()}
+                  selectedPaymentMethod={selectedStoredPaymentMethod}
                   paymentMethods={paymentMethods}
                   notes={notes}
                   setNotes={setNotes}
@@ -693,29 +783,28 @@ Thank you for shopping with us!
                   onSelectTemplate={handleSelectTemplate}
                 />
               </div>
-            </div>
+            </section>
           </div>
 
-          {/* Receipt History */}
-          <div className="mt-6">
-            <div className="mb-4">
-              <h2 className={`text-lg font-semibold ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}>
-                Recent Receipts
-              </h2>
+          {/* History */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Receipt Activity
+                </h2>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Reprint, resend, or review recent receipts from the same workspace.
+                </p>
+              </div>
             </div>
-            <div className={`
-              ${!isMobile ? 'max-h-[400px] overflow-y-auto' : ''}
-            `}>
-              <ReceiptHistory 
-                receipts={receipts}
-                onRefresh={handleRefreshHistory}
-                onReceiptDeleted={refreshReceipts}
-                defaultTemplateId={selectedTemplateId}
-              />
-            </div>
-          </div>
+            <ReceiptHistory
+              receipts={receipts}
+              onRefresh={handleRefreshHistory}
+              onReceiptDeleted={refreshReceipts}
+              defaultTemplateId={selectedTemplateId}
+            />
+          </section>
         </div>
 
         {/* Customer Selection Modal */}

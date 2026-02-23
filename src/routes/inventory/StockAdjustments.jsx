@@ -7,6 +7,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { mapProductFromApi } from '../../utils/productAdapter';
 import { getAdjustmentDate, formatAdjustmentDate } from '../../utils/adjustmentDate';
 import { fetchProducts, fetchStockAdjustments } from '../../store/slices/productSlide';
+import TablePagination from '../../components/ui/TablePagination';
+import { useTablePagination } from '../../hooks/usePagination';
 
 const StockAdjustments = () => {
   const { isDarkMode } = useTheme();
@@ -73,6 +75,13 @@ const StockAdjustments = () => {
     const matchesFilter = filter === 'all' || normalizedType?.toLowerCase() === filter.toLowerCase();
     return matchesSearch && matchesFilter;
   });
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: paginatedAdjustments
+  } = useTablePagination(filteredAdjustments, { initialRowsPerPage: 10 });
 
   const stats = [
     { 
@@ -401,7 +410,7 @@ const StockAdjustments = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredAdjustments.map((adj) => {
+                  paginatedAdjustments.map((adj) => {
                     const TypeIcon = getTypeIcon(adj.type);
                     const productName = getProductName(adj.productId);
                     const productSku = getProductSku(adj.productId);
@@ -497,11 +506,24 @@ const StockAdjustments = () => {
               </p>
             </div>
           ) : (
-            filteredAdjustments.map((adj) => (
+            paginatedAdjustments.map((adj) => (
               <MobileAdjustmentCard key={adj.id || adj._id} adj={adj} />
             ))
           )}
         </div>
+
+        {filteredAdjustments.length > 0 && (
+          <TablePagination
+            page={page}
+            totalItems={filteredAdjustments.length}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={setRowsPerPage}
+            isDarkMode={isDarkMode}
+            itemLabel="adjustments"
+            className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700"
+          />
+        )}
       </div>
     </DashboardLayout>
   );

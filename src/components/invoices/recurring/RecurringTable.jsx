@@ -4,6 +4,8 @@ import { Pause, Play, Edit, Trash2, MoreVertical, PlayCircle, Download } from 'l
 import { useTheme } from '../../../context/ThemeContext';
 import { useAccount } from '../../../context/AccountContext';
 import { formatCurrency } from '../../../utils/currency';
+import TablePagination from '../../ui/TablePagination';
+import { useTablePagination } from '../../../hooks/usePagination';
 
 const RecurringTable = ({ invoices, onPauseResume, onEdit, onDelete, onGenerateNow }) => {
   const { isDarkMode } = useTheme();
@@ -11,6 +13,13 @@ const RecurringTable = ({ invoices, onPauseResume, onEdit, onDelete, onGenerateN
   const baseCurrency = accountInfo?.currency || 'USD';
   const formatMoney = (value, currencyCode) =>
     formatCurrency(value, currencyCode || baseCurrency);
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: paginatedInvoices
+  } = useTablePagination(invoices, { initialRowsPerPage: 10 });
 
   const getStatusBadge = (status) => {
     const styles = {
@@ -119,7 +128,7 @@ const RecurringTable = ({ invoices, onPauseResume, onEdit, onDelete, onGenerateN
             <tbody className={`divide-y divide-gray-200 dark:divide-gray-700 ${
               isDarkMode ? 'bg-gray-800' : 'bg-white'
             }`}>
-              {invoices.map((invoice) => (
+              {paginatedInvoices.map((invoice) => (
                 <tr key={invoice.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
                   <td className="px-6 py-4">
                     <div>
@@ -250,6 +259,17 @@ const RecurringTable = ({ invoices, onPauseResume, onEdit, onDelete, onGenerateN
             </tbody>
           </table>
         </div>
+      )}
+      {invoices.length > 0 && (
+        <TablePagination
+          page={page}
+          totalItems={invoices.length}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={setRowsPerPage}
+          isDarkMode={isDarkMode}
+          itemLabel="profiles"
+        />
       )}
     </div>
   );

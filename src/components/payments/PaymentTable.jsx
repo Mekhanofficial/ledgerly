@@ -3,6 +3,8 @@ import { CreditCard, DollarSign, Clock, CheckCircle, XCircle, MoreVertical, Down
 import { useTheme } from '../../context/ThemeContext';
 import { useAccount } from '../../context/AccountContext';
 import { formatCurrency } from '../../utils/currency';
+import TablePagination from '../ui/TablePagination';
+import { useTablePagination } from '../../hooks/usePagination';
 
 const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund, readOnly = false }) => {
   const { isDarkMode } = useTheme();
@@ -10,6 +12,13 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund, readOnly =
   const baseCurrency = accountInfo?.currency || 'USD';
   const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
   const [selectedPayments, setSelectedPayments] = useState([]);
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: paginatedPayments
+  } = useTablePagination(payments, { initialRowsPerPage: 10 });
 
   const getStatusBadge = (status) => {
     const styles = {
@@ -154,7 +163,7 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund, readOnly =
               ? 'divide-gray-700 bg-gray-800' 
               : 'divide-gray-200 bg-white'
           }`}>
-            {payments.map((payment) => {
+            {paginatedPayments.map((payment) => {
               const StatusIcon = getStatusIcon(payment.status);
               const MethodIcon = getPaymentMethodIcon(payment.method);
               return (
@@ -300,46 +309,14 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund, readOnly =
       </div>
 
       {/* Pagination */}
-      <div className={`px-6 py-4 border-t ${
-        isDarkMode 
-          ? 'border-gray-700 bg-gray-800' 
-          : 'border-gray-200 bg-gray-50'
-      }`}>
-        <div className="flex items-center justify-between">
-          <div className={`text-sm ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-          }`}>
-            Showing <span className="font-medium">1</span> to <span className="font-medium">10</span> of{' '}
-            <span className="font-medium">124</span> results
-          </div>
-          <div className="flex items-center space-x-2">
-            <button className={`px-3 py-1 border rounded-md text-sm ${
-              isDarkMode 
-                ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}>
-              Previous
-            </button>
-            <button className="px-3 py-1 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700">
-              1
-            </button>
-            <button className={`px-3 py-1 border rounded-md text-sm ${
-              isDarkMode 
-                ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}>
-              2
-            </button>
-            <button className={`px-3 py-1 border rounded-md text-sm ${
-              isDarkMode 
-                ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}>
-              Next
-            </button>
-          </div>
-        </div>
-      </div>
+      <TablePagination
+        page={page}
+        totalItems={payments.length}
+        rowsPerPage={rowsPerPage}
+        onPageChange={setPage}
+        onRowsPerPageChange={setRowsPerPage}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 };

@@ -5,6 +5,8 @@ import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
 import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
 import { formatCurrency } from '../../utils/currency';
+import TablePagination from '../ui/TablePagination';
+import { useTablePagination } from '../../hooks/usePagination';
 
 const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted, defaultTemplateId }) => {
   const { isDarkMode } = useTheme();
@@ -16,6 +18,13 @@ const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted, defaultTem
   const [expandedReceipt, setExpandedReceipt] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [actionMenu, setActionMenu] = useState(null);
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: paginatedReceipts
+  } = useTablePagination(receipts, { initialRowsPerPage: 10 });
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -201,7 +210,7 @@ Thank you for shopping with us!
       ) : isMobile ? (
         /* Mobile View */
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {receipts.slice(0, 10).map((receipt) => {
+          {paginatedReceipts.map((receipt) => {
             const paymentMethod = receipt.paymentMethod || 'Cash';
             const PaymentIcon = getPaymentIcon(paymentMethod);
             const receiptDate = receipt.savedAt 
@@ -387,7 +396,7 @@ Thank you for shopping with us!
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {receipts.slice(0, 10).map((receipt) => {
+              {paginatedReceipts.map((receipt) => {
                 const paymentMethod = receipt.paymentMethod || 'Cash';
                 const PaymentIcon = getPaymentIcon(paymentMethod);
                 const receiptDate = receipt.savedAt 
@@ -526,15 +535,10 @@ Thank you for shopping with us!
 
       {/* Pagination and Summary */}
       {receipts.length > 0 && (
-        <div className={`px-4 sm:px-6 py-4 border-t ${
-          isDarkMode ? 'border-gray-700' : 'border-gray-200'
-        }`}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className={`text-sm ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-500'
-            }`}>
-              Showing {Math.min(10, receipts.length)} of {receipts.length} receipts
-            </div>
+        <>
+          <div className={`px-4 sm:px-6 py-3 border-t ${
+            isDarkMode ? 'border-gray-700' : 'border-gray-200'
+          }`}>
             <div className={`text-sm ${
               isDarkMode ? 'text-gray-300' : 'text-gray-700'
             }`}>
@@ -544,7 +548,16 @@ Thank you for shopping with us!
               )}
             </div>
           </div>
-        </div>
+          <TablePagination
+            page={page}
+            totalItems={receipts.length}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={setRowsPerPage}
+            isDarkMode={isDarkMode}
+            itemLabel="receipts"
+          />
+        </>
       )}
     </div>
   );

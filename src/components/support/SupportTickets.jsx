@@ -1,9 +1,18 @@
 import React from 'react';
 import { MessageSquare, Clock, CheckCircle, AlertCircle, User, MoreVertical } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import TablePagination from '../ui/TablePagination';
+import { useTablePagination } from '../../hooks/usePagination';
 
 const SupportTickets = ({ tickets, onViewTicket }) => {
   const { isDarkMode } = useTheme();
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: paginatedTickets
+  } = useTablePagination(tickets, { initialRowsPerPage: 10 });
 
   const getPriorityBadge = (priority) => {
     const styles = {
@@ -80,7 +89,7 @@ const SupportTickets = ({ tickets, onViewTicket }) => {
               ? 'divide-gray-700 bg-gray-800' 
               : 'divide-gray-200 bg-white'
           }`}>
-            {tickets.map((ticket) => {
+            {paginatedTickets.map((ticket) => {
               const StatusIcon = getStatusIcon(ticket.status);
               const statusIconColor = getStatusIconColor(ticket.status);
               return (
@@ -188,6 +197,16 @@ const SupportTickets = ({ tickets, onViewTicket }) => {
           </tbody>
         </table>
       </div>
+
+      <TablePagination
+        page={page}
+        totalItems={tickets.length}
+        rowsPerPage={rowsPerPage}
+        onPageChange={setPage}
+        onRowsPerPageChange={setRowsPerPage}
+        isDarkMode={isDarkMode}
+        itemLabel="tickets"
+      />
     </div>
   );
 };

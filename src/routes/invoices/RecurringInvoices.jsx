@@ -22,6 +22,8 @@ import { useAccount } from '../../context/AccountContext';
 import { recurringStorage } from '../../utils/recurringStorage';
 import { generateInvoicePDF } from '../../utils/pdfGenerator';
 import { saveInvoice } from '../../utils/invoiceStorage';
+import TablePagination from '../../components/ui/TablePagination';
+import { useTablePagination } from '../../hooks/usePagination';
 
 const RecurringInvoices = () => {
   const { isDarkMode } = useTheme();
@@ -237,6 +239,13 @@ const RecurringInvoices = () => {
     
     return matchesStatus && matchesSearch;
   });
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: paginatedInvoices
+  } = useTablePagination(filteredInvoices, { initialRowsPerPage: 10 });
 
   const handleCreateNew = () => {
     window.location.href = '/invoices/create';
@@ -786,7 +795,7 @@ const RecurringInvoices = () => {
                   <tbody className={`divide-y divide-gray-200 dark:divide-gray-700 ${
                     isDarkMode ? 'bg-gray-800' : 'bg-white'
                   }`}>
-                    {filteredInvoices.map((invoice) => (
+                    {paginatedInvoices.map((invoice) => (
                       <tr key={invoice.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
                         <td className="px-4 md:px-6 py-4">
                           <input
@@ -931,10 +940,21 @@ const RecurringInvoices = () => {
 
             {/* Mobile Cards */}
             <div className="lg:hidden space-y-3">
-              {filteredInvoices.map((invoice) => (
+              {paginatedInvoices.map((invoice) => (
                 <MobileRecurringCard key={invoice.id} invoice={invoice} />
               ))}
             </div>
+
+            <TablePagination
+              page={page}
+              totalItems={filteredInvoices.length}
+              rowsPerPage={rowsPerPage}
+              onPageChange={setPage}
+              onRowsPerPageChange={setRowsPerPage}
+              isDarkMode={isDarkMode}
+              itemLabel="profiles"
+              className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700"
+            />
           </>
         )}
       </div>

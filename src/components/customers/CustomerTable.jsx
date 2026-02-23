@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Search, Filter, Mail, Phone, MoreVertical, Send, Eye, Edit, ChevronDown, Trash2 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAccount } from '../../context/AccountContext';
+import TablePagination from '../ui/TablePagination';
+import { useTablePagination } from '../../hooks/usePagination';
 
 const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete }) => {
   const { isDarkMode } = useTheme();
@@ -41,6 +43,14 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete })
     
     return matchesSearch && matchesStatus;
   });
+
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: paginatedCustomers
+  } = useTablePagination(filteredCustomers, { initialRowsPerPage: 10 });
 
   const handleSelectAll = () => {
     if (selectAll) {
@@ -258,7 +268,7 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete })
           <tbody className={`divide-y divide-gray-200 dark:divide-gray-700 ${
             isDarkMode ? 'bg-gray-800' : 'bg-white'
           }`}>
-            {filteredCustomers.map((customer) => (
+            {paginatedCustomers.map((customer) => (
               <tr key={customer.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <input
@@ -403,69 +413,14 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete })
       </div>
 
       {/* Pagination */}
-      <div className={`px-6 py-4 border-t ${
-        isDarkMode 
-          ? 'bg-gray-700 border-gray-600' 
-          : 'bg-gray-50 border-gray-200'
-      }`}>
-        <div className="flex items-center justify-between">
-          <div className={`text-sm ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-          }`}>
-            Showing <span className={`font-medium ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>1</span> to <span className={`font-medium ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>{Math.min(10, filteredCustomers.length)}</span> of{' '}
-            <span className={`font-medium ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>{filteredCustomers.length}</span> customers
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className={`text-sm ${
-              isDarkMode ? 'text-gray-300' : 'text-gray-700'
-            }`}>
-              Rows per page:{' '}
-              <select className={`ml-2 border rounded px-2 py-1 ${
-                isDarkMode 
-                  ? 'bg-gray-600 border-gray-500 text-white' 
-                  : 'border-gray-300'
-              }`}>
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
-                <option>100</option>
-              </select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button className={`px-3 py-1 border rounded-md text-sm ${
-                isDarkMode
-                  ? 'border-gray-600 text-gray-300 hover:bg-gray-600'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}>
-                Previous
-              </button>
-              <button className="px-3 py-1 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700">
-                1
-              </button>
-              <button className={`px-3 py-1 border rounded-md text-sm ${
-                isDarkMode
-                  ? 'border-gray-600 text-gray-300 hover:bg-gray-600'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}>
-                2
-              </button>
-              <button className={`px-3 py-1 border rounded-md text-sm ${
-                isDarkMode
-                  ? 'border-gray-600 text-gray-300 hover:bg-gray-600'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}>
-                Next
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <TablePagination
+        page={page}
+        totalItems={filteredCustomers.length}
+        rowsPerPage={rowsPerPage}
+        onPageChange={setPage}
+        onRowsPerPageChange={setRowsPerPage}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 };

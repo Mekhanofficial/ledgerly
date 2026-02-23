@@ -3,12 +3,16 @@ import { Eye, Download, Mail, MoreVertical, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAccount } from '../../context/AccountContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useSelector } from 'react-redux';
 import { formatCurrency } from '../../utils/currency';
+import TablePagination from '../ui/TablePagination';
+import { useTablePagination } from '../../hooks/usePagination';
 
 const RecentInvoices = () => {
   const { invoices, sendInvoice, markAsPaid } = useInvoice();
   const { accountInfo } = useAccount();
+  const { isDarkMode } = useTheme();
   const baseCurrency = accountInfo?.currency || 'USD';
   const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
   const authUser = useSelector((state) => state.auth?.user);
@@ -21,10 +25,16 @@ const RecentInvoices = () => {
 
   const recentEligibleInvoices = invoices.filter((invoice) => invoice.status !== 'draft');
 
-  // Get recent 5 non-draft invoices sorted by date
-  const recentInvoices = [...recentEligibleInvoices]
-    .sort((a, b) => new Date(b.createdAt || b.issueDate) - new Date(a.createdAt || a.issueDate))
-    .slice(0, 5);
+  const sortedRecentEligibleInvoices = [...recentEligibleInvoices]
+    .sort((a, b) => new Date(b.createdAt || b.issueDate) - new Date(a.createdAt || a.issueDate));
+
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: recentInvoices
+  } = useTablePagination(sortedRecentEligibleInvoices, { initialRowsPerPage: 5 });
 
   const getStatusBadge = (status) => {
     const styles = {
@@ -92,7 +102,7 @@ const RecentInvoices = () => {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Invoices</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Latest {Math.min(5, recentEligibleInvoices.length)} of {recentEligibleInvoices.length} non-draft invoices
+            Showing {recentInvoices.length} of {recentEligibleInvoices.length} non-draft invoices
           </p>
         </div>
         <Link to="/invoices" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium">
@@ -224,20 +234,17 @@ const RecentInvoices = () => {
             </table>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Showing {recentInvoices.length} of {recentEligibleInvoices.length} non-draft invoices
-              </div>
-              <div className="flex space-x-2">
-                <button className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-                  Previous
-                </button>
-                <button className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium">
-                  Next
-                </button>
-              </div>
-            </div>
+          <div className="mt-6">
+            <TablePagination
+              page={page}
+              totalItems={recentEligibleInvoices.length}
+              rowsPerPage={rowsPerPage}
+              onPageChange={setPage}
+              onRowsPerPageChange={setRowsPerPage}
+              isDarkMode={isDarkMode}
+              className="rounded-xl border border-gray-200 dark:border-gray-700"
+              itemLabel="invoices"
+            />
           </div>
         </>
       )}

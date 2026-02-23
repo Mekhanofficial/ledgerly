@@ -22,6 +22,8 @@ import { useAccount } from '../../context/AccountContext';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { formatCurrency, getCurrencySymbol } from '../../utils/currency';
+import TablePagination from '../../components/ui/TablePagination';
+import { useTablePagination } from '../../hooks/usePagination';
 
 const InvoiceList = () => {
   const { isDarkMode } = useTheme();
@@ -73,6 +75,13 @@ const InvoiceList = () => {
 
   // Get real-time stats
   const statsData = getInvoiceStats();
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: paginatedInvoices
+  } = useTablePagination(filteredInvoices, { initialRowsPerPage: 10 });
   
   const stats = [
     { 
@@ -712,7 +721,7 @@ const InvoiceList = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredInvoices.map((invoice) => (
+                  paginatedInvoices.map((invoice) => (
                     <tr key={invoice.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -866,11 +875,24 @@ const InvoiceList = () => {
               }
             </div>
           ) : (
-            filteredInvoices.map((invoice) => (
+            paginatedInvoices.map((invoice) => (
               <MobileInvoiceCard key={invoice.id} invoice={invoice} />
             ))
           )}
         </div>
+
+        {filteredInvoices.length > 0 && (
+          <TablePagination
+            page={page}
+            totalItems={filteredInvoices.length}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={setRowsPerPage}
+            isDarkMode={isDarkMode}
+            itemLabel="invoices"
+            className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700"
+          />
+        )}
       </div>
     </DashboardLayout>
   );
