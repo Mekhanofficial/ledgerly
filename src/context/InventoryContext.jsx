@@ -485,31 +485,45 @@ export const InventoryProvider = ({ children }) => {
 
   // Get products for receipt/pos
   const getProductsForPOS = () => {
-    return products.map(product => ({
-      id: product.id,
-      name: product.name,
-      price: parseNumber(product.price),
-      sku: product.sku,
-      category: product.categoryId
-        ? categories.find(c => (c.id || c._id) === product.categoryId)?.name
-        : 'Uncategorized',
-      stock: parseNumber(product.quantity),
-      status: product.status,
-      image: product.image,
-      description: product.description
-    }));
+    return products.map(product => {
+      const totalStock = parseNumber(product.quantity);
+      const availableStock = parseNumber(product.available, totalStock);
+
+      return {
+        id: product.id,
+        name: product.name,
+        price: parseNumber(product.price),
+        sku: product.sku,
+        category: product.categoryId
+          ? categories.find(c => (c.id || c._id) === product.categoryId)?.name
+          : 'Uncategorized',
+        stock: availableStock,
+        availableStock,
+        totalStock,
+        status: product.status,
+        image: product.image,
+        description: product.description
+      };
+    });
   };
 
   // Get products for invoice creation (dropdown)
   const getProductsForInvoice = () => {
-    return products.map(product => ({
-      id: product.id,
-      name: product.name,
-      price: parseNumber(product.price),
-      description: product.description,
-      sku: product.sku,
-      stock: parseNumber(product.quantity)
-    }));
+    return products.map(product => {
+      const totalStock = parseNumber(product.quantity);
+      const availableStock = parseNumber(product.available, totalStock);
+
+      return {
+        id: product.id,
+        name: product.name,
+        price: parseNumber(product.price),
+        description: product.description,
+        sku: product.sku,
+        stock: availableStock,
+        availableStock,
+        totalStock
+      };
+    });
   };
 
   // Update stock when invoice is paid

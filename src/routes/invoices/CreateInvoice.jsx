@@ -463,6 +463,81 @@ const CreateInvoice = () => {
     product.description?.toLowerCase().includes(productSearchTerm.toLowerCase())
   );
 
+  const normalizeLookupValue = (value) => String(value || '').trim().toLowerCase();
+
+  const resolveProductForLineItem = (item = {}) => {
+    if (!Array.isArray(availableProducts) || availableProducts.length === 0) {
+      return null;
+    }
+
+    const itemDescription = normalizeLookupValue(item.description);
+    const itemSku = normalizeLookupValue(item.sku);
+    const itemProductId = String(item.productId || item.product || '').trim();
+
+    const pickBestAvailability = (candidates = []) => {
+      if (!candidates.length) return null;
+      return [...candidates].sort((a, b) => {
+        const availableA = Number(a.availableStock ?? a.stock ?? 0);
+        const availableB = Number(b.availableStock ?? b.stock ?? 0);
+        return availableB - availableA;
+      })[0];
+    };
+
+    const productById = itemProductId
+      ? availableProducts.find((product) => String(product.id) === itemProductId)
+      : null;
+
+    const productBySku = itemSku
+      ? availableProducts.find((product) => normalizeLookupValue(product.sku) === itemSku)
+      : null;
+
+    const productsByDescription = itemDescription
+      ? availableProducts.filter((product) => {
+          const productName = normalizeLookupValue(product.name);
+          const productSku = normalizeLookupValue(product.sku);
+          return productName === itemDescription || productSku === itemDescription;
+        })
+      : [];
+
+    if (productById) {
+      if (itemDescription) {
+        const idMatchesDescription =
+          normalizeLookupValue(productById.name) === itemDescription ||
+          normalizeLookupValue(productById.sku) === itemDescription;
+        if (!idMatchesDescription && productsByDescription.length > 0) {
+          return pickBestAvailability(productsByDescription) || productById;
+        }
+      }
+      return productById;
+    }
+
+    if (productBySku) {
+      return productBySku;
+    }
+
+    return pickBestAvailability(productsByDescription);
+  };
+
+  const attachInventoryReferences = (items = []) => {
+    return items.map((item) => {
+      const matchedProduct = resolveProductForLineItem(item);
+      const resolvedProductId = item.productId || matchedProduct?.id || '';
+      const resolvedSku = item.sku || matchedProduct?.sku || '';
+      const availableStock = Number(
+        matchedProduct?.availableStock
+        ?? matchedProduct?.stock
+        ?? item.availableStock
+      );
+
+      return {
+        ...item,
+        productId: resolvedProductId || undefined,
+        sku: resolvedSku || undefined,
+        availableStock: Number.isFinite(availableStock) ? availableStock : undefined
+      };
+    });
+  };
+
   const handleAddCustomer = async () => {
     if (!newCustomer.name || !newCustomer.email) {
       addToast('Please enter customer name and email', 'error');
@@ -507,15 +582,17 @@ const CreateInvoice = () => {
         paymentTerms,
         customer: customer || newCustomer,
         customerId: customer?.id,
-        lineItems: lineItems.map(item => ({
-          description: item.description,
-          quantity: item.quantity,
-          rate: item.rate,
-          tax: item.tax,
-          amount: item.amount,
-          productId: item.productId,
-          sku: item.sku
-        })),
+        lineItems: attachInventoryReferences(
+          lineItems.map(item => ({
+            description: item.description,
+            quantity: item.quantity,
+            rate: item.rate,
+            tax: item.tax,
+            amount: item.amount,
+            productId: item.productId,
+            sku: item.sku
+          }))
+        ),
         subtotal,
         totalTax,
         totalAmount,
@@ -864,7 +941,9 @@ const CreateInvoice = () => {
         })
         .filter(item => item.description && item.quantity > 0 && Number.isFinite(item.rate));
 
-      if (normalizedLineItems.length === 0) {
+      const lineItemsWithInventory = attachInventoryReferences(normalizedLineItems);
+
+      if (lineItemsWithInventory.length === 0) {
         addToast('Add at least one line item with a description and quantity greater than zero', 'error');
         return;
       }
@@ -881,8 +960,36 @@ const CreateInvoice = () => {
       if (!customer) {
         throw new Error('Customer information is required');
       }
+
+      const requestedByProduct = new Map();
+      lineItemsWithInventory.forEach((item) => {
+        if (!item.productId) return;
+        const previous = requestedByProduct.get(item.productId) || {
+          quantity: 0,
+          availableStock: item.availableStock,
+          item
+        };
+        requestedByProduct.set(item.productId, {
+          ...previous,
+          quantity: previous.quantity + Number(item.quantity || 0),
+          availableStock: item.availableStock,
+          item
+        });
+      });
+
+      const insufficientStockItem = Array.from(requestedByProduct.values()).find(({ quantity, availableStock }) => {
+        if (!Number.isFinite(Number(availableStock))) return false;
+        return quantity > Number(availableStock);
+      });
+
+      if (insufficientStockItem) {
+        const { item, availableStock } = insufficientStockItem;
+        throw new Error(
+          `Insufficient stock for ${item.description || item.sku || 'selected product'}. Available: ${availableStock}`
+        );
+      }
       
-      const sanitizedSubtotal = normalizedLineItems.reduce(
+      const sanitizedSubtotal = lineItemsWithInventory.reduce(
         (sum, item) => sum + item.quantity * item.rate,
         0
       );
@@ -894,7 +1001,7 @@ const CreateInvoice = () => {
       const sanitizedTotalAmount = roundMoney(sanitizedSubtotal + sanitizedTotalTax);
       
       // Generate PDF first
-      const pdf = await generatePDF(false, normalizedLineItems);
+      const pdf = await generatePDF(false, lineItemsWithInventory);
       
       // Convert PDF to Blob for email attachment
       const pdfBlob = pdf.output('blob');
@@ -910,7 +1017,7 @@ const CreateInvoice = () => {
         customer: customer.name,
         customerEmail: customer.email,
         customerId: customer.id,
-        lineItems: normalizedLineItems.map(item => ({
+        lineItems: lineItemsWithInventory.map(item => ({
           description: item.description,
           quantity: item.quantity,
           rate: item.rate,
@@ -919,7 +1026,7 @@ const CreateInvoice = () => {
           productId: item.productId,
           sku: item.sku
         })),
-        items: normalizedLineItems.length,
+        items: lineItemsWithInventory.length,
         amount: sanitizedTotalAmount,
         totalAmount: sanitizedTotalAmount,
         subtotal: sanitizedSubtotal,
@@ -962,12 +1069,14 @@ const CreateInvoice = () => {
           taxAmount: sanitizedTotalTax,
           taxName,
           isTaxOverridden,
-          lineItems: normalizedLineItems.map(item => ({
+          lineItems: lineItemsWithInventory.map(item => ({
             description: item.description,
             quantity: item.quantity,
             rate: item.rate,
             tax: item.tax,
-            amount: item.amount
+            amount: item.amount,
+            productId: item.productId,
+            sku: item.sku
           })),
           templateStyle: selectedTemplate
         };
@@ -989,7 +1098,7 @@ Invoice #: ${invoiceNumber}
  Total Amount: ${currency} ${sanitizedTotalAmount.toFixed(2)}
 
 ITEMS:
-${normalizedLineItems.map(item => `- ${item.description}: ${item.quantity} × ${currency}${item.rate.toFixed(2)} = ${currency}${item.amount.toFixed(2)}`).join('\n')}
+${lineItemsWithInventory.map(item => `- ${item.description}: ${item.quantity} × ${currency}${item.rate.toFixed(2)} = ${currency}${item.amount.toFixed(2)}`).join('\n')}
 
 Thank you for your business!
 

@@ -86,12 +86,18 @@ export const buildInvoicePayload = (invoiceData = {}) => {
     const quantity = toNumber(item.quantity ?? item.qty ?? 1, 1);
     const unitPrice = toNumber(item.rate ?? item.unitPrice ?? item.unit ?? 0, 0);
     const taxRate = toNumber(item.tax ?? item.taxRate ?? 0, 0);
+    const resolvedProductId = item.productId
+      || item.product?._id
+      || item.product?.id
+      || item.product
+      || undefined;
     const lineSubtotal = quantity * unitPrice;
     const lineTax = lineSubtotal * (taxRate / 100);
     const lineTotal = lineSubtotal + lineTax;
 
     return {
-      product: item.productId || item.product || undefined,
+      product: resolvedProductId,
+      productId: resolvedProductId,
       sku: item.sku || undefined,
       description: item.description || item.name || '',
       quantity,
