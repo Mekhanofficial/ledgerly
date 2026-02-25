@@ -434,9 +434,33 @@ const CreateInvoice = () => {
     }
   };
 
+  const resolveProductStock = (product = {}) => {
+    const available = Number(product.availableStock ?? product.stock);
+    const total = Number(product.totalStock ?? product.quantity ?? product.stock);
+    const reserved = Number(product.reservedStock ?? product.reserved ?? 0);
+
+    if (Number.isFinite(available) && available > 0) {
+      return available;
+    }
+
+    if (Number.isFinite(available) && available === 0) {
+      if (Number.isFinite(total) && total > 0 && (!Number.isFinite(reserved) || reserved <= 0)) {
+        return total;
+      }
+      return 0;
+    }
+
+    if (Number.isFinite(total) && total >= 0) {
+      return total;
+    }
+
+    return 0;
+  };
+
   // Add product from inventory
   const addProductFromInventory = (product) => {
     const newId = lineItems.length > 0 ? Math.max(...lineItems.map(item => item.id)) + 1 : 1;
+    const availableStock = resolveProductStock(product);
     
     const newItem = {
       id: newId,
@@ -447,7 +471,8 @@ const CreateInvoice = () => {
       amount: product.price,
       productId: product.id,
       sku: product.sku,
-      stock: product.stock
+      stock: availableStock,
+      availableStock
     };
     
     setLineItems([...lineItems, newItem]);
@@ -459,7 +484,7 @@ const CreateInvoice = () => {
   // Filter products for selector
   const filteredProducts = availableProducts.filter(product =>
     product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
-    product.sku.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    (product.sku || '').toLowerCase().includes(productSearchTerm.toLowerCase()) ||
     product.description?.toLowerCase().includes(productSearchTerm.toLowerCase())
   );
 
@@ -1515,43 +1540,48 @@ This email was sent from Ledgerly Invoice System
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {availableProducts.slice(0, 4).map(product => (
-                    <div
-                      key={product.id}
-                      className={`border rounded-lg p-4 cursor-pointer hover:border-primary-500 transition-colors ${
-                        product.stock === 0 
-                          ? 'opacity-50 cursor-not-allowed' 
-                          : 'hover:shadow-md'
-                      }`}
-                      onClick={() => product.stock > 0 && addProductFromInventory(product)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-medium text-gray-900 dark:text-white">{product.name}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{product.sku}</p>
+                  {availableProducts.slice(0, 4).map(product => {
+                    const productStock = resolveProductStock(product);
+                    const isOutOfStock = productStock <= 0;
+
+                    return (
+                      <div
+                        key={product.id}
+                        className={`border rounded-lg p-4 cursor-pointer hover:border-primary-500 transition-colors ${
+                          isOutOfStock
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover:shadow-md'
+                        }`}
+                        onClick={() => !isOutOfStock && addProductFromInventory(product)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-medium text-gray-900 dark:text-white">{product.name}</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{product.sku}</p>
+                          </div>
+                          <span className="font-bold text-gray-900 dark:text-white">
+                            ${product.price.toFixed(2)}
+                          </span>
                         </div>
-                        <span className="font-bold text-gray-900 dark:text-white">
-                          ${product.price.toFixed(2)}
-                        </span>
+                        <div className="mt-3 flex items-center justify-between text-sm">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            isOutOfStock
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                              : productStock <= 10
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                          }`}>
+                            {isOutOfStock ? 'Out of Stock' : `${productStock} in stock`}
+                          </span>
+                          {!isOutOfStock && (
+                            <button className="text-primary-600 hover:text-primary-700">
+                              Add to Invoice
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="mt-3 flex items-center justify-between text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          product.stock === 0 
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                            : product.stock <= 10
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
-                        }`}>
-                          {product.stock === 0 ? 'Out of Stock' : `${product.stock} in stock`}
-                        </span>
-                        {product.stock > 0 && (
-                          <button className="text-primary-600 hover:text-primary-700">
-                            Add to Invoice
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {availableProducts.length > 4 && (
                     <div
                       className="border border-dashed rounded-lg p-4 flex items-center justify-center cursor-pointer hover:border-primary-500"
@@ -1779,48 +1809,53 @@ This email was sent from Ledgerly Invoice System
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredProducts.map(product => (
-                    <div
-                      key={product.id}
-                      className={`border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
-                        product.stock === 0 
-                          ? 'opacity-50 cursor-not-allowed' 
-                          : 'hover:border-primary-500'
-                      }`}
-                      onClick={() => product.stock > 0 && addProductFromInventory(product)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-medium text-gray-900 dark:text-white">{product.name}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{product.sku}</p>
-                          {product.description && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
-                              {product.description}
-                            </p>
+                  {filteredProducts.map(product => {
+                    const productStock = resolveProductStock(product);
+                    const isOutOfStock = productStock <= 0;
+
+                    return (
+                      <div
+                        key={product.id}
+                        className={`border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
+                          isOutOfStock
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover:border-primary-500'
+                        }`}
+                        onClick={() => !isOutOfStock && addProductFromInventory(product)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-medium text-gray-900 dark:text-white">{product.name}</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{product.sku}</p>
+                            {product.description && (
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
+                                {product.description}
+                              </p>
+                            )}
+                          </div>
+                          <span className="font-bold text-gray-900 dark:text-white">
+                            ${product.price.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            isOutOfStock
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                              : productStock <= 10
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                          }`}>
+                            {isOutOfStock ? 'Out of Stock' : `${productStock} in stock`}
+                          </span>
+                          {!isOutOfStock && (
+                            <button className="text-primary-600 hover:text-primary-700">
+                              Add
+                            </button>
                           )}
                         </div>
-                        <span className="font-bold text-gray-900 dark:text-white">
-                          ${product.price.toFixed(2)}
-                        </span>
                       </div>
-                      <div className="mt-4 flex items-center justify-between">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          product.stock === 0 
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                            : product.stock <= 10
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
-                        }`}>
-                          {product.stock === 0 ? 'Out of Stock' : `${product.stock} in stock`}
-                        </span>
-                        {product.stock > 0 && (
-                          <button className="text-primary-600 hover:text-primary-700">
-                            Add
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

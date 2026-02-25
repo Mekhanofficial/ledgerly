@@ -182,6 +182,56 @@ export const InventoryProvider = ({ children }) => {
     return isNaN(parsed) ? defaultValue : parsed;
   };
 
+  const resolveStockValues = (product = {}) => {
+    const rawProduct = product?.raw || {};
+    const rawStock = rawProduct?.stock || {};
+
+    const totalStock = parseNumber(
+      product.totalStock
+      ?? product.quantity
+      ?? product.stock
+      ?? rawStock.quantity
+      ?? rawProduct.quantity
+    );
+
+    const reservedStock = parseNumber(
+      product.reserved
+      ?? rawStock.reserved
+      ?? rawProduct.reserved
+      ?? 0
+    );
+
+    const explicitAvailableCandidate =
+      product.available
+      ?? product.availableStock
+      ?? rawStock.available
+      ?? rawProduct.available;
+    const explicitAvailable = parseNumber(explicitAvailableCandidate, Number.NaN);
+
+    let availableStock = explicitAvailable;
+    if (!Number.isFinite(availableStock)) {
+      availableStock = Math.max(0, totalStock - Math.max(0, reservedStock));
+    }
+
+    // Backward compatibility: some payloads report `available: 0` even when only total stock is provided.
+    if (
+      availableStock <= 0 &&
+      totalStock > 0 &&
+      reservedStock <= 0 &&
+      explicitAvailableCandidate !== undefined &&
+      explicitAvailableCandidate !== null &&
+      Number(explicitAvailableCandidate) === 0
+    ) {
+      availableStock = totalStock;
+    }
+
+    return {
+      totalStock: Math.max(0, totalStock),
+      availableStock: Math.max(0, availableStock),
+      reservedStock: Math.max(0, reservedStock)
+    };
+  };
+
   // Compress image to reduce size
   const compressImage = (base64Image, maxWidth = 400, quality = 0.7) => {
     return new Promise((resolve) => {
@@ -486,8 +536,7 @@ export const InventoryProvider = ({ children }) => {
   // Get products for receipt/pos
   const getProductsForPOS = () => {
     return products.map(product => {
-      const totalStock = parseNumber(product.quantity);
-      const availableStock = parseNumber(product.available, totalStock);
+      const { totalStock, availableStock, reservedStock } = resolveStockValues(product);
 
       return {
         id: product.id,
@@ -500,6 +549,7 @@ export const InventoryProvider = ({ children }) => {
         stock: availableStock,
         availableStock,
         totalStock,
+        reservedStock,
         status: product.status,
         image: product.image,
         description: product.description
@@ -510,8 +560,7 @@ export const InventoryProvider = ({ children }) => {
   // Get products for invoice creation (dropdown)
   const getProductsForInvoice = () => {
     return products.map(product => {
-      const totalStock = parseNumber(product.quantity);
-      const availableStock = parseNumber(product.available, totalStock);
+      const { totalStock, availableStock, reservedStock } = resolveStockValues(product);
 
       return {
         id: product.id,
@@ -521,7 +570,8 @@ export const InventoryProvider = ({ children }) => {
         sku: product.sku,
         stock: availableStock,
         availableStock,
-        totalStock
+        totalStock,
+        reservedStock
       };
     });
   };
