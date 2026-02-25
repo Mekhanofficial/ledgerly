@@ -707,7 +707,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                         <div key={index} className="text-center">
                           <div className="flex items-center justify-center space-x-1">
                             <stat.icon className="w-3 h-3 text-gray-400 dark:text-gray-500" />
-                            <span className="text-sm font-semibold text-gray-900 dark:text-white">{stat.value}</span>
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white stat-value-safe">{stat.value}</span>
                           </div>
                           <span className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</span>
                         </div>

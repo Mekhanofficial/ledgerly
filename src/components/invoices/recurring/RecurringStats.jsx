@@ -58,14 +58,14 @@ const RecurringStats = ({ invoices = [] }) => {
               ? 'bg-gray-800 border-gray-700' 
               : 'bg-white border-gray-200'
           }`}>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="stat-content-safe">
                 <p className={`text-sm ${
                   isDarkMode ? 'text-gray-300' : 'text-gray-600'
                 }`}>
                   {stat.label}
                 </p>
-                <p className={`text-2xl font-bold mt-1 ${
+                <p className={`text-2xl font-bold mt-1 stat-value-safe ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
                   {stat.value}

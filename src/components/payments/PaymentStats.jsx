@@ -70,12 +70,12 @@ const PaymentStats = ({ stats }) => {
               ? 'bg-gray-800 border-gray-700 hover:bg-gray-750' 
               : 'bg-white border-gray-200 hover:bg-gray-50'}
           `}>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="stat-content-safe">
                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   {stat.label}
                 </p>
-                <p className={`text-2xl font-bold mt-1 ${
+                <p className={`text-2xl font-bold mt-1 stat-value-safe ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
                   {stat.value}

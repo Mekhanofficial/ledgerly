@@ -239,7 +239,7 @@ const SuperAdmin = () => {
               className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4"
             >
               <p className="text-sm uppercase text-gray-500">{stat.label}</p>
-              <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white">{stat.value}</p>
+              <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white stat-value-safe">{stat.value}</p>
             </div>
           ))}
         </div>

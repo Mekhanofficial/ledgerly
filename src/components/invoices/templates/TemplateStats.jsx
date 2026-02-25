@@ -44,8 +44,6 @@ const TemplateStats = ({ templates = [] }) => {
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
       {stats.map((stat, index) => {
         const Icon = stat.icon;
-        const isLongValue = stat.value.length > 10;
-        
         return (
           <div 
             key={index} 
@@ -62,7 +60,7 @@ const TemplateStats = ({ templates = [] }) => {
                 }`}>
                   {stat.label}
                 </p>
-                <p className={`text-base md:text-lg lg:text-xl font-bold mt-1 truncate ${
+                <p className={`text-base md:text-lg lg:text-xl font-bold mt-1 stat-value-safe ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
                   {stat.value}

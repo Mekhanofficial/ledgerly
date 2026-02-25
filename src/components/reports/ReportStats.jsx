@@ -142,8 +142,8 @@ const ReportStats = () => {
                 ? 'bg-gray-800 border-gray-700 hover:border-primary-500 hover:shadow-primary-900/20' 
                 : 'bg-white border-gray-200 hover:border-primary-300 hover:shadow-md'
             }`}>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div className="stat-content-safe">
                   <div className="flex items-center justify-between mb-2">
                     <p className={`text-sm font-medium ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-600'
@@ -163,7 +163,7 @@ const ReportStats = () => {
                     </div>
                   </div>
                   
-                  <p className={`text-2xl font-bold ${
+                  <p className={`text-2xl font-bold stat-value-safe ${
                     isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
                     {stat.value}
@@ -248,7 +248,7 @@ const ReportStats = () => {
             }`}>
               Collection Rate
             </div>
-            <div className={`text-xl font-bold mt-1 ${
+            <div className={`text-xl font-bold mt-1 stat-value-safe ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
               {insights.collectionRate}%
@@ -268,7 +268,7 @@ const ReportStats = () => {
             }`}>
               Overdue Invoices
             </div>
-            <div className={`text-xl font-bold mt-1 ${
+            <div className={`text-xl font-bold mt-1 stat-value-safe ${
               isDarkMode ? 'text-red-400' : 'text-red-600'
             }`}>
               {insights.overdueInvoices}
@@ -291,7 +291,7 @@ const ReportStats = () => {
             }`}>
               Active Customers
             </div>
-            <div className={`text-xl font-bold mt-1 ${
+            <div className={`text-xl font-bold mt-1 stat-value-safe ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
               {insights.activeCustomers}
@@ -311,7 +311,7 @@ const ReportStats = () => {
             }`}>
               Invoice Types
             </div>
-            <div className={`text-xl font-bold mt-1 ${
+            <div className={`text-xl font-bold mt-1 stat-value-safe ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
               {statsData.totalSales.raw}

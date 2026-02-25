@@ -147,7 +147,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                 }`}>
                   {stat.label}
                 </div>
-                <div className={`text-sm font-semibold ${
+                <div className={`text-sm font-semibold stat-value-safe ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
                   {stat.value}

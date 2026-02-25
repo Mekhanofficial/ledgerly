@@ -280,7 +280,7 @@ const TeamManagementPanel = () => {
             }`}
           >
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{stat.label}</p>
-            <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white">{stat.value}</p>
+            <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white stat-value-safe">{stat.value}</p>
           </div>
         ))}
       </div>

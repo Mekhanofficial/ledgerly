@@ -229,14 +229,14 @@ const StockAdjustments = () => {
                   ? 'bg-gray-800 border-gray-700' 
                   : 'bg-white border-gray-200'
               }`}>
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className={`text-xs md:text-sm truncate ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-600'
                     }`}>
                       {stat.label}
                     </p>
-                    <p className={`text-lg md:text-xl lg:text-2xl font-bold mt-1 truncate ${
+                    <p className={`text-lg md:text-xl lg:text-2xl font-bold mt-1 stat-value-safe ${
                       isDarkMode ? 'text-white' : 'text-gray-900'
                     }`}>
                       {stat.value}

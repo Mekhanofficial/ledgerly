@@ -597,7 +597,7 @@ const InvoiceList = () => {
                   : 'bg-white border-gray-200'
               }`}
             >
-              <div className="flex items-center">
+              <div className="flex items-start">
                 <div className={`p-2 rounded-lg ${
                   isDarkMode 
                     ? 'bg-gray-700' 
@@ -605,13 +605,13 @@ const InvoiceList = () => {
                 }`}>
                   <stat.icon className={`w-4 h-4 md:w-5 md:h-5 ${stat.color}`} />
                 </div>
-                <div className="ml-3 min-w-0 flex-1">
+                <div className="ml-3 stat-content-safe">
                   <div className={`text-xs md:text-sm truncate ${
                     isDarkMode ? 'text-gray-400' : 'text-gray-500'
                   }`}>
                     {stat.label}
                   </div>
-                  <div className={`text-base md:text-lg font-semibold mt-1 truncate ${
+                  <div className={`text-base md:text-lg font-semibold mt-1 stat-value-safe ${
                     isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
                     {stat.value}

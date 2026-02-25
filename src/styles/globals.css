@@ -111,6 +111,16 @@
   .stat-value {
     @apply text-3xl font-bold text-gray-900 dark:text-white;
   }
+
+  .stat-content-safe {
+    @apply min-w-0 flex-1 w-full;
+  }
+
+  .stat-value-safe {
+    @apply max-w-full leading-tight break-words;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
   
   .stat-label {
     @apply text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider;

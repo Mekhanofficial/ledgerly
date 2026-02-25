@@ -58,10 +58,10 @@ const StatsCards = ({ statsData }) => {
         const Icon = stat.icon;
         return (
           <div key={index} className="card card-hover">
-            <div className="flex items-start justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="stat-content-safe">
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{stat.value}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2 stat-value-safe">{stat.value}</p>
                 <div className="flex items-center">
                   {stat.trend === 'up' ? (
                     <TrendingUp className="w-4 h-4 text-emerald-500 dark:text-emerald-400 mr-1" />
