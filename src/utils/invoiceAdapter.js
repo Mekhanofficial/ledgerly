@@ -3,11 +3,11 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const toDateString = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString();
+const isValidObjectId = (value) => typeof value === 'string' && /^[a-fA-F0-9]{24}$/.test(value);
+
+const normalizeObjectId = (value) => {
+  const normalized = String(value || '').trim();
+  return isValidObjectId(normalized) ? normalized : '';
 };
 
 export const mapInvoiceFromApi = (invoice = {}) => {
@@ -86,27 +86,41 @@ export const buildInvoicePayload = (invoiceData = {}) => {
     const quantity = toNumber(item.quantity ?? item.qty ?? 1, 1);
     const unitPrice = toNumber(item.rate ?? item.unitPrice ?? item.unit ?? 0, 0);
     const taxRate = toNumber(item.tax ?? item.taxRate ?? 0, 0);
-    const resolvedProductId = item.productId
+    const resolvedProductId = normalizeObjectId(
+      item.productId
       || item.product?._id
       || item.product?.id
       || item.product
-      || undefined;
+    );
     const lineSubtotal = quantity * unitPrice;
     const lineTax = lineSubtotal * (taxRate / 100);
     const lineTotal = lineSubtotal + lineTax;
 
-    return {
-      product: resolvedProductId,
-      productId: resolvedProductId,
-      sku: item.sku || undefined,
+    const payloadItem = {
       description: item.description || item.name || '',
       quantity,
       unitPrice,
       taxRate,
-      discount: toNumber(item.discount ?? 0, 0),
-      discountType: item.discountType || 'fixed',
       total: toNumber(item.amount ?? lineTotal, lineTotal)
     };
+
+    if (resolvedProductId) {
+      payloadItem.product = resolvedProductId;
+    }
+
+    if (item.sku) {
+      payloadItem.sku = item.sku;
+    }
+
+    const itemDiscount = toNumber(item.discount, 0);
+    if (itemDiscount > 0) {
+      payloadItem.discount = itemDiscount;
+      if (item.discountType) {
+        payloadItem.discountType = item.discountType;
+      }
+    }
+
+    return payloadItem;
   });
 
   const sentDateSource = invoiceData.sentDate || invoiceData.sentAt;
@@ -114,14 +128,21 @@ export const buildInvoicePayload = (invoiceData = {}) => {
   const sentDate = shouldSetSentDate
     ? (sentDateSource ? new Date(sentDateSource) : new Date())
     : undefined;
-  const resolvedCustomer = invoiceData.customerId
+  const resolvedCustomer = normalizeObjectId(
+    invoiceData.customerId
     || (typeof invoiceData.customer === 'object'
       ? (invoiceData.customer._id || invoiceData.customer.id || '')
-      : invoiceData.customer);
+      : invoiceData.customer)
+  );
+
+  const discountAmount = toNumber(invoiceData.discountAmount, 0);
+  const discountPercentage = toNumber(invoiceData.discountPercentage, 0);
+  const shippingAmount = toNumber(invoiceData.shippingAmount, 0);
+  const amountPaid = toNumber(invoiceData.amountPaid, 0);
 
   const payload = {
     invoiceNumber: invoiceData.invoiceNumber || invoiceData.number,
-    customer: resolvedCustomer || '',
+    customer: resolvedCustomer || undefined,
     date: invoiceData.issueDate ? new Date(invoiceData.issueDate) : undefined,
     dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,
     paymentTerms: invoiceData.paymentTerms || undefined,
@@ -129,23 +150,46 @@ export const buildInvoicePayload = (invoiceData = {}) => {
     notes: invoiceData.notes || '',
     terms: invoiceData.terms || '',
     items,
-    taxRateUsed: toNumber(invoiceData.taxRateUsed ?? invoiceData.taxRate, undefined),
-    taxAmount: toNumber(invoiceData.taxAmount, undefined),
-    taxName: invoiceData.taxName || invoiceData.taxDescription || undefined,
-    isTaxOverridden: invoiceData.isTaxOverridden ?? undefined,
-    discount: {
-      amount: toNumber(invoiceData.discountAmount ?? 0, 0),
-      percentage: toNumber(invoiceData.discountPercentage ?? 0, 0),
-      type: invoiceData.discountType || 'fixed',
-      description: invoiceData.discountDescription || ''
-    },
-    shipping: {
-      amount: toNumber(invoiceData.shippingAmount ?? 0, 0),
-      description: invoiceData.shippingDescription || ''
-    },
-    amountPaid: toNumber(invoiceData.amountPaid ?? 0, 0),
     status: invoiceData.status || 'draft'
   };
+
+  const taxRateUsed = toNumber(invoiceData.taxRateUsed ?? invoiceData.taxRate, Number.NaN);
+  if (Number.isFinite(taxRateUsed)) {
+    payload.taxRateUsed = taxRateUsed;
+  }
+
+  const taxAmount = toNumber(invoiceData.taxAmount, Number.NaN);
+  if (Number.isFinite(taxAmount)) {
+    payload.taxAmount = taxAmount;
+  }
+
+  if (invoiceData.taxName || invoiceData.taxDescription) {
+    payload.taxName = invoiceData.taxName || invoiceData.taxDescription;
+  }
+
+  if (typeof invoiceData.isTaxOverridden === 'boolean') {
+    payload.isTaxOverridden = invoiceData.isTaxOverridden;
+  }
+
+  if (discountAmount > 0 || discountPercentage > 0 || invoiceData.discountDescription) {
+    payload.discount = {
+      amount: discountAmount,
+      percentage: discountPercentage,
+      type: invoiceData.discountType || 'fixed',
+      description: invoiceData.discountDescription || ''
+    };
+  }
+
+  if (shippingAmount > 0 || invoiceData.shippingDescription) {
+    payload.shipping = {
+      amount: shippingAmount,
+      description: invoiceData.shippingDescription || ''
+    };
+  }
+
+  if (amountPaid > 0) {
+    payload.amountPaid = amountPaid;
+  }
 
   if (sentDate) {
     payload.sentDate = sentDate;

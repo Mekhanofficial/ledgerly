@@ -3,7 +3,7 @@ import { resolveServerBaseUrl } from './apiConfig';
 const safeJsonParse = (value) => {
   try {
     return JSON.parse(value);
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -69,16 +69,20 @@ export const getUserRoleLabel = (user) => {
 
 const getServerBaseUrl = () => resolveServerBaseUrl();
 
-export const getAvatarUrl = (user) => {
-  const profileImage = user?.profileImage;
-  if (!profileImage) return null;
-  if (/^https?:\/\//i.test(profileImage)) {
-    return profileImage;
+const resolveAssetUrl = (value) => {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) {
+    return value;
   }
   const base = getServerBaseUrl();
-  const normalized = profileImage.replace(/\\/g, '/');
+  const normalized = String(value).replace(/\\/g, '/');
   const trimmed = normalized.replace(/^\/+/, '');
   return `${base}/${trimmed}`;
+};
+
+export const getAvatarUrl = (user) => {
+  const avatarCandidate = user?.avatarUrl || user?.profileImage;
+  return resolveAssetUrl(avatarCandidate);
 };
 
 export const getUserInitials = (user) => {

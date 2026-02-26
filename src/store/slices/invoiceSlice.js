@@ -9,6 +9,21 @@ const normalizeListPayload = (payload) => {
   return [];
 };
 
+const extractApiError = (error, fallbackMessage) => {
+  const status = error?.response?.status;
+  const data = error?.response?.data;
+  const message = data?.error
+    || data?.message
+    || data?.details
+    || error?.message
+    || fallbackMessage;
+  return {
+    message,
+    status,
+    data
+  };
+};
+
 const fetchAllPages = async (path, params = {}, pageSize = 200) => {
   const limit = params.limit ?? pageSize;
   let page = params.page ?? 1;
@@ -85,7 +100,7 @@ export const createInvoice = createAsyncThunk(
       const response = await api.post('/invoices', invoiceData);
       return response.data.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to create invoice');
+      return rejectWithValue(extractApiError(error, 'Failed to create invoice'));
     }
   }
 );

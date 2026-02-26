@@ -1,6 +1,6 @@
 // src/routes/invoices/CreateInvoice.js
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, Mail, Download, Repeat, Save, Printer, Palette, Package, Search, Plus, X } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import InvoicePreviewModal from '../../components/invoices/InvoicePreviewModal';
@@ -147,10 +147,18 @@ const filterAccessibleTemplates = (templates = []) => (
   templates.filter((template) => resolveTemplateAccess(template))
 );
 
+const generateInvoiceNumber = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const timestampSuffix = now.getTime().toString().slice(-6);
+  return `INV-${year}-${timestampSuffix}`;
+};
+
 const CreateInvoice = () => {
   const { addToast } = useToast();
   const { 
     addInvoice, 
+    sendInvoice,
     addCustomer, 
     refreshCustomers,
     saveDraft,
@@ -166,13 +174,11 @@ const CreateInvoice = () => {
   const canUseMultiCurrency = isMultiCurrencyPlan(accountInfo?.plan, accountInfo?.subscriptionStatus);
   
   const navigate = useNavigate();
-  const location = useLocation();
   const [searchParams] = useSearchParams();
   const templateId = searchParams.get('template');
-  const invoiceRef = useRef(null);
   
   // Main state
-  const [invoiceNumber, setInvoiceNumber] = useState(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [invoiceNumber, setInvoiceNumber] = useState(generateInvoiceNumber);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
   const [paymentTerms, setPaymentTerms] = useState('net-30');
@@ -923,7 +929,7 @@ const CreateInvoice = () => {
   const handleDownloadPDF = async () => {
     try {
       await generatePDF(true);
-    } catch (error) {
+    } catch {
       addToast('Error downloading PDF', 'error');
     }
   };
@@ -1063,8 +1069,7 @@ const CreateInvoice = () => {
         notes,
         terms,
         currency: resolvedCurrency,
-        status: 'sent',
-        sentAt: new Date().toISOString(),
+        status: 'draft',
         createdAt: new Date().toISOString(),
         templateStyle: selectedTemplate
       };
@@ -1075,12 +1080,21 @@ const CreateInvoice = () => {
         throw new Error('Failed to create invoice');
       }
 
+      let deliveredInvoice = createdInvoice;
+      const sentInvoice = await sendInvoice(createdInvoice.id);
+      const wasSent = Boolean(sentInvoice);
+      if (wasSent) {
+        deliveredInvoice = sentInvoice;
+      } else {
+        addToast('Invoice created, but delivery status could not be updated. You can resend it from the invoice list.', 'warning');
+      }
+
       // If recurring, save recurring profile
       if (isRecurring) {
         const recurringData = {
           id: `rec_${Date.now()}`,
-          invoiceNumber: createdInvoice.invoiceNumber,
-          invoiceId: createdInvoice.id,
+          invoiceNumber: deliveredInvoice.invoiceNumber,
+          invoiceId: deliveredInvoice.id,
           customer,
           amount: sanitizedTotalAmount,
           frequency: recurringSettings.frequency,
@@ -1148,7 +1162,12 @@ This email was sent from Ledgerly Invoice System
       // Open email client
       window.open(mailtoLink, '_blank');
       
-      addToast(`Invoice sent to ${customer.email} successfully!`, 'success');
+      addToast(
+        wasSent
+          ? `Invoice sent to ${customer.email} successfully!`
+          : `Invoice created for ${customer.email} successfully!`,
+        'success'
+      );
       
       // Reset form after successful send
       setTimeout(() => {
@@ -1326,7 +1345,7 @@ This email was sent from Ledgerly Invoice System
   };
 
   const resetForm = () => {
-    setInvoiceNumber(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+    setInvoiceNumber(generateInvoiceNumber());
     setIssueDate(new Date().toISOString().split('T')[0]);
     setDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     setSelectedCustomer('');
