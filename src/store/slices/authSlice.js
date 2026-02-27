@@ -14,7 +14,9 @@ export const register = createAsyncThunk(
         message: payload.message,
         pendingVerification: {
           email: verificationData.email || userData.email,
-          expiresInMinutes: verificationData.expiresInMinutes
+          expiresInMinutes: verificationData.expiresInMinutes,
+          otpSent: verificationData.otpSent !== false,
+          otpError: verificationData.otpError || ''
         }
       };
     } catch (error) {

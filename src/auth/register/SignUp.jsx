@@ -222,12 +222,18 @@ const SignUpPage = () => {
         
         if (result.meta.requestStatus === 'fulfilled') {
           const emailToVerify = result.payload?.pendingVerification?.email || userData.email;
+          const otpSent = result.payload?.pendingVerification?.otpSent !== false;
+          const otpError = result.payload?.pendingVerification?.otpError;
           setVerificationEmail(emailToVerify);
           setRegistrationSuccess(true);
           setOtpCode('');
           setOtpVerified(false);
           setRedirectSeconds(0);
-          setOtpNotice('A verification code has been sent to your email.');
+          setOtpNotice(
+            otpSent
+              ? (result.payload?.message || 'A verification code has been sent to your email.')
+              : (otpError || result.payload?.message || 'Account created, but OTP could not be sent. Please click "Resend OTP".')
+          );
         } else {
           console.error('Registration failed:', result.payload);
         }
