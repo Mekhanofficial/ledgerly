@@ -1,8 +1,14 @@
 import axios from 'axios';
 import { resolveApiBaseUrl } from '../utils/apiConfig';
 
+const parseTimeout = (value, fallback) => {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 const api = axios.create({
   baseURL: resolveApiBaseUrl(),
+  timeout: parseTimeout(import.meta.env.VITE_API_TIMEOUT_MS, 30000),
 });
 
 api.interceptors.request.use(
