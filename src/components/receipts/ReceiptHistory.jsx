@@ -5,10 +5,11 @@ import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
 import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
 import { formatCurrency } from '../../utils/currency';
+import { emailReceipt as emailReceiptService } from '../../services/receiptService';
 import TablePagination from '../ui/TablePagination';
 import { useTablePagination } from '../../hooks/usePagination';
 
-const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted, defaultTemplateId }) => {
+const ReceiptHistory = ({ receipts = [], onRefresh, defaultTemplateId }) => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
   const { accountInfo } = useAccount();
@@ -39,47 +40,36 @@ const ReceiptHistory = ({ receipts = [], onRefresh, onReceiptDeleted, defaultTem
       pdfDoc.save(`${receipt.id}-reprint.pdf`);
       addToast(`Receipt ${receipt.id} reprinted`, 'success');
       setActionMenu(null);
-    } catch (error) {
+    } catch {
       addToast('Error reprinting receipt', 'error');
     }
   };
 
-  const handleResendEmail = (receipt) => {
-    if (!receipt.customerEmail) {
-      addToast('No email address found for this receipt', 'warning');
+  const handleResendEmail = async (receipt) => {
+    const receiptRecordId = receipt?.recordId || receipt?.metadata?._id || receipt?.id;
+    const customerEmail = String(receipt?.customerEmail || '').trim();
+
+    if (!receiptRecordId) {
+      addToast('Missing receipt reference. Refresh and try again.', 'error');
+      setActionMenu(null);
       return;
     }
 
-    const receiptCurrency = receipt.currency || baseCurrency;
-    const emailBody = `
-Receipt Reprint: ${receipt.id}
+    if (!customerEmail) {
+      addToast('No email address found for this receipt', 'warning');
+      setActionMenu(null);
+      return;
+    }
 
-Original Purchase Date: ${receipt.date}
-Customer: ${receipt.customerName || 'N/A'}
-Payment Method: ${receipt.paymentMethod || 'Cash'}
-${receipt.paymentMethodDetails ? `Payment Details: ${receipt.paymentMethodDetails}` : ''}
-
-Items:
-${receipt.items?.map(item => 
-  `- ${item.name}: ${item.quantity} × ${formatMoney(item.price || 0, receiptCurrency)} = ${formatMoney((item.price || 0) * item.quantity, receiptCurrency)}`
-).join('\n') || 'No items found'}
-
-Subtotal: ${formatMoney(receipt.subtotal || 0, receiptCurrency)}
-Tax (8.5%): ${formatMoney(receipt.tax || 0, receiptCurrency)}
-Total: ${formatMoney(receipt.total || 0, receiptCurrency)}
-
-${receipt.notes ? `\nNotes: ${receipt.notes}` : ''}
-
-Thank you for shopping with us!
-    `;
-
-    const subject = encodeURIComponent(`Receipt Reprint: ${receipt.id}`);
-    const body = encodeURIComponent(emailBody);
-    const mailtoLink = `mailto:${receipt.customerEmail}?subject=${subject}&body=${body}`;
-    
-    window.open(mailtoLink, '_blank');
-    addToast(`Email opened for ${receipt.id}`, 'success');
-    setActionMenu(null);
+    try {
+      await emailReceiptService(receiptRecordId, { customerEmail });
+      addToast(`Receipt ${receipt.id} sent to ${customerEmail}`, 'success');
+    } catch (error) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to send receipt email';
+      addToast(errorMessage, 'error');
+    } finally {
+      setActionMenu(null);
+    }
   };
 
   const handleDownloadPDF = (receipt) => {
@@ -88,7 +78,7 @@ Thank you for shopping with us!
       pdfDoc.save(`${receipt.id}.pdf`);
       addToast(`Receipt ${receipt.id} downloaded`, 'success');
       setActionMenu(null);
-    } catch (error) {
+    } catch {
       addToast('Error downloading receipt', 'error');
     }
   };
@@ -139,7 +129,7 @@ Thank you for shopping with us!
       setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
       addToast(`Opening receipt ${receipt.id}`, 'info');
       setActionMenu(null);
-    } catch (error) {
+    } catch {
       addToast('Error viewing receipt', 'error');
     }
   };
@@ -150,14 +140,6 @@ Thank you for shopping with us!
 
   const toggleActionMenu = (receiptId) => {
     setActionMenu(actionMenu === receiptId ? null : receiptId);
-  };
-
-  const formatReceiptDetails = (receipt) => {
-    const method = receipt.paymentMethod || 'Cash';
-    const details = receipt.paymentMethodDetails || '';
-    const customer = receipt.customerName || 'Walk-in';
-    
-    return `${customer} • ${method}${details ? ` (${details})` : ''}`;
   };
 
   return (

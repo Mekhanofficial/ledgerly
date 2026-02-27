@@ -19,16 +19,31 @@ export const resolveApiBaseUrl = () => {
   const runtimeUrl = isBrowser ? window.__LEDGERLY_API_URL__ : undefined;
   const envUrl = import.meta.env.VITE_API_URL;
   const rawUrl = runtimeUrl || envUrl;
+  const allowRemoteOnLocalhost = String(import.meta.env.VITE_ALLOW_REMOTE_API_ON_LOCALHOST || '')
+    .trim()
+    .toLowerCase() === 'true';
+
+  if (isLocalhost()) {
+    if (!rawUrl) {
+      return LOCAL_API_FALLBACK;
+    }
+    const normalized = normalizeBaseUrl(rawUrl);
+    const pointsToLocal = /localhost|127\.0\.0\.1/i.test(normalized);
+    if (!pointsToLocal && !allowRemoteOnLocalhost) {
+      return LOCAL_API_FALLBACK;
+    }
+    return normalized;
+  }
 
   if (rawUrl) {
     const normalized = normalizeBaseUrl(rawUrl);
-    if (!isLocalhost() && /localhost|127\.0\.0\.1/i.test(normalized)) {
+    if (/localhost|127\.0\.0\.1/i.test(normalized)) {
       return PROD_API_FALLBACK;
     }
     return normalized;
   }
 
-  if (isBrowser && !isLocalhost()) {
+  if (isBrowser) {
     return PROD_API_FALLBACK;
   }
 
@@ -45,14 +60,14 @@ export const resolveServerBaseUrl = () => {
   if (isBrowser) {
     try {
       return new URL(apiBase, window.location.origin).origin;
-    } catch (error) {
+    } catch {
       return window.location.origin;
     }
   }
 
   try {
     return new URL(apiBase).origin;
-  } catch (error) {
+  } catch {
     return LOCAL_SERVER_FALLBACK;
   }
 };

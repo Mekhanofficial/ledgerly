@@ -71,6 +71,9 @@ export const mapInvoiceFromApi = (invoice = {}) => {
     paymentTerms: invoice.paymentTerms || '',
     notes: invoice.notes || '',
     terms: invoice.terms || '',
+    templateStyle: invoice.templateStyle || 'standard',
+    emailSubject: invoice.emailSubject || '',
+    emailMessage: invoice.emailMessage || '',
     raw: invoice
   };
 };
@@ -149,6 +152,9 @@ export const buildInvoicePayload = (invoiceData = {}) => {
     currency: invoiceData.currency || 'USD',
     notes: invoiceData.notes || '',
     terms: invoiceData.terms || '',
+    templateStyle: invoiceData.templateStyle || undefined,
+    emailSubject: invoiceData.emailSubject || undefined,
+    emailMessage: invoiceData.emailMessage || undefined,
     items,
     status: invoiceData.status || 'draft'
   };

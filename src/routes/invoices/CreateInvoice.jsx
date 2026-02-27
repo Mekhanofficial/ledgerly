@@ -1031,13 +1031,6 @@ const CreateInvoice = () => {
       );
       const sanitizedTotalAmount = roundMoney(sanitizedSubtotal + sanitizedTotalTax);
       
-      // Generate PDF first
-      const pdf = await generatePDF(false, lineItemsWithInventory);
-      
-      // Convert PDF to Blob for email attachment
-      const pdfBlob = pdf.output('blob');
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      
       const invoiceData = {
         id: `inv_${Date.now()}`,
         number: invoiceNumber,
@@ -1068,6 +1061,8 @@ const CreateInvoice = () => {
         isTaxOverridden,
         notes,
         terms,
+        emailSubject,
+        emailMessage,
         currency: resolvedCurrency,
         status: 'draft',
         createdAt: new Date().toISOString(),
@@ -1080,21 +1075,21 @@ const CreateInvoice = () => {
         throw new Error('Failed to create invoice');
       }
 
-      let deliveredInvoice = createdInvoice;
-      const sentInvoice = await sendInvoice(createdInvoice.id);
-      const wasSent = Boolean(sentInvoice);
-      if (wasSent) {
-        deliveredInvoice = sentInvoice;
-      } else {
-        addToast('Invoice created, but delivery status could not be updated. You can resend it from the invoice list.', 'warning');
+      const sentInvoice = await sendInvoice(createdInvoice.id, {
+        templateStyle: selectedTemplate,
+        emailSubject,
+        emailMessage
+      }, { throwOnError: true });
+      if (!sentInvoice) {
+        throw new Error('Invoice created, but email delivery failed. Check SMTP settings and resend from invoice list.');
       }
 
       // If recurring, save recurring profile
       if (isRecurring) {
         const recurringData = {
           id: `rec_${Date.now()}`,
-          invoiceNumber: deliveredInvoice.invoiceNumber,
-          invoiceId: deliveredInvoice.id,
+          invoiceNumber: sentInvoice.invoiceNumber,
+          invoiceId: sentInvoice.id,
           customer,
           amount: sanitizedTotalAmount,
           frequency: recurringSettings.frequency,
@@ -1123,57 +1118,10 @@ const CreateInvoice = () => {
         saveRecurringInvoice(recurringData);
       }
 
-      // Create email body with invoice details
-      const emailBody = `
-${emailMessage}
+      addToast(`Invoice sent to ${customer.email} successfully!`, 'success');
 
-INVOICE DETAILS
-===============
-Invoice #: ${invoiceNumber}
- Issue Date: ${new Date(issueDate).toLocaleDateString()}
- Due Date: ${new Date(dueDate).toLocaleDateString()}
- Subtotal: ${currency} ${sanitizedSubtotal.toFixed(2)}
- ${taxEnabled ? `${taxName} (${effectiveTaxRate}%): ${currency} ${sanitizedTotalTax.toFixed(2)}` : ''}
- Total Amount: ${currency} ${sanitizedTotalAmount.toFixed(2)}
-
-ITEMS:
-${lineItemsWithInventory.map(item => `- ${item.description}: ${item.quantity} × ${currency}${item.rate.toFixed(2)} = ${currency}${item.amount.toFixed(2)}`).join('\n')}
-
-Thank you for your business!
-
---
-This email was sent from Ledgerly Invoice System
-      `;
-      
-      // Create download link for the PDF
-      const downloadLink = document.createElement('a');
-      downloadLink.href = pdfUrl;
-      downloadLink.download = `${invoiceNumber}.pdf`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(pdfUrl);
-      
-      // Create mailto link with subject and body
-      const subject = encodeURIComponent(emailSubject);
-      const body = encodeURIComponent(emailBody);
-      const mailtoLink = `mailto:${customer.email}?subject=${subject}&body=${body}`;
-      
-      // Open email client
-      window.open(mailtoLink, '_blank');
-      
-      addToast(
-        wasSent
-          ? `Invoice sent to ${customer.email} successfully!`
-          : `Invoice created for ${customer.email} successfully!`,
-        'success'
-      );
-      
-      // Reset form after successful send
-      setTimeout(() => {
-        resetForm();
-        navigate('/invoices');
-      }, 2000);
+      resetForm();
+      navigate('/invoices');
       
     } catch (error) {
       const errorMessage = typeof error === 'string'

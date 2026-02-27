@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react"; 
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { register, clearError } from "../../store/slices/authSlice";
+import {
+  register,
+  clearError,
+  clearPendingVerification,
+  resendEmailOtp,
+  verifyEmailOtp
+} from "../../store/slices/authSlice";
 import countryData from "../../data/CountryData.json";
 import { 
   FileText, 
@@ -44,11 +50,46 @@ const SignUpPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpNotice, setOtpNotice] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [redirectSeconds, setRedirectSeconds] = useState(0);
   
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
+  const queryVerificationEmail = new URLSearchParams(location.search).get('verifyEmail');
   
-  const { loading, error: apiError } = useSelector((state) => state.auth);
+  const { loading, error: apiError, pendingVerification } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (pendingVerification?.email) {
+      setVerificationEmail(pendingVerification.email);
+      setRegistrationSuccess(true);
+    }
+  }, [pendingVerification]);
+
+  useEffect(() => {
+    if (queryVerificationEmail) {
+      setVerificationEmail(queryVerificationEmail.trim().toLowerCase());
+      setRegistrationSuccess(true);
+    }
+  }, [queryVerificationEmail]);
+
+  useEffect(() => {
+    if (!otpVerified) return undefined;
+    if (redirectSeconds <= 0) {
+      navigate('/login');
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setRedirectSeconds((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [otpVerified, redirectSeconds, navigate]);
 
   // Auto-populate currency when country is selected
   useEffect(() => {
@@ -180,12 +221,13 @@ const SignUpPage = () => {
         console.log('Registration result:', result);
         
         if (result.meta.requestStatus === 'fulfilled') {
+          const emailToVerify = result.payload?.pendingVerification?.email || userData.email;
+          setVerificationEmail(emailToVerify);
           setRegistrationSuccess(true);
-          
-          // Auto-redirect to dashboard after 3 seconds
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 7000);
+          setOtpCode('');
+          setOtpVerified(false);
+          setRedirectSeconds(0);
+          setOtpNotice('A verification code has been sent to your email.');
         } else {
           console.error('Registration failed:', result.payload);
         }
@@ -195,60 +237,137 @@ const SignUpPage = () => {
     }
   };
 
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (otpVerified) return;
+
+    if (!otpCode.trim()) {
+      setOtpNotice('Please enter the verification code.');
+      return;
+    }
+
+    const result = await dispatch(
+      verifyEmailOtp({
+        email: verificationEmail,
+        otp: otpCode.trim()
+      })
+    );
+
+    if (result.meta.requestStatus === 'fulfilled') {
+      setOtpNotice('Email verified successfully.');
+      setOtpVerified(true);
+      setRedirectSeconds(3);
+      dispatch(clearPendingVerification());
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!verificationEmail || otpVerified) return;
+    const result = await dispatch(resendEmailOtp(verificationEmail));
+    if (result.meta.requestStatus === 'fulfilled') {
+      setOtpVerified(false);
+      setRedirectSeconds(0);
+      setOtpNotice(result.payload?.message || 'Verification code sent.');
+    }
+  };
+
   // If registration was successful, show success message
   if (registrationSuccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-primary-50 dark:from-gray-900 dark:to-primary-950/20 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-2xl dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+        <div className="w-full max-w-lg">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-2xl dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 p-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/40 dark:to-primary-800/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Mail className="w-8 h-8 text-primary-600 dark:text-primary-400" />
             </div>
             
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              Welcome to LEDGERLY!
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3 text-center">
+              Verify Your Email
             </h2>
             
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Your business account has been created successfully. You're now ready to start managing your invoices, customers, and inventory.
+            <p className="text-gray-600 dark:text-gray-300 mb-6 text-center">
+              Enter the 6-digit code sent to <strong>{verificationEmail || formData.email}</strong> to activate your Ledgerly account.
             </p>
-            
-            <div className="space-y-4">
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 text-left">
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Account Details:</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <Building className="w-4 h-4 text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      <strong>Business:</strong> {formData.businessName}
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <Mail className="w-4 h-4 text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      <strong>Email:</strong> {formData.email}
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <Shield className="w-4 h-4 text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      <strong>Plan:</strong> Free Trial (30 days)
-                    </span>
-                  </div>
-                </div>
+
+            {apiError && (
+              <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3">
+                <p className="text-sm text-red-700 dark:text-red-300">{apiError}</p>
               </div>
-              
-              <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  Redirecting to dashboard...
+            )}
+
+            {otpNotice && (
+              <div className={`mb-4 border rounded-xl p-3 ${
+                otpVerified
+                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                  : 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800'
+              }`}>
+                <p className={`text-sm ${
+                  otpVerified
+                    ? 'text-emerald-700 dark:text-emerald-300'
+                    : 'text-primary-700 dark:text-primary-300'
+                }`}>
+                  {otpNotice}
                 </p>
-                <button
-                  onClick={() => navigate('/dashboard')}
-                  className="inline-block bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-500 dark:to-primary-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 dark:hover:from-primary-600 dark:hover:to-primary-700 transition-all duration-300"
-                >
-                  Go to Dashboard Now
-                </button>
               </div>
+            )}
+
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={otpCode}
+                onChange={(event) => {
+                  setOtpCode(event.target.value.replace(/\D/g, ''));
+                  if (apiError) dispatch(clearError());
+                }}
+                placeholder="Enter 6-digit OTP"
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 focus:ring-4 focus:ring-primary-500/20 dark:focus:ring-primary-400/20 focus:border-primary-500 dark:focus:border-primary-400 focus:outline-none transition-all duration-200 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm dark:text-white placeholder-gray-500 dark:placeholder-gray-400 tracking-[0.4em] text-center text-lg"
+                disabled={loading || otpVerified}
+              />
+
+              <button
+                type="submit"
+                disabled={loading || otpCode.length < 6 || otpVerified}
+                className="w-full bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-500 dark:to-primary-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 dark:hover:from-primary-600 dark:hover:to-primary-700 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Verifying...' : otpVerified ? 'Verified' : 'Verify Email'}
+              </button>
+            </form>
+
+            {otpVerified && (
+              <p className="mt-3 text-center text-sm text-emerald-600 dark:text-emerald-300">
+                Redirecting to login in {redirectSeconds}s...
+              </p>
+            )}
+
+            <div className="mt-5 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={loading || otpVerified}
+                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium disabled:opacity-70"
+              >
+                Resend code
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  dispatch(clearPendingVerification());
+                  setRegistrationSuccess(false);
+                  setOtpCode('');
+                  setOtpNotice('');
+                  setOtpVerified(false);
+                  setRedirectSeconds(0);
+                }}
+                className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium"
+              >
+                Back to signup
+              </button>
+              <Link to="/login" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium">
+                Go to login
+              </Link>
             </div>
           </div>
         </div>

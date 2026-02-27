@@ -512,14 +512,24 @@ export const InvoiceProvider = ({ children }) => {
     }
   };
 
-  const sendInvoice = async (id) => {
+  const sendInvoice = async (id, emailOptions = null, options = {}) => {
+    const throwOnError = options?.throwOnError === true;
     try {
-      const updated = await dispatch(sendInvoiceThunk(id)).unwrap();
+      const payload = emailOptions && typeof emailOptions === 'object'
+        ? { id, data: emailOptions }
+        : id;
+      const updated = await dispatch(sendInvoiceThunk(payload)).unwrap();
       const mapped = mapInvoiceFromApi(updated);
       addToast('Invoice sent successfully', 'success');
       return mapped;
     } catch (error) {
-      addToast(error?.message || 'Error sending invoice', 'error');
+      const errorMessage = typeof error === 'string'
+        ? error
+        : error?.message || 'Error sending invoice';
+      addToast(errorMessage, 'error');
+      if (throwOnError) {
+        throw new Error(errorMessage);
+      }
       return null;
     }
   };

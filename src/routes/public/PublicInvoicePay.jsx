@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { fetchPublicInvoice, initializePublicInvoicePayment, verifyPublicInvoicePayment } from '../../services/publicInvoicePaymentService';
 import { resolveServerBaseUrl } from '../../utils/apiConfig';
 
@@ -60,6 +60,7 @@ const pageStyle = {
 
 export default function PublicInvoicePay() {
   const { slug } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -101,6 +102,14 @@ export default function PublicInvoicePay() {
     };
   }, [slug]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const payError = params.get('payError');
+    if (payError) {
+      setError(payError);
+    }
+  }, [location.search]);
+
   const handlePayNow = async () => {
     if (!invoice || paying) return;
 
@@ -122,6 +131,11 @@ export default function PublicInvoicePay() {
       }
 
       setInvoice(invoicePayload);
+
+      if (payment.authorizationUrl) {
+        window.location.assign(payment.authorizationUrl);
+        return;
+      }
 
       const paystack = window.PaystackPop?.setup?.({
         key: payment.publicKey,

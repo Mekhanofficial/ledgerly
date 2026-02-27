@@ -131,9 +131,14 @@ export const deleteInvoice = createAsyncThunk(
 
 export const sendInvoice = createAsyncThunk(
   'invoices/send',
-  async (id, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
-      const response = await api.post(`/invoices/${id}/send`);
+      const id = typeof payload === 'string' ? payload : payload?.id;
+      if (!id) {
+        return rejectWithValue('Invoice id is required');
+      }
+      const data = typeof payload === 'object' ? payload?.data : undefined;
+      const response = await api.post(`/invoices/${id}/send`, data && Object.keys(data).length ? data : undefined);
       return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || 'Failed to send invoice');

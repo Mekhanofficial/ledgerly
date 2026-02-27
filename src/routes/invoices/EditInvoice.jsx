@@ -399,6 +399,9 @@ const EditInvoice = () => {
         isTaxOverridden,
         notes,
         terms,
+        emailSubject,
+        emailMessage,
+        templateStyle: originalInvoice?.templateStyle || 'standard',
         currency: resolvedCurrency
       };
 
@@ -423,7 +426,11 @@ const EditInvoice = () => {
         await deleteDraftFromContext(id);
       }
 
-      const sentInvoice = await sendInvoiceFromContext(targetInvoiceId);
+      const sentInvoice = await sendInvoiceFromContext(targetInvoiceId, {
+        templateStyle: originalInvoice?.templateStyle || 'standard',
+        emailSubject,
+        emailMessage
+      }, { throwOnError: true });
       if (!sentInvoice) {
         throw new Error('Failed to send invoice');
       }

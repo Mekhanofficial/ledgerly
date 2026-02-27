@@ -162,6 +162,15 @@ const Login = () => {
                         Contact support
                       </Link>
                     )}
+                    {error.toLowerCase().includes('verify your email') && email.trim() && (
+                      <Link
+                        to={`/signup?verifyEmail=${encodeURIComponent(email.trim().toLowerCase())}`}
+                        className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium"
+                        onClick={clearErrors}
+                      >
+                        Verify email
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>

@@ -14,6 +14,7 @@ import { generateReceiptPDF, getReceiptTemplatePreference, setReceiptTemplatePre
 import { useAccount } from '../../context/AccountContext';
 import { hasTemplateAccess } from '../../utils/templateStorage';
 import { formatCurrency } from '../../utils/currency';
+import { emailReceipt as emailReceiptService } from '../../services/receiptService';
 
 const Receipts = () => {
   const { isDarkMode } = useTheme();
@@ -154,6 +155,17 @@ const Receipts = () => {
     const total = subtotal + tax;
     
     return { subtotal, tax, total };
+  };
+
+  const sendReceiptEmail = async (receiptData, fallbackEmail = '') => {
+    const receiptId = receiptData?.recordId || receiptData?.metadata?._id || receiptData?.id;
+    if (!receiptId) {
+      throw new Error('Unable to send receipt email: missing receipt reference');
+    }
+    const resolvedEmail = String(fallbackEmail || receiptData?.customerEmail || '').trim();
+    const payload = resolvedEmail ? { customerEmail: resolvedEmail } : {};
+    const response = await emailReceiptService(receiptId, payload);
+    return response;
   };
 
   const handleSelectCustomer = (customerId) => {
@@ -334,11 +346,13 @@ const Receipts = () => {
       const pdfDoc = generateReceiptPDF(createdReceipt, accountInfo, selectedTemplateId);
       pdfDoc.save(`${createdReceipt.id}.pdf`);
       const receiptCurrency = createdReceipt.currency || baseCurrency;
+      const emailTo = customerEmail || selectedCustomer?.email || createdReceipt.customerEmail;
+      await sendReceiptEmail(createdReceipt, emailTo);
 
       addNotification({
         type: 'receipt',
         title: 'Receipt Sent',
-        description: `Receipt #${createdReceipt.id} sent to ${createdReceipt.customerEmail || customerEmail || selectedCustomer?.email}`,
+        description: `Receipt #${createdReceipt.id} sent to ${emailTo}`,
         details: `Total: ${formatMoney(createdReceipt.total || total, receiptCurrency)} | Payment: ${createdReceipt.paymentMethod || paymentMethod}`,
         time: 'Just now',
         action: 'View Receipt',
@@ -347,40 +361,6 @@ const Receipts = () => {
         icon: 'Receipt'
       });
 
-      // Create email body
-      const emailBody = `
-Thank you for your purchase!
-
-Receipt Details:
-Receipt #: ${createdReceipt.id}
-Date: ${createdReceipt.date}
-Customer: ${createdReceipt.customerName}
-Payment Method: ${createdReceipt.paymentMethod}
-${createdReceipt.paymentMethodDetails ? `Payment Details: ${createdReceipt.paymentMethodDetails}` : ''}
-
-Items Purchased:
-${createdReceipt.items?.map(item => 
-  `- ${item.name}: ${item.quantity} x ${formatMoney(Number(item.price || 0), receiptCurrency)} = ${formatMoney(Number(item.price || 0) * item.quantity, receiptCurrency)}`
-).join('\n') || 'No items found'}
-
-Subtotal: ${formatMoney(createdReceipt.subtotal || 0, receiptCurrency)}
-Tax: ${formatMoney(createdReceipt.tax || 0, receiptCurrency)}
-Total: ${formatMoney(createdReceipt.total || 0, receiptCurrency)}
-
-${notes ? `\nNotes: ${notes}` : ''}
-
-Thank you for shopping with us!
-      `;
-      
-      // Create mailto link
-      const subject = encodeURIComponent(`Your Receipt ${createdReceipt.id} from Legends`);
-      const body = encodeURIComponent(emailBody);
-      const emailTo = customerEmail || selectedCustomer?.email;
-      const mailtoLink = `mailto:${emailTo}?subject=${subject}&body=${body}`;
-      
-      // Open email client
-      window.open(mailtoLink, '_blank');
-      
       addToast(`Receipt sent to ${emailTo} successfully!`, 'success');
       
       // Clear cart after successful send
@@ -456,10 +436,12 @@ Thank you for shopping with us!
       }
 
       const receiptCurrency = createdReceipt.currency || baseCurrency;
+      const emailTo = customerEmail || selectedCustomer?.email || createdReceipt.customerEmail;
+      await sendReceiptEmail(createdReceipt, emailTo);
       addNotification({
         type: 'receipt',
         title: 'Receipt Emailed',
-        description: `Receipt #${createdReceipt.id} emailed to ${createdReceipt.customerEmail || customerEmail || selectedCustomer?.email}`,
+        description: `Receipt #${createdReceipt.id} emailed to ${emailTo}`,
         details: `Total: ${formatMoney(createdReceipt.total || total, receiptCurrency)} | Payment: ${createdReceipt.paymentMethod || paymentMethod}`,
         time: 'Just now',
         action: 'View Receipt',
@@ -467,38 +449,7 @@ Thank you for shopping with us!
         link: '#',
         icon: 'Receipt'
       }, { showToast: false });
-
-      const emailBody = `
-Thank you for your purchase!
-
-Receipt Details:
-Receipt #: ${createdReceipt.id}
-Date: ${createdReceipt.date}
-Customer: ${createdReceipt.customerName}
-Payment Method: ${createdReceipt.paymentMethod}
-${createdReceipt.paymentMethodDetails ? `Payment Details: ${createdReceipt.paymentMethodDetails}` : ''}
-
-Items Purchased:
-${createdReceipt.items?.map(item => 
-  `- ${item.name}: ${item.quantity} x ${formatMoney(Number(item.price || 0), receiptCurrency)} = ${formatMoney(Number(item.price || 0) * item.quantity, receiptCurrency)}`
-).join('\n') || 'No items found'}
-
-Subtotal: ${formatMoney(createdReceipt.subtotal || 0, receiptCurrency)}
-Tax: ${formatMoney(createdReceipt.tax || 0, receiptCurrency)}
-Total: ${formatMoney(createdReceipt.total || 0, receiptCurrency)}
-
-${notes ? `\nNotes: ${notes}` : ''}
-
-Thank you for shopping with us!
-    `;
-
-      const subject = encodeURIComponent(`Your Receipt ${createdReceipt.id} from Legends`);
-      const body = encodeURIComponent(emailBody);
-      const emailTo = customerEmail || selectedCustomer?.email;
-      const mailtoLink = `mailto:${emailTo}?subject=${subject}&body=${body}`;
-
-      window.open(mailtoLink, '_blank');
-      addToast('Email opened with receipt details', 'success');
+      addToast(`Receipt sent to ${emailTo} successfully!`, 'success');
     } catch (error) {
       addToast('Error sending receipt email: ' + error.message, 'error');
     } finally {

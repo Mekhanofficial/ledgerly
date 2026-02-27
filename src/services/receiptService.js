@@ -24,3 +24,8 @@ export const voidReceipt = async (id, payload = {}) => {
   const response = await api.post(`/receipts/${id}/void`, payload);
   return response.data;
 };
+
+export const emailReceipt = async (id, payload = {}) => {
+  const response = await api.post(`/receipts/${id}/email`, payload);
+  return response.data;
+};
