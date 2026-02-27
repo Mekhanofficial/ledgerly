@@ -15,6 +15,8 @@ const normalizeBaseUrl = (value) => {
   return value.replace(/\/+$/, '');
 };
 
+const isRelativeUrl = (value) => /^\/(?!\/)/.test(String(value || '').trim());
+
 export const resolveApiBaseUrl = () => {
   const runtimeUrl = isBrowser ? window.__LEDGERLY_API_URL__ : undefined;
   const envUrl = import.meta.env.VITE_API_URL;
@@ -39,6 +41,19 @@ export const resolveApiBaseUrl = () => {
     const normalized = normalizeBaseUrl(rawUrl);
     if (/localhost|127\.0\.0\.1/i.test(normalized)) {
       return PROD_API_FALLBACK;
+    }
+    if (isRelativeUrl(normalized)) {
+      return PROD_API_FALLBACK;
+    }
+    if (isBrowser) {
+      try {
+        const parsed = new URL(normalized, window.location.origin);
+        if (parsed.origin === window.location.origin) {
+          return PROD_API_FALLBACK;
+        }
+      } catch {
+        return PROD_API_FALLBACK;
+      }
     }
     return normalized;
   }

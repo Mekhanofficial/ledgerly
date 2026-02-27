@@ -62,6 +62,11 @@ const SignUpPage = () => {
   const queryVerificationEmail = new URLSearchParams(location.search).get('verifyEmail');
   
   const { loading, error: apiError, pendingVerification } = useSelector((state) => state.auth);
+  const apiErrorMessage =
+    typeof apiError === 'string'
+      ? apiError
+      : (apiError && typeof apiError.message === 'string' ? apiError.message : '');
+  const hasExistingAccountError = apiErrorMessage.toLowerCase().includes('already exists');
 
   useEffect(() => {
     if (pendingVerification?.email) {
@@ -295,9 +300,9 @@ const SignUpPage = () => {
               Enter the 6-digit code sent to <strong>{verificationEmail || formData.email}</strong> to activate your Ledgerly account.
             </p>
 
-            {apiError && (
+            {apiErrorMessage && (
               <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3">
-                <p className="text-sm text-red-700 dark:text-red-300">{apiError}</p>
+                <p className="text-sm text-red-700 dark:text-red-300">{apiErrorMessage}</p>
               </div>
             )}
 
@@ -476,12 +481,12 @@ const SignUpPage = () => {
           <StepIndicator />
           
           {/* API Error Message */}
-          {apiError && (
+          {apiErrorMessage && (
             <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
               <div className="flex items-start">
                 <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 mr-3 flex-shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm text-red-700 dark:text-red-300">{apiError}</p>
+                  <p className="text-sm text-red-700 dark:text-red-300">{apiErrorMessage}</p>
                   <div className="mt-2 flex items-center space-x-4">
                     <button
                       onClick={() => dispatch(clearError())}
@@ -489,7 +494,7 @@ const SignUpPage = () => {
                     >
                       Dismiss
                     </button>
-                    {apiError.includes("already exists") && (
+                    {hasExistingAccountError && (
                       <Link 
                         to="/login" 
                         className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium"

@@ -1,6 +1,36 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
 
+const normalizeApiError = (error, fallbackMessage) => {
+  const apiError = error?.response?.data?.error;
+
+  if (typeof apiError === 'string' && apiError.trim()) {
+    return apiError;
+  }
+
+  if (apiError && typeof apiError === 'object') {
+    if (typeof apiError.message === 'string' && apiError.message.trim()) {
+      return apiError.message;
+    }
+    try {
+      return JSON.stringify(apiError);
+    } catch {
+      return fallbackMessage;
+    }
+  }
+
+  const apiMessage = error?.response?.data?.message;
+  if (typeof apiMessage === 'string' && apiMessage.trim()) {
+    return apiMessage;
+  }
+
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+};
+
 // Async thunks
 export const register = createAsyncThunk(
   'auth/register',
@@ -21,7 +51,7 @@ export const register = createAsyncThunk(
       };
     } catch (error) {
       console.error('Registration error:', error.response?.data);
-      return rejectWithValue(error.response?.data?.error || error.message || 'Registration failed');
+      return rejectWithValue(normalizeApiError(error, 'Registration failed'));
     }
   }
 );
@@ -33,7 +63,7 @@ export const verifyEmailOtp = createAsyncThunk(
       const response = await api.post('/auth/verify-email-otp', { email, otp });
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || error.message || 'Email verification failed');
+      return rejectWithValue(normalizeApiError(error, 'Email verification failed'));
     }
   }
 );
@@ -45,7 +75,7 @@ export const resendEmailOtp = createAsyncThunk(
       const response = await api.post('/auth/resend-email-otp', { email });
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || error.message || 'Failed to resend verification code');
+      return rejectWithValue(normalizeApiError(error, 'Failed to resend verification code'));
     }
   }
 );
@@ -64,7 +94,7 @@ export const login = createAsyncThunk(
       return { token, user };
     } catch (error) {
       console.error('Login error:', error.response?.data);
-      return rejectWithValue(error.response?.data?.error || error.message || 'Login failed');
+      return rejectWithValue(normalizeApiError(error, 'Login failed'));
     }
   }
 );
@@ -113,7 +143,7 @@ export const getCurrentUser = createAsyncThunk(
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
-      return rejectWithValue(error.response?.data?.error || 'Failed to get user');
+      return rejectWithValue(normalizeApiError(error, 'Failed to get user'));
     }
   }
 );
@@ -130,7 +160,7 @@ export const updateProfile = createAsyncThunk(
       
       return user;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || 'Update failed');
+      return rejectWithValue(normalizeApiError(error, 'Update failed'));
     }
   }
 );
@@ -147,7 +177,7 @@ export const updatePassword = createAsyncThunk(
       
       return { token, user };
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || 'Password update failed');
+      return rejectWithValue(normalizeApiError(error, 'Password update failed'));
     }
   }
 );
@@ -159,7 +189,7 @@ export const forgotPassword = createAsyncThunk(
       const response = await api.post('/auth/forgotpassword', { email });
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || 'Request failed');
+      return rejectWithValue(normalizeApiError(error, 'Request failed'));
     }
   }
 );
@@ -171,7 +201,7 @@ export const resetPassword = createAsyncThunk(
       const response = await api.put(`/auth/resetpassword/${token}`, { password });
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || 'Password reset failed');
+      return rejectWithValue(normalizeApiError(error, 'Password reset failed'));
     }
   }
 );
