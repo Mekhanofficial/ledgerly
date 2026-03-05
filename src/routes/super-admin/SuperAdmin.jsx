@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { ShieldCheck, RefreshCw } from 'lucide-react';
+import { ShieldCheck, RefreshCw, KeyRound, RotateCcw, Copy } from 'lucide-react';
 import api from '../../services/api';
 import { getUserRoleLabel } from '../../utils/userDisplay';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
@@ -13,6 +13,27 @@ const roleOptions = [
   { value: 'client', label: 'Client' },
   { value: 'viewer', label: 'Viewer' }
 ];
+
+const partnerScopeOptions = [
+  { value: 'templates:read', label: 'Templates Read' },
+  { value: 'invoices:create', label: 'Invoices Create' },
+  { value: 'invoices:read', label: 'Invoices Read' },
+  { value: 'invoices:pdf', label: 'Invoices PDF' },
+  { value: 'invoices:send', label: 'Invoices Send' }
+];
+
+const createPartnerFormState = (businessId = '') => ({
+  businessId,
+  name: '',
+  description: '',
+  webhookUrl: '',
+  rateLimitPerMinute: 120,
+  isActive: true,
+  allowAllTemplates: false,
+  allowedTemplateIds: ['standard'],
+  defaultTemplateId: 'standard',
+  scopes: ['templates:read', 'invoices:create', 'invoices:read']
+});
 
 const SuperAdmin = () => {
   const authUser = useSelector((state) => state.auth.user);
@@ -33,7 +54,17 @@ const SuperAdmin = () => {
   const [searchCustomers, setSearchCustomers] = useState('');
   const [searchProducts, setSearchProducts] = useState('');
   const [searchReceipts, setSearchReceipts] = useState('');
+  const [searchPartners, setSearchPartners] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [partners, setPartners] = useState([]);
+  const [loadingPartners, setLoadingPartners] = useState(false);
+  const [partnerBusinessFilter, setPartnerBusinessFilter] = useState('');
+  const [partnerTemplateOptions, setPartnerTemplateOptions] = useState([]);
+  const [partnerForm, setPartnerForm] = useState(createPartnerFormState());
+  const [editingPartnerId, setEditingPartnerId] = useState('');
+  const [savingPartner, setSavingPartner] = useState(false);
+  const [generatedPartnerKey, setGeneratedPartnerKey] = useState('');
+  const [partnerError, setPartnerError] = useState('');
 
   const fetchOverview = async () => {
     if (!isSuperAdmin) return;
@@ -46,7 +77,11 @@ const SuperAdmin = () => {
       ]);
       setOverview(overviewRes.data.data);
       setUsers(usersRes.data.data || []);
-      setBusinesses(bizRes.data.data || []);
+      const nextBusinesses = bizRes.data.data || [];
+      setBusinesses(nextBusinesses);
+      if (!partnerBusinessFilter && nextBusinesses.length > 0) {
+        setPartnerBusinessFilter(nextBusinesses[0]._id);
+      }
     } catch (error) {
       console.error('Failed to load super admin data', error);
     } finally {
@@ -99,6 +134,193 @@ const SuperAdmin = () => {
     }
   };
 
+  const fetchPartnerTemplateOptions = async (businessId) => {
+    if (!businessId) {
+      setPartnerTemplateOptions([]);
+      return [];
+    }
+
+    try {
+      const response = await api.get('/super-admin/partner-template-options', {
+        params: { businessId }
+      });
+      const templates = response?.data?.data?.templates || [];
+      setPartnerTemplateOptions(templates);
+      return templates;
+    } catch (error) {
+      console.error('Failed to load partner template options', error);
+      setPartnerTemplateOptions([]);
+      return [];
+    }
+  };
+
+  const loadPartners = async (businessIdOverride = undefined) => {
+    setLoadingPartners(true);
+    setPartnerError('');
+    try {
+      const businessId = businessIdOverride !== undefined
+        ? businessIdOverride
+        : partnerBusinessFilter;
+      const params = { limit: 200 };
+      if (businessId) {
+        params.businessId = businessId;
+      }
+      const response = await api.get('/super-admin/partners', { params });
+      setPartners(response.data.data || []);
+    } catch (error) {
+      console.error('Failed to load partner integrations', error);
+      setPartnerError(error?.response?.data?.error || 'Failed to load partner integrations');
+    } finally {
+      setLoadingPartners(false);
+    }
+  };
+
+  const resetPartnerForm = async (businessId = '') => {
+    setEditingPartnerId('');
+    setGeneratedPartnerKey('');
+    setPartnerError('');
+    setPartnerForm(createPartnerFormState(businessId));
+    await fetchPartnerTemplateOptions(businessId);
+  };
+
+  const openPartnerEditor = async (partner) => {
+    const businessId = partner.business?._id || partner.business || '';
+    setEditingPartnerId(partner._id);
+    setGeneratedPartnerKey('');
+    setPartnerError('');
+    setPartnerForm({
+      businessId,
+      name: partner.name || '',
+      description: partner.description || '',
+      webhookUrl: partner.webhookUrl || '',
+      rateLimitPerMinute: partner.rateLimitPerMinute || 120,
+      isActive: partner.isActive !== false,
+      allowAllTemplates: Boolean(partner.allowAllTemplates),
+      allowedTemplateIds: Array.isArray(partner.allowedTemplateIds)
+        ? partner.allowedTemplateIds
+        : ['standard'],
+      defaultTemplateId: partner.defaultTemplateId || 'standard',
+      scopes: Array.isArray(partner.scopes)
+        ? partner.scopes
+        : ['templates:read', 'invoices:create', 'invoices:read']
+    });
+    await fetchPartnerTemplateOptions(businessId);
+  };
+
+  const submitPartnerForm = async (event) => {
+    event.preventDefault();
+    setSavingPartner(true);
+    setPartnerError('');
+
+    const payload = {
+      businessId: partnerForm.businessId,
+      name: partnerForm.name,
+      description: partnerForm.description,
+      webhookUrl: partnerForm.webhookUrl,
+      rateLimitPerMinute: Number(partnerForm.rateLimitPerMinute) || 120,
+      isActive: partnerForm.isActive,
+      allowAllTemplates: partnerForm.allowAllTemplates,
+      allowedTemplateIds: partnerForm.allowAllTemplates ? [] : partnerForm.allowedTemplateIds,
+      defaultTemplateId: partnerForm.defaultTemplateId,
+      scopes: partnerForm.scopes
+    };
+
+    try {
+      if (editingPartnerId) {
+        await api.put(`/super-admin/partners/${editingPartnerId}`, payload);
+      } else {
+        const response = await api.post('/super-admin/partners', payload);
+        setGeneratedPartnerKey(response?.data?.apiKey || '');
+      }
+
+      await loadPartners();
+      await fetchOverview();
+
+      if (!editingPartnerId) {
+        setEditingPartnerId('');
+        setPartnerError('');
+        setPartnerForm(createPartnerFormState(payload.businessId));
+        await fetchPartnerTemplateOptions(payload.businessId);
+      }
+    } catch (error) {
+      console.error('Failed to save partner integration', error);
+      setPartnerError(error?.response?.data?.error || 'Failed to save partner integration');
+    } finally {
+      setSavingPartner(false);
+    }
+  };
+
+  const togglePartnerActive = async (partner) => {
+    try {
+      await api.put(`/super-admin/partners/${partner._id}`, { isActive: !partner.isActive });
+      await loadPartners();
+      await fetchOverview();
+    } catch (error) {
+      console.error('Failed to update partner status', error);
+      setPartnerError(error?.response?.data?.error || 'Failed to update partner status');
+    }
+  };
+
+  const rotatePartnerApiKey = async (partner) => {
+    try {
+      const response = await api.post(`/super-admin/partners/${partner._id}/rotate-key`);
+      setGeneratedPartnerKey(response?.data?.apiKey || '');
+      await loadPartners();
+    } catch (error) {
+      console.error('Failed to rotate partner key', error);
+      setPartnerError(error?.response?.data?.error || 'Failed to rotate partner key');
+    }
+  };
+
+  const copyGeneratedKey = async () => {
+    if (!generatedPartnerKey) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(generatedPartnerKey);
+      }
+    } catch (error) {
+      console.error('Failed to copy generated API key', error);
+    }
+  };
+
+  const onPartnerBusinessChange = async (businessId) => {
+    setPartnerForm((prev) => ({
+      ...prev,
+      businessId,
+      allowedTemplateIds: ['standard'],
+      defaultTemplateId: 'standard'
+    }));
+    await fetchPartnerTemplateOptions(businessId);
+  };
+
+  const togglePartnerScope = (scope) => {
+    setPartnerForm((prev) => {
+      const nextScopes = prev.scopes.includes(scope)
+        ? prev.scopes.filter((value) => value !== scope)
+        : [...prev.scopes, scope];
+      return {
+        ...prev,
+        scopes: nextScopes.length ? nextScopes : ['templates:read']
+      };
+    });
+  };
+
+  const togglePartnerTemplate = (templateId) => {
+    setPartnerForm((prev) => {
+      const exists = prev.allowedTemplateIds.includes(templateId);
+      const nextAllowedTemplateIds = exists
+        ? prev.allowedTemplateIds.filter((id) => id !== templateId)
+        : [...prev.allowedTemplateIds, templateId];
+      return {
+        ...prev,
+        allowedTemplateIds: nextAllowedTemplateIds,
+        defaultTemplateId: nextAllowedTemplateIds.includes(prev.defaultTemplateId)
+          ? prev.defaultTemplateId
+          : (nextAllowedTemplateIds[0] || 'standard')
+      };
+    });
+  };
+
   useEffect(() => {
     fetchOverview();
   }, [isSuperAdmin]);
@@ -120,7 +342,22 @@ const SuperAdmin = () => {
     if (activeTab === 'receipts' && receipts.length === 0) {
       loadReceipts();
     }
-  }, [activeTab, isSuperAdmin]);
+    if (activeTab === 'partners' && partners.length === 0) {
+      loadPartners();
+    }
+  }, [activeTab, isSuperAdmin, partnerBusinessFilter]);
+
+  useEffect(() => {
+    if (!isSuperAdmin || activeTab !== 'partners') return;
+    loadPartners();
+  }, [partnerBusinessFilter]);
+
+  useEffect(() => {
+    if (!businesses.length || partnerForm.businessId || editingPartnerId) return;
+    const firstBusinessId = businesses[0]._id;
+    setPartnerForm((prev) => ({ ...prev, businessId: firstBusinessId }));
+    fetchPartnerTemplateOptions(firstBusinessId);
+  }, [businesses, partnerForm.businessId, editingPartnerId]);
 
   const filteredUsers = useMemo(() => {
     if (!searchUsers) return users;
@@ -143,6 +380,20 @@ const SuperAdmin = () => {
         biz.phone?.toLowerCase().includes(term)
     );
   }, [businesses, searchBusinesses]);
+
+  const filteredPartners = useMemo(() => {
+    if (!searchPartners) return partners;
+    const term = searchPartners.toLowerCase();
+    return partners.filter((partner) => {
+      const businessName = partner.business?.name || '';
+      return (
+        partner.name?.toLowerCase().includes(term)
+        || partner.description?.toLowerCase().includes(term)
+        || businessName.toLowerCase().includes(term)
+        || partner.keyPrefix?.toLowerCase().includes(term)
+      );
+    });
+  }, [partners, searchPartners]);
 
   const updateUser = async (userId, payload) => {
     try {
@@ -207,7 +458,8 @@ const SuperAdmin = () => {
           { id: 'payments', label: 'Payments' },
           { id: 'customers', label: 'Customers' },
           { id: 'products', label: 'Products' },
-          { id: 'receipts', label: 'Receipts' }
+          { id: 'receipts', label: 'Receipts' },
+          { id: 'partners', label: 'Partners/API' }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -232,7 +484,8 @@ const SuperAdmin = () => {
             { label: 'Payments', value: overview?.payments ?? '-' },
             { label: 'Customers', value: overview?.customers ?? '-' },
             { label: 'Products', value: overview?.products ?? '-' },
-            { label: 'Receipts', value: overview?.receipts ?? '-' }
+            { label: 'Receipts', value: overview?.receipts ?? '-' },
+            { label: 'Partners', value: overview?.partners ?? '-' }
           ].map((stat) => (
             <div
               key={stat.label}
@@ -293,7 +546,7 @@ const SuperAdmin = () => {
                           ))}
                         </select>
                       </td>
-                      <td className="py-2 px-3 text-gray-500">{user.business?.name || '—'}</td>
+                      <td className="py-2 px-3 text-gray-500">{user.business?.name || '-'}</td>
                       <td className="py-2 px-3">
                         <button
                           onClick={() => updateUser(user._id, { isActive: !user.isActive })}
@@ -350,7 +603,7 @@ const SuperAdmin = () => {
                       <td className="py-2 px-3 text-gray-900 dark:text-white">{biz.name}</td>
                       <td className="py-2 px-3 text-gray-500">{biz.email}</td>
                       <td className="py-2 px-3 text-gray-500">
-                        {biz.owner?.name || biz.owner?.email || '—'}
+                        {biz.owner?.name || biz.owner?.email || '-'}
                       </td>
                       <td className="py-2 px-3">
                         <button
@@ -417,8 +670,8 @@ const SuperAdmin = () => {
                     .map((invoice) => (
                       <tr key={invoice._id} className="border-t border-gray-100 dark:border-gray-700">
                         <td className="py-2 px-3 text-gray-900 dark:text-white">{invoice.invoiceNumber}</td>
-                        <td className="py-2 px-3 text-gray-500">{invoice.business?.name || '—'}</td>
-                        <td className="py-2 px-3 text-gray-500">{invoice.customer?.name || '—'}</td>
+                        <td className="py-2 px-3 text-gray-500">{invoice.business?.name || '-'}</td>
+                        <td className="py-2 px-3 text-gray-500">{invoice.customer?.name || '-'}</td>
                         <td className="py-2 px-3 text-gray-500">{invoice.status}</td>
                         <td className="py-2 px-3 text-gray-500">
                           {invoice.total?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
@@ -473,10 +726,10 @@ const SuperAdmin = () => {
                     .map((payment) => (
                       <tr key={payment._id} className="border-t border-gray-100 dark:border-gray-700">
                         <td className="py-2 px-3 text-gray-900 dark:text-white">
-                          {payment.invoice?.invoiceNumber || '—'}
+                          {payment.invoice?.invoiceNumber || '-'}
                         </td>
-                        <td className="py-2 px-3 text-gray-500">{payment.business?.name || '—'}</td>
-                        <td className="py-2 px-3 text-gray-500">{payment.customer?.name || '—'}</td>
+                        <td className="py-2 px-3 text-gray-500">{payment.business?.name || '-'}</td>
+                        <td className="py-2 px-3 text-gray-500">{payment.customer?.name || '-'}</td>
                         <td className="py-2 px-3 text-gray-500">{payment.paymentMethod}</td>
                         <td className="py-2 px-3 text-gray-500">
                           {payment.amount?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
@@ -530,8 +783,8 @@ const SuperAdmin = () => {
                     .map((customer) => (
                       <tr key={customer._id} className="border-t border-gray-100 dark:border-gray-700">
                         <td className="py-2 px-3 text-gray-900 dark:text-white">{customer.name}</td>
-                        <td className="py-2 px-3 text-gray-500">{customer.email || '—'}</td>
-                        <td className="py-2 px-3 text-gray-500">{customer.business?.name || '—'}</td>
+                        <td className="py-2 px-3 text-gray-500">{customer.email || '-'}</td>
+                        <td className="py-2 px-3 text-gray-500">{customer.business?.name || '-'}</td>
                         <td className="py-2 px-3 text-gray-500">
                           {customer.isActive === false ? 'Inactive' : 'Active'}
                         </td>
@@ -584,8 +837,8 @@ const SuperAdmin = () => {
                     .map((product) => (
                       <tr key={product._id} className="border-t border-gray-100 dark:border-gray-700">
                         <td className="py-2 px-3 text-gray-900 dark:text-white">{product.name}</td>
-                        <td className="py-2 px-3 text-gray-500">{product.sku || '—'}</td>
-                        <td className="py-2 px-3 text-gray-500">{product.business?.name || '—'}</td>
+                        <td className="py-2 px-3 text-gray-500">{product.sku || '-'}</td>
+                        <td className="py-2 px-3 text-gray-500">{product.business?.name || '-'}</td>
                         <td className="py-2 px-3 text-gray-500">
                           {product.sellingPrice?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
                         </td>
@@ -638,8 +891,8 @@ const SuperAdmin = () => {
                     .map((receipt) => (
                       <tr key={receipt._id} className="border-t border-gray-100 dark:border-gray-700">
                         <td className="py-2 px-3 text-gray-900 dark:text-white">{receipt.receiptNumber}</td>
-                        <td className="py-2 px-3 text-gray-500">{receipt.business?.name || '—'}</td>
-                        <td className="py-2 px-3 text-gray-500">{receipt.customer?.name || '—'}</td>
+                        <td className="py-2 px-3 text-gray-500">{receipt.business?.name || '-'}</td>
+                        <td className="py-2 px-3 text-gray-500">{receipt.customer?.name || '-'}</td>
                         <td className="py-2 px-3 text-gray-500">
                           {receipt.total?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
                         </td>
@@ -648,6 +901,334 @@ const SuperAdmin = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'partners' && (
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+          <div className="xl:col-span-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-primary-500" />
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {editingPartnerId ? 'Edit Partner API' : 'Create Partner API'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => resetPartnerForm(partnerBusinessFilter || businesses[0]?._id || '')}
+                className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-semibold"
+              >
+                New
+              </button>
+            </div>
+
+            <form onSubmit={submitPartnerForm} className="space-y-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Business</label>
+                <select
+                  value={partnerForm.businessId}
+                  onChange={(event) => onPartnerBusinessChange(event.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
+                  disabled={Boolean(editingPartnerId)}
+                >
+                  <option value="">Select business</option>
+                  {businesses.map((business) => (
+                    <option key={business._id} value={business._id}>
+                      {business.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Name</label>
+                <input
+                  value={partnerForm.name}
+                  onChange={(event) => setPartnerForm((prev) => ({ ...prev, name: event.target.value }))}
+                  placeholder="Marketplace API Key"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Description</label>
+                <textarea
+                  value={partnerForm.description}
+                  onChange={(event) => setPartnerForm((prev) => ({ ...prev, description: event.target.value }))}
+                  placeholder="Used by external marketplace checkout flow"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm min-h-[72px]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Webhook URL (optional)</label>
+                <input
+                  value={partnerForm.webhookUrl}
+                  onChange={(event) => setPartnerForm((prev) => ({ ...prev, webhookUrl: event.target.value }))}
+                  placeholder="https://partner.com/webhooks/ledgerly"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Rate Limit / Min</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5000"
+                    value={partnerForm.rateLimitPerMinute}
+                    onChange={(event) => setPartnerForm((prev) => ({
+                      ...prev,
+                      rateLimitPerMinute: event.target.value
+                    }))}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 mt-6">
+                  <input
+                    type="checkbox"
+                    checked={partnerForm.isActive}
+                    onChange={(event) => setPartnerForm((prev) => ({ ...prev, isActive: event.target.checked }))}
+                  />
+                  Active
+                </label>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Scopes</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {partnerScopeOptions.map((scope) => (
+                    <label
+                      key={scope.value}
+                      className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={partnerForm.scopes.includes(scope.value)}
+                        onChange={() => togglePartnerScope(scope.value)}
+                      />
+                      {scope.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={partnerForm.allowAllTemplates}
+                    onChange={(event) => setPartnerForm((prev) => ({
+                      ...prev,
+                      allowAllTemplates: event.target.checked
+                    }))}
+                  />
+                  Allow all business templates
+                </label>
+              </div>
+
+              {!partnerForm.allowAllTemplates && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Template Access</p>
+                  <div className="max-h-44 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-2 space-y-1">
+                    {partnerTemplateOptions.map((template) => (
+                      <label
+                        key={template.id}
+                        className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={partnerForm.allowedTemplateIds.includes(template.id)}
+                          onChange={() => togglePartnerTemplate(template.id)}
+                        />
+                        <span>{template.name}</span>
+                        <span className="text-[10px] uppercase text-gray-400">{template.category}</span>
+                      </label>
+                    ))}
+                    {!partnerTemplateOptions.length && (
+                      <p className="text-xs text-gray-400">No templates available for this business.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Default Template</label>
+                <select
+                  value={partnerForm.defaultTemplateId}
+                  onChange={(event) => setPartnerForm((prev) => ({
+                    ...prev,
+                    defaultTemplateId: event.target.value
+                  }))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
+                >
+                  {(partnerForm.allowAllTemplates
+                    ? partnerTemplateOptions
+                    : partnerTemplateOptions.filter((template) => partnerForm.allowedTemplateIds.includes(template.id))
+                  ).map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={savingPartner || !partnerForm.businessId}
+                  className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 disabled:opacity-60"
+                >
+                  {savingPartner ? 'Saving...' : (editingPartnerId ? 'Update Partner' : 'Create Partner')}
+                </button>
+                {editingPartnerId && (
+                  <button
+                    type="button"
+                    onClick={() => resetPartnerForm(partnerBusinessFilter || businesses[0]?._id || '')}
+                    className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+
+            {generatedPartnerKey && (
+              <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3">
+                <p className="text-xs font-semibold text-amber-800 dark:text-amber-200 mb-1">
+                  One-time API key
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
+                  Copy and store this now. It will not be shown again.
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-[11px] px-2 py-1 rounded bg-white dark:bg-gray-900 border border-amber-200 overflow-x-auto">
+                    {generatedPartnerKey}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={copyGeneratedKey}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-amber-300 text-amber-900 dark:text-amber-200 text-xs"
+                  >
+                    <Copy className="w-3 h-3" />
+                    Copy
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {partnerError && (
+              <p className="text-xs text-red-600 mt-3">{partnerError}</p>
+            )}
+          </div>
+
+          <div className="xl:col-span-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Partner Integrations</h2>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                  value={partnerBusinessFilter}
+                  onChange={(event) => setPartnerBusinessFilter(event.target.value)}
+                  className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
+                >
+                  <option value="">All businesses</option>
+                  {businesses.map((business) => (
+                    <option key={business._id} value={business._id}>
+                      {business.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={searchPartners}
+                  onChange={(event) => setSearchPartners(event.target.value)}
+                  placeholder="Search partners"
+                  className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <thead className="text-gray-500">
+                  <tr>
+                    <th className="py-2 px-3">Name</th>
+                    <th className="py-2 px-3">Business</th>
+                    <th className="py-2 px-3">Scopes</th>
+                    <th className="py-2 px-3">Templates</th>
+                    <th className="py-2 px-3">Key</th>
+                    <th className="py-2 px-3">Last Used</th>
+                    <th className="py-2 px-3">Status</th>
+                    <th className="py-2 px-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingPartners ? (
+                    <tr>
+                      <td colSpan="8" className="py-6 text-center text-gray-500">
+                        Loading partner integrations...
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredPartners.map((partner) => (
+                      <tr key={partner._id} className="border-t border-gray-100 dark:border-gray-700">
+                        <td className="py-2 px-3">
+                          <p className="text-gray-900 dark:text-white font-medium">{partner.name}</p>
+                          <p className="text-xs text-gray-400">{partner.description || '-'}</p>
+                        </td>
+                        <td className="py-2 px-3 text-gray-500">{partner.business?.name || '-'}</td>
+                        <td className="py-2 px-3 text-gray-500 text-xs">
+                          {(partner.scopes || []).join(', ') || '-'}
+                        </td>
+                        <td className="py-2 px-3 text-gray-500 text-xs">
+                          {partner.allowAllTemplates
+                            ? 'All'
+                            : `${partner.allowedTemplateIds?.length || 0} selected`}
+                        </td>
+                        <td className="py-2 px-3 text-gray-500 text-xs font-mono">
+                          {partner.apiKeyMasked || `${partner.keyPrefix || ''}********${partner.keyLast4 || ''}`}
+                        </td>
+                        <td className="py-2 px-3 text-gray-500 text-xs">
+                          {partner.lastUsedAt ? new Date(partner.lastUsedAt).toLocaleString() : '-'}
+                        </td>
+                        <td className="py-2 px-3">
+                          <button
+                            onClick={() => togglePartnerActive(partner)}
+                            className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                              partner.isActive
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
+                            {partner.isActive ? 'Active' : 'Inactive'}
+                          </button>
+                        </td>
+                        <td className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => openPartnerEditor(partner)}
+                              className="px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-xs"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => rotatePartnerApiKey(partner)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-xs"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              Rotate
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

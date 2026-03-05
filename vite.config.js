@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '')
-  const devProxyTarget = String(env.VITE_DEV_PROXY_TARGET || 'https://ledgerly-backend-iayk.onrender.com').trim()
+  const devProxyTarget = String(env.VITE_DEV_PROXY_TARGET || 'http://localhost:7000').trim()
 
   return {
     plugins: [react()],

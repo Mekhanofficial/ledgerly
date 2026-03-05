@@ -23,6 +23,7 @@ import {
 import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter';
 import { getAdjustmentTimestamp } from '../utils/adjustmentDate';
 import { formatCurrency } from '../utils/currency';
+import { normalizePlanId } from '../utils/subscription';
 
 export const InventoryContext = createContext();
 
@@ -46,8 +47,10 @@ export const InventoryProvider = ({ children }) => {
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
-  const canAccessInventory = ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
-  const canAccessStockAdjustments = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const normalizedPlan = normalizePlanId(accountInfo?.plan);
+  const hasInventoryFeature = ['professional', 'enterprise'].includes(normalizedPlan);
+  const canAccessInventory = hasInventoryFeature && ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
+  const canAccessStockAdjustments = hasInventoryFeature && ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
   const baseCurrency = accountInfo?.currency || 'USD';
   const formatMoney = useCallback(
     (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency),
