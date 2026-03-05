@@ -8,6 +8,20 @@ import { mapProductFromApi } from '../../utils/productAdapter';
 import { fetchProducts } from '../../store/slices/productSlide';
 import { formatCurrency } from '../../utils/currency';
 
+const normalizeCategory = (categoryValue) => {
+  if (typeof categoryValue === 'string') {
+    const trimmed = categoryValue.trim();
+    return trimmed || 'Uncategorized';
+  }
+  if (categoryValue && typeof categoryValue === 'object') {
+    const candidate = categoryValue.name || categoryValue.label || categoryValue.title;
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return 'Uncategorized';
+};
+
 const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
   const { isDarkMode } = useTheme();
   const { accountInfo } = useAccount();
@@ -20,7 +34,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
       const mapped = mapProductFromApi(product);
       return {
         ...mapped,
-        category: mapped.categoryName || 'Uncategorized'
+        category: normalizeCategory(mapped.categoryName || product?.categoryName || product?.category)
       };
     });
   }, [rawProducts]);
@@ -49,13 +63,13 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
       result = result.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase()))
+        normalizeCategory(product.category).toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Filter by category
     if (selectedCategory !== 'all') {
-      result = result.filter(product => product.category === selectedCategory);
+      result = result.filter(product => normalizeCategory(product.category) === selectedCategory);
     }
 
     // Sort products
@@ -98,10 +112,16 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
   };
 
   // Get unique categories from products
-  const productCategories = ['all', ...new Set(products
-    .map(p => p.category)
-    .filter(Boolean)
-  )];
+  const productCategories = useMemo(
+    () => ['all', ...new Set(products.map((p) => normalizeCategory(p.category)).filter(Boolean))],
+    [products]
+  );
+
+  useEffect(() => {
+    if (selectedCategory !== 'all' && !productCategories.includes(selectedCategory)) {
+      setSelectedCategory('all');
+    }
+  }, [selectedCategory, productCategories]);
 
   const cartUnits = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const lowStockCount = products.filter((p) => {
@@ -194,7 +214,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                 .filter((cat) => cat !== 'all')
                 .map((category) => (
                   <option key={category} value={category}>
-                    {typeof category === 'object' ? category.name : category}
+                    {category}
                   </option>
                 ))}
             </select>
@@ -225,7 +245,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
             {productCategories.map((category) => {
               const value = category === 'all' ? 'all' : category;
-              const label = category === 'all' ? 'All' : String(category);
+              const label = category === 'all' ? 'All' : category;
               const active = selectedCategory === value;
               return (
                 <button

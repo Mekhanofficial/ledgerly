@@ -110,10 +110,6 @@ const Receipts = () => {
       }
     });
     
-    if (isMobile) {
-      setShowMobileReceipt(true);
-    }
-    
     addToast(`${product.name} added to cart`, 'success');
   };
 
