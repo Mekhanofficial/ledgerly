@@ -4,6 +4,7 @@ import api from '../services/api';
 import { setUser } from '../store/slices/authSlice';
 import { getAvatarUrl, resolveAuthUser } from '../utils/userDisplay';
 import { isAccessDeniedError } from '../utils/accessControl';
+import { resolveBrandingProfile } from '../utils/brandingPlan';
 
 const STORAGE_KEY = 'ledgerly_account_info';
 const EMPTY_ACCOUNT_INFO = {
@@ -23,6 +24,20 @@ const EMPTY_ACCOUNT_INFO = {
   subscriptionStatus: 'active',
   trialEndsAt: null,
   subscriptionEndsAt: null,
+  customDomain: '',
+  customEmailSender: '',
+  brandingSettings: {
+    removeWatermark: false,
+    logoUrl: '',
+    brandColor: ''
+  },
+  whiteLabel: {
+    enabled: false,
+    customDomain: '',
+    customEmailSender: '',
+    hideLedgerlyBrandingEverywhere: false
+  },
+  isWhiteLabelClient: false,
   profileImage: '',
   avatarUrl: ''
 };
@@ -31,7 +46,7 @@ const mapBusinessToAccount = (business = {}, user = {}) => {
   const resolvedProfile = user.profileImage || business.owner?.profileImage || '';
   const avatarUrl = getAvatarUrl(user) || getAvatarUrl(business.owner);
 
-  return {
+  const rawAccount = {
     companyName: business.name || '',
     contactName: user.name || business.owner?.name || '',
     email: business.email || user.email || '',
@@ -48,9 +63,25 @@ const mapBusinessToAccount = (business = {}, user = {}) => {
     subscriptionStatus: business.subscription?.status || 'active',
     trialEndsAt: business.subscription?.trialEndsAt || null,
     subscriptionEndsAt: business.subscription?.currentPeriodEnd || null,
+    customDomain: business.customDomain || business.whiteLabel?.customDomain || '',
+    customEmailSender: business.customEmailSender || business.whiteLabel?.customEmailSender || '',
+    brandingSettings: {
+      removeWatermark: business.brandingSettings?.removeWatermark,
+      logoUrl: business.brandingSettings?.logoUrl || business.logoUrl || '',
+      brandColor: business.brandingSettings?.brandColor || business.brandColor || ''
+    },
+    whiteLabel: {
+      enabled: business.whiteLabel?.enabled,
+      customDomain: business.whiteLabel?.customDomain || business.customDomain || '',
+      customEmailSender: business.whiteLabel?.customEmailSender || business.customEmailSender || '',
+      hideLedgerlyBrandingEverywhere: business.whiteLabel?.hideLedgerlyBrandingEverywhere
+    },
+    isWhiteLabelClient: Boolean(business.isWhiteLabelClient),
     profileImage: resolvedProfile,
     avatarUrl
   };
+
+  return resolveBrandingProfile(rawAccount);
 };
 
 const AccountContext = createContext();

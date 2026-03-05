@@ -1025,14 +1025,23 @@ const ELITE_TEMPLATE_IDS = new Set([
 ]);
 
 const TEMPLATE_PRICING = {
-  STANDARD: 5,
-  PREMIUM: 12,
-  ELITE: 25
+  STANDARD: 0,
+  PREMIUM: 3500,
+  ELITE: 8500
 };
 
-const TEMPLATE_BUNDLE_ID = 'bundle_all_templates';
-const TEMPLATE_BUNDLE_PRICE = 79;
-const YEARLY_DISCOUNT = 0.2;
+const TEMPLATE_BUNDLE_IDS = {
+  PREMIUM: 'bundle_premium_templates',
+  ELITE: 'bundle_elite_templates',
+  ALL: 'bundle_all_templates'
+};
+const TEMPLATE_BUNDLE_PRICING = {
+  PREMIUM: 10000,
+  ELITE: 25000
+};
+const TEMPLATE_BUNDLE_ID = TEMPLATE_BUNDLE_IDS.ALL;
+const TEMPLATE_BUNDLE_PRICE = TEMPLATE_BUNDLE_PRICING.PREMIUM + TEMPLATE_BUNDLE_PRICING.ELITE;
+const YEARLY_DISCOUNT = 0;
 const toYearlyPrice = (monthlyPrice) =>
   Number((Number(monthlyPrice) * 12 * (1 - YEARLY_DISCOUNT)).toFixed(2));
 
@@ -1040,22 +1049,22 @@ const PLAN_DEFINITIONS = {
   starter: {
     id: 'starter',
     name: 'Starter',
-    monthlyPrice: 9,
-    yearlyPrice: toYearlyPrice(9),
+    monthlyPrice: 2000,
+    yearlyPrice: toYearlyPrice(2000),
     templateCategories: [TEMPLATE_TIER.STANDARD]
   },
   professional: {
     id: 'professional',
     name: 'Professional',
-    monthlyPrice: 29,
-    yearlyPrice: toYearlyPrice(29),
+    monthlyPrice: 7000,
+    yearlyPrice: toYearlyPrice(7000),
     templateCategories: [TEMPLATE_TIER.STANDARD, TEMPLATE_TIER.PREMIUM]
   },
   enterprise: {
     id: 'enterprise',
     name: 'Enterprise',
-    monthlyPrice: 79,
-    yearlyPrice: toYearlyPrice(79),
+    monthlyPrice: 30000,
+    yearlyPrice: toYearlyPrice(30000),
     templateCategories: [TEMPLATE_TIER.STANDARD, TEMPLATE_TIER.PREMIUM, TEMPLATE_TIER.ELITE]
   }
 };
@@ -1065,6 +1074,7 @@ const USER_TEMPLATE_STORAGE_KEY = 'user_invoice_templates';
 const PREMIUM_ACCESS_KEY = 'premium_templates_access';
 const TEMPLATE_PURCHASES_KEY = 'template_purchases';
 const TEMPLATE_ACCESS_OWNER_KEY = 'template_access_owner';
+const TEMPLATE_REVENUE_KEY = 'template_revenue_events';
 
 const normalizePlanId = (plan) => {
   if (!plan) return 'starter';
@@ -1075,6 +1085,63 @@ const normalizePlanId = (plan) => {
     return value;
   }
   return 'starter';
+};
+
+const normalizeBundleTier = (tier) => {
+  const value = String(tier || 'premium').trim().toUpperCase();
+  if (value === 'PREMIUM' || value === 'ELITE' || value === 'ALL') {
+    return value;
+  }
+  return 'PREMIUM';
+};
+
+const getBundleTemplateId = (bundleTier) => {
+  const normalizedTier = normalizeBundleTier(bundleTier);
+  if (normalizedTier === 'ELITE') return TEMPLATE_BUNDLE_IDS.ELITE;
+  if (normalizedTier === 'ALL') return TEMPLATE_BUNDLE_IDS.ALL;
+  return TEMPLATE_BUNDLE_IDS.PREMIUM;
+};
+
+const getBundlePriceForTier = (bundleTier) => {
+  const normalizedTier = normalizeBundleTier(bundleTier);
+  if (normalizedTier === 'ELITE') return TEMPLATE_BUNDLE_PRICING.ELITE;
+  if (normalizedTier === 'ALL') return TEMPLATE_BUNDLE_PRICE;
+  return TEMPLATE_BUNDLE_PRICING.PREMIUM;
+};
+
+const getCurrentTemplateUserId = () => {
+  try {
+    const ownerId = localStorage.getItem(TEMPLATE_ACCESS_OWNER_KEY);
+    if (ownerId) return ownerId;
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user?.id || user?._id || user?.email || 'anonymous';
+  } catch {
+    return 'anonymous';
+  }
+};
+
+const trackTemplateRevenueEvent = ({
+  templateId,
+  purchaseType,
+  amountPaid,
+  userId,
+  date
+}) => {
+  try {
+    const events = JSON.parse(localStorage.getItem(TEMPLATE_REVENUE_KEY) || '[]');
+    const payload = {
+      templateId: String(templateId || ''),
+      userId: String(userId || getCurrentTemplateUserId()),
+      purchaseType: String(purchaseType || 'single'),
+      amountPaid: Number(amountPaid) || 0,
+      date: date || new Date().toISOString()
+    };
+    events.push(payload);
+    localStorage.setItem(TEMPLATE_REVENUE_KEY, JSON.stringify(events));
+    return payload;
+  } catch {
+    return null;
+  }
 };
 
 const normalizeTemplateCategory = (template = {}) => {
@@ -1113,6 +1180,12 @@ const resolveTemplatePrice = (category) => {
     return 0;
   }
   return TEMPLATE_PRICING[category] || 0;
+};
+
+const resolveTemplateTier = (category) => {
+  if (category === TEMPLATE_TIER.PREMIUM) return 'premium';
+  if (category === TEMPLATE_TIER.ELITE) return 'elite';
+  return 'standard';
 };
 
 const applyInclusionFlags = (template, category) => {
@@ -1182,18 +1255,67 @@ const resolveAccessContext = () => {
     const isActive = status === 'active' && (!expiresAt || new Date(expiresAt) >= new Date());
 
     const purchasedTemplateIds = new Set();
+    const bundleTiers = new Set();
     purchases.forEach((purchase) => {
       const isCompleted = purchase?.status ? purchase.status === 'completed' : true;
-      if (isCompleted && purchase?.templateId) {
+      if (!isCompleted) return;
+
+      const templateId = String(purchase?.templateId || '');
+      if (templateId && !templateId.startsWith('bundle_')) {
         purchasedTemplateIds.add(purchase.templateId);
+      }
+
+      if (purchase?.unlockAllTemplates || templateId === TEMPLATE_BUNDLE_ID) {
+        bundleTiers.add('PREMIUM');
+        bundleTiers.add('ELITE');
+        return;
+      }
+
+      if (templateId === TEMPLATE_BUNDLE_IDS.PREMIUM) {
+        bundleTiers.add('PREMIUM');
+      }
+
+      if (templateId === TEMPLATE_BUNDLE_IDS.ELITE) {
+        bundleTiers.add('ELITE');
+      }
+
+      const purchaseBundleTier = purchase?.bundleTier
+        ? normalizeBundleTier(purchase.bundleTier)
+        : null;
+      if (purchaseBundleTier === 'ALL') {
+        bundleTiers.add('PREMIUM');
+        bundleTiers.add('ELITE');
+      } else if (purchaseBundleTier === 'PREMIUM') {
+        bundleTiers.add('PREMIUM');
+      } else if (purchaseBundleTier === 'ELITE') {
+        bundleTiers.add('ELITE');
       }
     });
 
     const legacyTemplates = Array.isArray(premiumAccess?.templates) ? premiumAccess.templates : [];
     legacyTemplates.forEach((templateId) => purchasedTemplateIds.add(templateId));
 
-    const hasBundle = purchases.some((purchase) => purchase?.templateId === TEMPLATE_BUNDLE_ID || purchase?.unlockAllTemplates)
-      || premiumAccess?.type === 'lifetime';
+    const premiumAccessBundleTiers = Array.isArray(premiumAccess?.bundleTiers)
+      ? premiumAccess.bundleTiers
+      : (premiumAccess?.bundleTier ? [premiumAccess.bundleTier] : []);
+    premiumAccessBundleTiers.forEach((tier) => {
+      const normalized = normalizeBundleTier(tier);
+      if (normalized === 'ALL') {
+        bundleTiers.add('PREMIUM');
+        bundleTiers.add('ELITE');
+      } else {
+        bundleTiers.add(normalized);
+      }
+    });
+
+    if (premiumAccess?.type === 'lifetime') {
+      bundleTiers.add('PREMIUM');
+      bundleTiers.add('ELITE');
+    }
+
+    const hasPremiumBundle = bundleTiers.has('PREMIUM');
+    const hasEliteBundle = bundleTiers.has('ELITE');
+    const hasBundle = hasPremiumBundle || hasEliteBundle;
 
     return {
       planId: isActive ? planId : 'starter',
@@ -1201,17 +1323,23 @@ const resolveAccessContext = () => {
       expiresAt,
       isActive,
       hasBundle,
+      hasPremiumBundle,
+      hasEliteBundle,
+      bundleTiers,
       purchasedTemplateIds,
       subscription,
       premiumAccess
     };
-  } catch (error) {
+  } catch {
     return {
       planId: 'starter',
       status: 'inactive',
       expiresAt: null,
       isActive: false,
       hasBundle: false,
+      hasPremiumBundle: false,
+      hasEliteBundle: false,
+      bundleTiers: new Set(),
       purchasedTemplateIds: new Set(),
       subscription: {},
       premiumAccess: {}
@@ -1233,7 +1361,8 @@ export const ensureTemplateAccessOwner = (userId) => {
 
 const resolveTemplateAccess = (template, context) => {
   const planId = context?.planId || 'starter';
-  const hasBundle = Boolean(context?.hasBundle);
+  const hasPremiumBundle = Boolean(context?.hasPremiumBundle);
+  const hasEliteBundle = Boolean(context?.hasEliteBundle);
   const purchasedTemplateIds = context?.purchasedTemplateIds || new Set();
 
   if (template.category === TEMPLATE_TIER.CUSTOM) {
@@ -1245,10 +1374,19 @@ const resolveTemplateAccess = (template, context) => {
     };
   }
 
-  if (hasBundle) {
+  if (template.category === TEMPLATE_TIER.PREMIUM && hasPremiumBundle) {
     return {
       hasAccess: true,
-      accessSource: 'bundle',
+      accessSource: 'bundle_premium',
+      requiredPlan: planId,
+      canPurchase: false
+    };
+  }
+
+  if (template.category === TEMPLATE_TIER.ELITE && hasEliteBundle) {
+    return {
+      hasAccess: true,
+      accessSource: 'bundle_elite',
       requiredPlan: planId,
       canPurchase: false
     };
@@ -1276,7 +1414,7 @@ const resolveTemplateAccess = (template, context) => {
     hasAccess: false,
     accessSource: null,
     requiredPlan: resolveRequiredPlanForTemplate(template),
-    canPurchase: true
+    canPurchase: template.category === TEMPLATE_TIER.PREMIUM || template.category === TEMPLATE_TIER.ELITE
   };
 };
 
@@ -1285,17 +1423,21 @@ const normalizeTemplate = (template, context) => {
   const normalizedCategory = normalizeTemplateCategory(template);
   const inclusion = applyInclusionFlags(template, normalizedCategory);
   const price = resolveTemplatePrice(normalizedCategory);
+  const tier = resolveTemplateTier(normalizedCategory);
   const base = {
     ...template,
     category: normalizedCategory,
+    tier,
     isPremium: normalizedCategory !== TEMPLATE_TIER.STANDARD && normalizedCategory !== TEMPLATE_TIER.CUSTOM,
     price,
+    isBundleEligible: normalizedCategory === TEMPLATE_TIER.PREMIUM || normalizedCategory === TEMPLATE_TIER.ELITE,
     ...inclusion
   };
   const access = resolveTemplateAccess(base, context);
   return {
     ...base,
-    ...access
+    ...access,
+    isUnlocked: Boolean(access?.hasAccess)
   };
 };
 
@@ -1340,6 +1482,8 @@ export const checkPremiumAccess = () => {
       isActive: context.isActive,
       expiresAt: context.expiresAt,
       hasBundle: context.hasBundle,
+      hasPremiumBundle: context.hasPremiumBundle,
+      hasEliteBundle: context.hasEliteBundle,
       accessibleTemplates: Array.from(context.purchasedTemplateIds),
       billingCycle: context.subscription?.billingCycle
     };
@@ -1352,6 +1496,8 @@ export const checkPremiumAccess = () => {
       isActive: false,
       expiresAt: null,
       hasBundle: false,
+      hasPremiumBundle: false,
+      hasEliteBundle: false,
       accessibleTemplates: [],
       billingCycle: null
     };
@@ -1395,6 +1541,8 @@ export const purchaseTemplate = async (templateId, paymentMethod = 'stripe') => 
       templateName: normalized.name,
       category: normalized.category,
       price: normalized.price,
+      purchaseType: 'single',
+      amountPaid: normalized.price,
       paymentMethod,
       purchasedAt: new Date().toISOString(),
       transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -1422,6 +1570,11 @@ export const purchaseTemplate = async (templateId, paymentMethod = 'stripe') => 
     
     // Record template usage
     recordTemplateUsage(templateId, 'purchase');
+    trackTemplateRevenueEvent({
+      templateId,
+      purchaseType: 'single',
+      amountPaid: normalized.price
+    });
     
     return purchaseData;
   } catch (error) {
@@ -1430,24 +1583,60 @@ export const purchaseTemplate = async (templateId, paymentMethod = 'stripe') => 
   }
 };
 
-// Purchase all templates bundle
-export const purchaseTemplateBundle = async (paymentMethod = 'stripe') => {
+// Purchase bundle by tier (premium/elite/all)
+export const purchaseTemplateBundle = async (bundleTier = 'premium', paymentMethod = 'stripe') => {
   try {
+    const isLegacyPaymentMethod = ['stripe', 'paystack', 'flutterwave'].includes(
+      String(bundleTier || '').toLowerCase()
+    );
+    const normalizedTier = normalizeBundleTier(isLegacyPaymentMethod ? 'all' : bundleTier);
+    const resolvedPaymentMethod = isLegacyPaymentMethod ? bundleTier : paymentMethod;
+    const bundleTemplateId = getBundleTemplateId(normalizedTier);
+    const bundlePrice = getBundlePriceForTier(normalizedTier);
+
     const purchases = JSON.parse(localStorage.getItem(TEMPLATE_PURCHASES_KEY) || '[]');
-    const hasBundle = purchases.some((purchase) => purchase?.templateId === TEMPLATE_BUNDLE_ID || purchase?.unlockAllTemplates);
-    if (hasBundle) {
-      throw new Error('You already have access to the template bundle');
+    const alreadyPurchased = purchases.some((purchase) => {
+      const purchaseId = String(purchase?.templateId || '');
+      const purchaseTier = purchase?.bundleTier ? normalizeBundleTier(purchase.bundleTier) : null;
+      if (normalizedTier === 'ALL') {
+        return purchaseId === TEMPLATE_BUNDLE_ID || purchase?.unlockAllTemplates || purchaseTier === 'ALL';
+      }
+      if (normalizedTier === 'PREMIUM') {
+        return purchaseId === TEMPLATE_BUNDLE_IDS.PREMIUM
+          || purchaseId === TEMPLATE_BUNDLE_ID
+          || purchase?.unlockAllTemplates
+          || purchaseTier === 'PREMIUM'
+          || purchaseTier === 'ALL';
+      }
+      return purchaseId === TEMPLATE_BUNDLE_IDS.ELITE
+        || purchaseId === TEMPLATE_BUNDLE_ID
+        || purchase?.unlockAllTemplates
+        || purchaseTier === 'ELITE'
+        || purchaseTier === 'ALL';
+    });
+
+    if (alreadyPurchased) {
+      throw new Error(`You already have access to the ${normalizedTier.toLowerCase()} bundle`);
     }
 
     const purchaseData = {
-      templateId: TEMPLATE_BUNDLE_ID,
-      templateName: 'All Templates Bundle',
-      price: TEMPLATE_BUNDLE_PRICE,
-      paymentMethod,
+      templateId: bundleTemplateId,
+      templateName:
+        normalizedTier === 'ELITE'
+          ? 'Elite Bundle'
+          : normalizedTier === 'PREMIUM'
+            ? 'Premium Bundle'
+            : 'All Templates Bundle',
+      bundleTier: normalizedTier.toLowerCase(),
+      category: normalizedTier === 'ALL' ? 'all' : normalizedTier.toLowerCase(),
+      price: bundlePrice,
+      purchaseType: 'bundle',
+      amountPaid: bundlePrice,
+      paymentMethod: resolvedPaymentMethod,
       purchasedAt: new Date().toISOString(),
       transactionId: `bundle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       status: 'completed',
-      unlockAllTemplates: true,
+      unlockAllTemplates: normalizedTier === 'ALL',
       isLifetime: true
     };
 
@@ -1455,9 +1644,30 @@ export const purchaseTemplateBundle = async (paymentMethod = 'stripe') => {
     localStorage.setItem(TEMPLATE_PURCHASES_KEY, JSON.stringify(purchases));
 
     const premiumAccess = JSON.parse(localStorage.getItem(PREMIUM_ACCESS_KEY) || '{}');
-    premiumAccess.type = 'lifetime';
+    const existingTiers = new Set(
+      Array.isArray(premiumAccess.bundleTiers) ? premiumAccess.bundleTiers.map((tier) => normalizeBundleTier(tier)) : []
+    );
+    if (normalizedTier === 'ALL') {
+      existingTiers.add('PREMIUM');
+      existingTiers.add('ELITE');
+    } else {
+      existingTiers.add(normalizedTier);
+    }
+    premiumAccess.bundleTiers = Array.from(existingTiers).map((tier) => tier.toLowerCase());
+    if (existingTiers.has('PREMIUM') && existingTiers.has('ELITE')) {
+      premiumAccess.type = 'lifetime';
+    } else {
+      premiumAccess.type = premiumAccess.type || 'bundle';
+    }
+    premiumAccess.bundleTier = normalizedTier.toLowerCase();
     premiumAccess.lastUpdated = new Date().toISOString();
     localStorage.setItem(PREMIUM_ACCESS_KEY, JSON.stringify(premiumAccess));
+
+    trackTemplateRevenueEvent({
+      templateId: bundleTemplateId,
+      purchaseType: 'bundle',
+      amountPaid: bundlePrice
+    });
 
     return purchaseData;
   } catch (error) {
@@ -1484,6 +1694,8 @@ export const purchaseSubscription = async (planType, billingCycle = 'monthly') =
     const subscriptionData = {
       plan: planId,
       price,
+      purchaseType: 'subscription',
+      amountPaid: price,
       billingCycle: cycle,
       subscriptionStart: start.toISOString(),
       subscriptionEnd: end.toISOString(),
@@ -1506,6 +1718,11 @@ export const purchaseSubscription = async (planType, billingCycle = 'monthly') =
     };
     
     localStorage.setItem(PREMIUM_ACCESS_KEY, JSON.stringify(premiumAccess));
+    trackTemplateRevenueEvent({
+      templateId: `subscription_${planId}`,
+      purchaseType: 'subscription',
+      amountPaid: price
+    });
     
     return subscriptionData;
   } catch (error) {
@@ -1597,9 +1814,12 @@ export const templateStorage = {
         ...templateData,
         id: templateData.id || `template_${Date.now()}`,
         category: TEMPLATE_TIER.CUSTOM,
+        tier: 'standard',
         isPremium: false, // User templates are never premium
         isDefault: false,
         isFavorite: false,
+        isUnlocked: true,
+        isBundleEligible: false,
         price: 0,
         previewColor: templateData.previewColor || 'bg-gradient-to-br from-primary-500 to-primary-600',
         createdAt: templateData.createdAt || new Date().toISOString(),
@@ -1783,7 +2003,10 @@ export const templateStorage = {
         ...template,
         id: template.id || `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         category: template.category || TEMPLATE_TIER.CUSTOM,
+        tier: template.tier || 'standard',
         isPremium: false,
+        isUnlocked: true,
+        isBundleEligible: false,
         createdAt: template.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }));
@@ -1993,6 +2216,17 @@ export const templateStorage = {
     }
   },
 
+  // Get template revenue tracking events
+  getTemplateRevenueEvents() {
+    try {
+      const events = JSON.parse(localStorage.getItem(TEMPLATE_REVENUE_KEY) || '[]');
+      return events.sort((a, b) => new Date(b.date) - new Date(a.date));
+    } catch (error) {
+      console.error('Error getting template revenue events:', error);
+      return [];
+    }
+  },
+
   // Check if user can access premium features
   canAccessPremiumFeatures() {
     const { hasPremium, isExpired } = checkPremiumAccess();
@@ -2027,9 +2261,12 @@ export const createTemplateFromInvoice = (invoiceData, templateName) => {
     name: templateName || `Template from ${invoiceData.invoiceNumber}`,
     description: 'Custom template created from invoice',
     category: TEMPLATE_TIER.CUSTOM,
+    tier: 'standard',
     isPremium: false,
     isDefault: false,
     isFavorite: false,
+    isUnlocked: true,
+    isBundleEligible: false,
     price: 0,
     previewColor: 'bg-gradient-to-br from-primary-500 to-primary-600',
     lineItems: invoiceData.lineItems?.map(item => ({
@@ -2052,6 +2289,8 @@ export const createTemplateFromInvoice = (invoiceData, templateName) => {
 };
 
 export {
+  TEMPLATE_BUNDLE_IDS,
+  TEMPLATE_BUNDLE_PRICING,
   TEMPLATE_BUNDLE_ID,
   TEMPLATE_BUNDLE_PRICE,
   TEMPLATE_TIER,

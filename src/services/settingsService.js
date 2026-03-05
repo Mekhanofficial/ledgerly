@@ -70,7 +70,26 @@ export const DEFAULT_INTEGRATIONS = {
   restApi: { enabled: true, keyRotationDays: 90, webhookBaseUrl: '' }
 };
 
+export const DEFAULT_SECURITY_SETTINGS = {
+  twoFactorEnabled: false,
+  loginAlerts: true,
+  trustedDevicesOnly: false,
+  sessionTimeoutMinutes: 60,
+  rememberMeDays: 30
+};
+
 const deepClone = (value) => JSON.parse(JSON.stringify(value));
+const toBoolean = (value, fallback = false) => {
+  if (typeof value === 'boolean') return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return fallback;
+};
+const toBoundedInt = (value, fallback, min, max) => {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+};
 
 const mergeDeep = (base, override) => {
   const result = deepClone(base || {});
@@ -93,6 +112,23 @@ export const normalizeRolePermissions = (rolePermissions = {}) => {
 };
 
 export const normalizeIntegrations = (integrations = {}) => mergeDeep(DEFAULT_INTEGRATIONS, integrations || {});
+export const normalizeSecuritySettings = (security = {}) => ({
+  twoFactorEnabled: toBoolean(security?.twoFactorEnabled, DEFAULT_SECURITY_SETTINGS.twoFactorEnabled),
+  loginAlerts: toBoolean(security?.loginAlerts, DEFAULT_SECURITY_SETTINGS.loginAlerts),
+  trustedDevicesOnly: toBoolean(security?.trustedDevicesOnly, DEFAULT_SECURITY_SETTINGS.trustedDevicesOnly),
+  sessionTimeoutMinutes: toBoundedInt(
+    security?.sessionTimeoutMinutes,
+    DEFAULT_SECURITY_SETTINGS.sessionTimeoutMinutes,
+    5,
+    1440
+  ),
+  rememberMeDays: toBoundedInt(
+    security?.rememberMeDays,
+    DEFAULT_SECURITY_SETTINGS.rememberMeDays,
+    1,
+    365
+  )
+});
 
 export const fetchSettings = async () => {
   const response = await api.get('/settings');
@@ -141,4 +177,3 @@ export const downloadBackupSnapshot = async () => {
     fileName
   };
 };
-

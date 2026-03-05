@@ -18,6 +18,7 @@ import { useInventory } from '../../context/InventoryContext';
 import { useAccount } from '../../context/AccountContext';
 import { isAccessDeniedError } from '../../utils/accessControl';
 import { formatCurrency as formatMoney } from '../../utils/currency';
+import { normalizePlanId } from '../../utils/subscription';
 import {
   fetchReports as fetchStoredReports,
   createReport as createStoredReport,
@@ -26,6 +27,8 @@ import {
   recordDownload as recordReportDownload
 } from '../../services/reportService';
 
+const STARTER_BASIC_REPORT_TYPES = new Set(['summary', 'sales', 'revenue', 'performance']);
+
 const Reports = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
@@ -33,6 +36,8 @@ const Reports = () => {
   const { invoices, customers } = useInvoice();
   const { products, categories, stockAdjustments } = useInventory();
   const { accountInfo } = useAccount();
+  const currentPlan = normalizePlanId(accountInfo?.plan);
+  const isStarterPlan = currentPlan === 'starter';
   const baseCurrency = accountInfo?.currency || 'USD';
   const formatReportCurrency = (value, currencyCode = baseCurrency, options = {}) =>
     formatMoney(value, currencyCode, options);
@@ -77,6 +82,37 @@ const Reports = () => {
     return normalized;
   };
 
+  const applyStarterReportRules = useCallback((reportInput = {}, context = 'report') => {
+    if (!isStarterPlan) return reportInput;
+
+    const normalizedType = normalizeReportType(reportInput?.type || reportInput?.id);
+    const starterSections = ['summary', 'tables'];
+
+    if (STARTER_BASIC_REPORT_TYPES.has(normalizedType)) {
+      return {
+        ...reportInput,
+        includeCharts: false,
+        sections: starterSections
+      };
+    }
+
+    addToast(
+      context === 'report'
+        ? 'Starter plan supports basic reports only. Generated as Quick Summary.'
+        : 'Starter plan supports basic report templates only. Showing Quick Summary.',
+      'info'
+    );
+
+    return {
+      ...reportInput,
+      title: 'Quick Summary Report',
+      type: 'summary',
+      includeCharts: false,
+      sections: starterSections,
+      description: reportInput?.description || 'Basic starter summary report'
+    };
+  }, [isStarterPlan, addToast]);
+
   const filteredReports = reportType === 'all'
     ? reports
     : reports.filter((report) => normalizeReportType(report.type) === reportType);
@@ -87,7 +123,8 @@ const Reports = () => {
 
   const handleSaveReport = async (reportData) => {
     try {
-      const payload = buildReportPayload(reportData);
+      const constrainedInput = applyStarterReportRules(reportData, 'modal');
+      const payload = buildReportPayload(constrainedInput);
       const storedReport = await createStoredReport(payload);
 
       setReports(prev => [storedReport, ...prev]);
@@ -182,13 +219,15 @@ const Reports = () => {
         format: 'pdf'
       };
 
-      const reportPayload = buildReportPayload({
+      const constrainedTemplate = applyStarterReportRules({
         ...template,
         dateRange: dateRange || 'last-30-days',
         includeCharts: true,
         sections: ['summary', 'charts', 'tables', 'details'],
         description: template.description || ''
       });
+
+      const reportPayload = buildReportPayload(constrainedTemplate);
 
       const storedReport = await createStoredReport(reportPayload);
       setReports(prev => [storedReport, ...prev]);
@@ -1957,8 +1996,27 @@ ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
           </div>
         )}
 
+        {isStarterPlan && (
+          <div className={`rounded-lg p-4 border ${
+            isDarkMode
+              ? 'bg-amber-900/20 border-amber-800'
+              : 'bg-amber-50 border-amber-200'
+          }`}>
+            <p className={`text-sm font-medium ${
+              isDarkMode ? 'text-amber-300' : 'text-amber-800'
+            }`}>
+              Starter plan includes basic reporting only: Sales, Revenue, Quick Summary, and Monthly Performance.
+            </p>
+            <p className={`text-xs mt-1 ${
+              isDarkMode ? 'text-amber-400' : 'text-amber-700'
+            }`}>
+              Upgrade to Professional or Enterprise for Inventory, Customer, Profit and Expenses reports.
+            </p>
+          </div>
+        )}
+
         {/* Stats Component */}
-        <ReportStats />
+        <ReportStats dateRange={dateRange} />
 
         {/* Report Type Filter */}
         <ReportTypeFilter reportType={reportType} onReportTypeChange={setReportType} isDarkMode={isDarkMode} />
@@ -1971,11 +2029,13 @@ ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
           onViewReport={handleViewReport}
           onExport={handleExport}
           reportType={reportType}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
           isDarkMode={isDarkMode}
         />
 
         {/* Charts Component */}
-        <ReportCharts />
+        <ReportCharts dateRange={dateRange} />
 
         {/* Generated Reports List - USING THE SEPARATE COMPONENT */}
         <GeneratedReportsList

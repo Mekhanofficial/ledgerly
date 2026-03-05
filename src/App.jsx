@@ -72,7 +72,7 @@ const App = () => {
   const clientRoles = ['client']
   const appRoles = [...businessRoles, ...clientRoles]
   const paymentsRoles = ['admin', 'accountant', 'client', 'super_admin']
-  const reportsRoles = ['admin', 'accountant']
+  const reportsRoles = ['admin', 'accountant', 'super_admin']
   const inventoryManageRoles = ['admin', 'accountant']
   const settingsRoles = ['admin']
   const teamRoles = ['admin', 'super_admin']

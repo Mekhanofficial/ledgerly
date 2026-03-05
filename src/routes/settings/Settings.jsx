@@ -22,6 +22,7 @@ import RolePermissionsSettings from '../../components/settings/RolePermissionsSe
 import DataBackupSettings from '../../components/settings/DataBackupSettings';
 import IntegrationsSettings from '../../components/settings/IntegrationsSettings';
 import AuditLogSettings from '../../components/settings/AuditLogSettings';
+import SecuritySettings from '../../components/settings/SecuritySettings';
 import { useTheme } from '../../context/ThemeContext';
 
 const SETTINGS_SECTIONS = [
@@ -100,26 +101,6 @@ const Settings = () => {
         return <AccountSettings />;
     }
   };
-
-  // Placeholder components with dark mode
-  const SecuritySettings = () => (
-    <div className={`border rounded-xl p-6 ${
-      isDarkMode 
-        ? 'bg-gray-800 border-gray-700' 
-        : 'bg-white border-gray-200'
-    }`}>
-      <h3 className={`text-lg font-semibold ${
-        isDarkMode ? 'text-white' : 'text-gray-900'
-      }`}>
-        Security Settings
-      </h3>
-      <p className={`mt-1 ${
-        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-      }`}>
-        Manage password, 2FA, and security preferences
-      </p>
-    </div>
-  );
 
   const AppearanceSettings = () => (
     <div className={`border rounded-xl p-6 ${

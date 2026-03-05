@@ -17,8 +17,14 @@ import { useToast } from '../../context/ToastContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAccount } from '../../context/AccountContext';
 import { isMultiCurrencyPlan } from '../../utils/subscription';
-import { draftStorage } from '../../utils/draftStorage';
 import { generateInvoicePDF } from '../../utils/pdfGenerator';
+import {
+  buildBrandedEmailMessage,
+  getEmailSenderConfig,
+  resolveInvoiceBaseUrl,
+  shouldHideLedgerlyBrandingEverywhere,
+  shouldShowWatermark
+} from '../../utils/brandingPlan';
 import { fetchTaxSettings } from '../../services/taxSettingsService';
 
 const EditInvoice = () => {
@@ -29,7 +35,6 @@ const EditInvoice = () => {
     drafts,
     customers: invoiceCustomers,
     addCustomer: addCustomerFromContext,
-    addInvoice,
     updateInvoice: updateInvoiceFromContext,
     sendInvoice: sendInvoiceFromContext,
     deleteDraft: deleteDraftFromContext,
@@ -75,12 +80,17 @@ const EditInvoice = () => {
   const [isSending, setIsSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [originalInvoice, setOriginalInvoice] = useState(null);
-  const [isBackendDraft, setIsBackendDraft] = useState(false);
   
   const roundMoney = (value) => {
     const number = Number(value);
     if (!Number.isFinite(number)) return 0;
     return Math.round((number + Number.EPSILON) * 100) / 100;
+  };
+
+  const createLineItemId = () => `line_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const toNumber = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
   };
 
   // Calculate totals
@@ -167,15 +177,13 @@ const EditInvoice = () => {
   const loadDraftData = () => {
     try {
       const backendDraft = drafts.find((draft) => draft.id === id);
-      const localDraft = draftStorage.getDraft(id);
-      const draft = backendDraft || localDraft;
+      const draft = backendDraft;
       if (!draft) {
         addToast('Draft not found', 'error');
         navigate('/invoices/drafts');
         return;
       }
 
-      setIsBackendDraft(Boolean(backendDraft) && !String(id).startsWith('draft_'));
       setOriginalInvoice(draft);
       setInvoiceNumber(draft.invoiceNumber || '');
       setIssueDate(draft.issueDate || new Date().toISOString().split('T')[0]);
@@ -188,11 +196,23 @@ const EditInvoice = () => {
       setEmailMessage(draft.emailMessage || 'Dear valued customer,\n\nPlease find attached your invoice for services rendered.\n\nThank you for your business.\n\nBest regards,');
       
       if (draft.lineItems && draft.lineItems.length > 0) {
-        setLineItems(draft.lineItems.map(item => ({
-          ...item,
-          tax: 0,
-          amount: item.quantity * item.rate
-        })));
+        const normalizedLineItems = draft.lineItems.map((item, index) => {
+          const quantity = toNumber(item.quantity, 1);
+          const rate = toNumber(item.rate, 0);
+          const amount = toNumber(item.amount, quantity * rate);
+
+          return {
+            ...item,
+            id: item.id || item._id || `${createLineItemId()}_${index}`,
+            quantity,
+            rate,
+            tax: 0,
+            amount
+          };
+        });
+        setLineItems(normalizedLineItems);
+      } else {
+        setLineItems([{ id: createLineItemId(), description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }]);
       }
       
       if (draft.customer) {
@@ -225,19 +245,15 @@ const EditInvoice = () => {
 
   // Handler functions
   const updateLineItem = (id, field, value) => {
-    setLineItems(lineItems.map(item => {
-      if (item.id === id) {
+    setLineItems((prevItems) => prevItems.map((item) => {
+      if (String(item.id) === String(id)) {
         const updatedItem = { ...item, [field]: value, tax: 0 };
 
         if (field === 'quantity' || field === 'rate') {
-          const quantity = field === 'quantity' ? (value === '' ? '' : parseFloat(value) || 0) : item.quantity;
-          const rate = field === 'rate' ? (value === '' ? '' : parseFloat(value) || 0) : item.rate;
+          const quantity = field === 'quantity' ? toNumber(value, 0) : toNumber(item.quantity, 0);
+          const rate = field === 'rate' ? toNumber(value, 0) : toNumber(item.rate, 0);
 
-          if (quantity !== '' && rate !== '') {
-            updatedItem.amount = quantity * rate;
-          } else {
-            updatedItem.amount = 0;
-          }
+          updatedItem.amount = quantity * rate;
         }
         
         return updatedItem;
@@ -247,17 +263,17 @@ const EditInvoice = () => {
   };
 
   const addLineItem = () => {
-    const newId = lineItems.length > 0 ? Math.max(...lineItems.map(item => item.id)) + 1 : 1;
-    setLineItems([
-      ...lineItems,
-      { id: newId, description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }
-    ]);
+    setLineItems((prevItems) => ([
+      ...prevItems,
+      { id: createLineItemId(), description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }
+    ]));
   };
 
   const removeLineItem = (id) => {
-    if (lineItems.length > 1) {
-      setLineItems(lineItems.filter(item => item.id !== id));
-    }
+    setLineItems((prevItems) => {
+      if (prevItems.length <= 1) return prevItems;
+      return prevItems.filter((item) => String(item.id) !== String(id));
+    });
   };
 
   const handleAddCustomer = async () => {
@@ -297,11 +313,30 @@ const EditInvoice = () => {
     try {
       const customer = getSelectedCustomer();
       const customerId = customer?.id || customer?._id || originalInvoice?.customerId || originalInvoice?.customer?._id || originalInvoice?.customer?.id || '';
-      const normalizedLineItems = lineItems.map(item => ({
-        ...item,
-        tax: 0,
-        amount: item.quantity * item.rate
-      }));
+      const normalizedLineItems = lineItems
+        .map((item) => {
+          const quantity = toNumber(item.quantity, 0);
+          const rate = toNumber(item.rate, 0);
+          return {
+            ...item,
+            id: item.id || createLineItemId(),
+            description: item.description || '',
+            quantity,
+            rate,
+            tax: 0,
+            amount: quantity * rate
+          };
+        })
+        .filter((item) => String(item.description || '').trim());
+
+      if (!customerId) {
+        addToast('Please select a customer to sync this draft', 'error');
+        return;
+      }
+      if (normalizedLineItems.length === 0) {
+        addToast('Please add at least one line item before updating draft', 'error');
+        return;
+      }
       
       const updatedInvoiceData = {
         ...originalInvoice,
@@ -332,27 +367,11 @@ const EditInvoice = () => {
         updatedAt: new Date().toISOString(),
       };
 
-      if (isBackendDraft) {
-        if (!customerId) {
-          addToast('Please select a customer to sync this draft', 'error');
-          return;
-        }
-        const updated = await updateInvoiceFromContext(id, {
-          ...updatedInvoiceData,
-          status: 'draft'
-        });
-        if (updated) {
-          addToast('Draft updated successfully!', 'success');
-          navigate('/invoices/drafts');
-        } else {
-          addToast('Failed to update draft', 'error');
-        }
-        return;
-      }
-
-      const saved = draftStorage.updateDraft(id, updatedInvoiceData);
-      
-      if (saved) {
+      const updated = await updateInvoiceFromContext(id, {
+        ...updatedInvoiceData,
+        status: 'draft'
+      });
+      if (updated) {
         addToast('Draft updated successfully!', 'success');
         navigate('/invoices/drafts');
       } else {
@@ -369,15 +388,41 @@ const EditInvoice = () => {
       return;
     }
 
-    const customer = getSelectedCustomer();
-    if (!customer?.email) {
-      addToast('Customer email is required to send invoice', 'error');
-      return;
-    }
+      const customer = getSelectedCustomer();
+      if (!customer?.email) {
+        addToast('Customer email is required to send invoice', 'error');
+        return;
+      }
 
-    setIsSending(true);
+      const normalizedLineItems = lineItems
+        .map((item) => {
+          const quantity = toNumber(item.quantity, 0);
+          const rate = toNumber(item.rate, 0);
+          return {
+            ...item,
+            id: item.id || createLineItemId(),
+            description: item.description || '',
+            quantity,
+            rate,
+            tax: 0,
+            amount: quantity * rate
+          };
+        })
+        .filter((item) => String(item.description || '').trim());
+
+      if (normalizedLineItems.length === 0) {
+        addToast('Please add at least one line item before sending', 'error');
+        return;
+      }
+
+      setIsSending(true);
 
     try {
+      const brandedEmailMessage = buildBrandedEmailMessage(emailMessage, accountInfo);
+      const emailSenderConfig = getEmailSenderConfig(accountInfo);
+      const hideLedgerlyBrandingEverywhere = shouldHideLedgerlyBrandingEverywhere(accountInfo);
+      const invoiceBaseUrl = resolveInvoiceBaseUrl(accountInfo, 'https://ledgerly.com');
+
       const draftPayload = {
         invoiceNumber,
         issueDate,
@@ -385,11 +430,7 @@ const EditInvoice = () => {
         paymentTerms,
         customer,
         customerId: customer.id || customer._id,
-        lineItems: lineItems.map((item) => ({
-          ...item,
-          tax: 0,
-          amount: item.quantity * item.rate
-        })),
+        lineItems: normalizedLineItems,
         subtotal,
         totalTax,
         totalAmount,
@@ -400,36 +441,27 @@ const EditInvoice = () => {
         notes,
         terms,
         emailSubject,
-        emailMessage,
+        emailMessage: brandedEmailMessage,
         templateStyle: originalInvoice?.templateStyle || 'standard',
         currency: resolvedCurrency
       };
 
-      let targetInvoiceId = id;
-      if (isBackendDraft) {
-        const updatedDraft = await updateInvoiceFromContext(id, {
-          ...draftPayload,
-          status: 'draft'
-        });
-        if (!updatedDraft) {
-          throw new Error('Failed to update draft before sending');
-        }
-      } else {
-        const createdDraft = await addInvoice({
-          ...draftPayload,
-          status: 'draft'
-        });
-        if (!createdDraft?.id) {
-          throw new Error('Failed to sync local draft before sending');
-        }
-        targetInvoiceId = createdDraft.id;
-        await deleteDraftFromContext(id);
+      const updatedDraft = await updateInvoiceFromContext(id, {
+        ...draftPayload,
+        status: 'draft'
+      });
+      if (!updatedDraft) {
+        throw new Error('Failed to update draft before sending');
       }
 
-      const sentInvoice = await sendInvoiceFromContext(targetInvoiceId, {
+      const sentInvoice = await sendInvoiceFromContext(id, {
         templateStyle: originalInvoice?.templateStyle || 'standard',
         emailSubject,
-        emailMessage
+        emailMessage: brandedEmailMessage,
+        emailFrom: emailSenderConfig.fromAddress,
+        emailFooterText: emailSenderConfig.footerText,
+        hideLedgerlyBrandingEverywhere,
+        invoiceBaseUrl
       }, { throwOnError: true });
       if (!sentInvoice) {
         throw new Error('Failed to send invoice');
@@ -465,9 +497,19 @@ const EditInvoice = () => {
         currency: resolvedCurrency,
       };
 
-      const pdfDoc = generateInvoicePDF(invoiceData);
+      const pdfDoc = generateInvoicePDF(
+        invoiceData,
+        originalInvoice?.templateStyle || 'standard',
+        accountInfo
+      );
       pdfDoc.save(`${invoiceNumber}.pdf`);
       addToast('PDF invoice downloaded successfully!', 'success');
+      if (shouldShowWatermark(accountInfo)) {
+        addToast(
+          'Remove Ledgerly branding and unlock professional features -> Upgrade to Professional',
+          'info'
+        );
+      }
     } catch (error) {
       addToast('Error generating PDF: ' + error.message, 'error');
     }

@@ -7,50 +7,50 @@ const FAQSection = () => {
   const faqs = [
     {
       id: 1,
-      question: "How do I get started with Ledgerly?",
-      answer: "Sign up, complete your business profile, and choose a plan starting at ₦9/month. You can start creating invoices immediately after setup.",
+      question: 'How do I get started with Ledgerly?',
+      answer: 'Sign up, complete your business profile, and choose a yearly plan starting at \u20A624,000/year. You can start creating invoices immediately after setup.',
       icon: <Zap className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
     {
       id: 2,
-      question: "What payment methods do you support?",
-      answer: "We support all major payment gateways including Stripe, PayPal, Square, and bank transfers. You can also accept credit cards directly through our secure payment portal.",
+      question: 'What payment methods do you support?',
+      answer: 'We support all major payment gateways including Stripe, PayPal, Square, and bank transfers. You can also accept credit cards directly through our secure payment portal.',
       icon: <CreditCard className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
     {
       id: 3,
-      question: "Can I customize my invoices?",
-      answer: "Yes! You can add your logo, choose from multiple templates, customize colors, and add custom fields to match your brand identity perfectly.",
+      question: 'Can I customize my invoices?',
+      answer: 'Yes! You can add your logo, choose from multiple templates, customize colors, and add custom fields to match your brand identity perfectly.',
       icon: <FileText className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
     {
       id: 4,
-      question: "Is my data secure?",
-      answer: "We use bank-level 256-bit SSL encryption, regular backups, and comply with GDPR regulations. Your financial data is never shared with third parties.",
+      question: 'Is my data secure?',
+      answer: 'We use bank-level 256-bit SSL encryption, regular backups, and comply with GDPR regulations. Your financial data is never shared with third parties.',
       icon: <Shield className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
     {
       id: 5,
-      question: "Can I use Ledgerly internationally?",
-      answer: "Absolutely! We support multiple currencies, languages, and tax systems. Create invoices in over 50 currencies and send them anywhere in the world.",
+      question: 'Can I use Ledgerly internationally?',
+      answer: 'Absolutely! We support multiple currencies, languages, and tax systems. Create invoices in over 50 currencies and send them anywhere in the world.',
       icon: <Globe className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
     {
       id: 6,
-      question: "What plans are available?",
-      answer: "We offer Starter, Professional, and Enterprise plans. Starter includes 100 invoices per month and 5 Standard templates, while Professional and Enterprise unlock premium and elite templates plus advanced features.",
+      question: 'What plans are available?',
+      answer: 'We offer Starter (\u20A624,000/year), Professional (\u20A684,000/year), and Enterprise (\u20A6360,000/year). Starter includes 100 invoices per month and 5 Standard templates, while Professional and Enterprise unlock premium and elite templates plus advanced features.',
       icon: <HelpCircle className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
     {
       id: 7,
-      question: "Can I automate recurring invoices?",
-      answer: "Yes. Recurring invoices are available on Professional and Enterprise plans. Choose daily, weekly, monthly, or custom intervals.",
+      question: 'Can I automate recurring invoices?',
+      answer: 'Yes. Recurring invoices are available on Professional and Enterprise plans. Choose daily, weekly, monthly, or custom intervals.',
       icon: <Settings className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     },
     {
       id: 8,
       question: "What happens if a client doesn't pay?",
-      answer: "We offer automated payment reminders, late fee calculations, and collection tools. You can also set up automatic follow-up emails for overdue invoices.",
+      answer: 'We offer automated payment reminders, late fee calculations, and collection tools. You can also set up automatic follow-up emails for overdue invoices.',
       icon: <FileText className="w-6 h-6 text-primary-500 dark:text-primary-400" />
     }
   ];
@@ -62,7 +62,6 @@ const FAQSection = () => {
   return (
     <section id="faq" className="py-24 bg-gradient-to-b from-white to-primary-50/30 dark:from-gray-900 dark:to-primary-950/20">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="text-center mb-16">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-2xl mb-6">
             <HelpCircle className="w-8 h-8 text-primary-700 dark:text-primary-400" />
@@ -75,7 +74,6 @@ const FAQSection = () => {
           </p>
         </div>
 
-        {/* FAQ Grid */}
         <div className="space-y-4">
           {faqs.map((faq) => (
             <div
@@ -94,12 +92,12 @@ const FAQSection = () => {
                     {faq.question}
                   </h3>
                 </div>
-                <ChevronDown 
+                <ChevronDown
                   className={`w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-transform duration-300 ${openFAQ === faq.id ? 'rotate-180' : ''}`}
                 />
               </button>
-              
-              <div 
+
+              <div
                 className={`overflow-hidden transition-all duration-300 ease-in-out ${openFAQ === faq.id ? 'max-h-96' : 'max-h-0'}`}
               >
                 <div className="px-8 pb-6">

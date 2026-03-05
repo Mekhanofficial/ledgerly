@@ -6,6 +6,12 @@ import { useAccount } from './AccountContext';
 import templateStorage, { enrichTemplateAccess, ensureTemplateAccessOwner } from '../utils/templateStorage';
 import { fetchTemplates } from '../services/templateService';
 import {
+  buildBrandedEmailMessage,
+  getEmailSenderConfig,
+  resolveInvoiceBaseUrl,
+  shouldHideLedgerlyBrandingEverywhere
+} from '../utils/brandingPlan';
+import {
   fetchInvoices,
   createInvoice as createInvoiceThunk,
   updateInvoice as updateInvoiceThunk,
@@ -28,7 +34,6 @@ import {
 import { mapInvoiceFromApi, buildInvoicePayload } from '../utils/invoiceAdapter';
 import { mapCustomerFromApi, buildCustomerPayload } from '../utils/customerAdapter';
 import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter';
-import { draftStorage } from '../utils/draftStorage';
 import { recurringStorage } from '../utils/recurringStorage';
 import { formatCurrency } from '../utils/currency';
 
@@ -109,32 +114,23 @@ export const InvoiceProvider = ({ children }) => {
     return ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
   }, [normalizedRole]);
 
-  const [localDrafts, setLocalDrafts] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [recurringInvoices, setRecurringInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const drafts = useMemo(() => {
-    const backendDrafts = invoices
+    return invoices
       .filter((invoice) => invoice?.status === 'draft')
       .map((invoice) => ({
         ...invoice,
         savedAt: invoice.raw?.updatedAt || invoice.raw?.createdAt || invoice.updatedAt || invoice.createdAt || new Date().toISOString()
-      }));
-
-    const merged = new Map();
-    backendDrafts.forEach((draft) => {
-      if (draft?.id) {
-        merged.set(draft.id, draft);
-      }
-    });
-    (Array.isArray(localDrafts) ? localDrafts : []).forEach((draft) => {
-      if (draft?.id && !merged.has(draft.id)) {
-        merged.set(draft.id, draft);
-      }
-    });
-    return Array.from(merged.values());
-  }, [invoices, localDrafts]);
+      }))
+      .sort((a, b) => {
+        const aTime = new Date(a.savedAt || a.updatedAt || a.createdAt || 0).getTime();
+        const bTime = new Date(b.savedAt || b.updatedAt || b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
+  }, [invoices]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -160,6 +156,7 @@ export const InvoiceProvider = ({ children }) => {
           ...local,
           ...template,
           hasAccess: Boolean(hasAccess),
+          isUnlocked: Boolean(hasAccess),
           requiredPlan,
           accessSource,
           canPurchase
@@ -184,6 +181,7 @@ export const InvoiceProvider = ({ children }) => {
           ...local,
           ...template,
           hasAccess: Boolean(hasAccess),
+          isUnlocked: Boolean(hasAccess),
           requiredPlan,
           accessSource,
           canPurchase
@@ -204,6 +202,7 @@ export const InvoiceProvider = ({ children }) => {
           ...local,
           ...template,
           hasAccess: Boolean(hasAccess),
+          isUnlocked: Boolean(hasAccess),
           requiredPlan,
           accessSource,
           canPurchase
@@ -218,7 +217,6 @@ export const InvoiceProvider = ({ children }) => {
     let isMounted = true;
     const load = async () => {
       try {
-        setLocalDrafts(draftStorage.getDrafts());
         setRecurringInvoices(recurringStorage.getRecurringInvoices(recurringUserId));
 
         if (isAuthenticated) {
@@ -234,6 +232,7 @@ export const InvoiceProvider = ({ children }) => {
               ...local,
               ...template,
               hasAccess: Boolean(hasAccess),
+              isUnlocked: Boolean(hasAccess),
               requiredPlan,
               accessSource,
               canPurchase
@@ -515,8 +514,24 @@ export const InvoiceProvider = ({ children }) => {
   const sendInvoice = async (id, emailOptions = null, options = {}) => {
     const throwOnError = options?.throwOnError === true;
     try {
+      const senderConfig = getEmailSenderConfig(accountInfo);
+      const hideLedgerlyBranding = shouldHideLedgerlyBrandingEverywhere(accountInfo);
+      const invoiceBaseUrl = resolveInvoiceBaseUrl(accountInfo, 'https://ledgerly.com');
+      const normalizedEmailOptions = emailOptions && typeof emailOptions === 'object'
+        ? {
+            ...emailOptions,
+            emailMessage: emailOptions.emailMessage != null
+              ? buildBrandedEmailMessage(emailOptions.emailMessage, accountInfo)
+              : emailOptions.emailMessage,
+            emailFrom: emailOptions.emailFrom || senderConfig.fromAddress,
+            emailFooterText: emailOptions.emailFooterText ?? senderConfig.footerText,
+            hideLedgerlyBrandingEverywhere: emailOptions.hideLedgerlyBrandingEverywhere ?? hideLedgerlyBranding,
+            invoiceBaseUrl: emailOptions.invoiceBaseUrl || invoiceBaseUrl
+          }
+        : emailOptions;
+
       const payload = emailOptions && typeof emailOptions === 'object'
-        ? { id, data: emailOptions }
+        ? { id, data: normalizedEmailOptions }
         : id;
       const updated = await dispatch(sendInvoiceThunk(payload)).unwrap();
       const mapped = mapInvoiceFromApi(updated);
@@ -866,38 +881,34 @@ export const InvoiceProvider = ({ children }) => {
         ? draftData.lineItems.filter((item) => item && String(item.description || '').trim())
         : [];
 
-      // Prefer backend drafts so web/mobile stay in sync. Fall back locally for incomplete drafts.
-      if (resolvedCustomerId && normalizedLineItems.length > 0) {
-        try {
-          const created = await dispatch(createInvoiceThunk(buildInvoicePayload({
-            ...draftData,
-            customerId: resolvedCustomerId,
-            status: 'draft'
-          }))).unwrap();
-          const mappedDraft = mapInvoiceFromApi(created);
-          addToast('Draft saved successfully!', 'success');
-          return {
-            ...mappedDraft,
-            savedAt: created?.updatedAt || created?.createdAt || new Date().toISOString()
-          };
-        } catch (backendError) {
-          console.warn('Falling back to local draft save:', backendError);
-        }
+      if (!resolvedCustomerId) {
+        const message = 'Please select a customer before saving draft.';
+        addToast(message, 'error');
+        throw new Error(message);
       }
 
-      const newDraft = {
-        id: `draft_${Date.now()}`,
+      if (normalizedLineItems.length === 0) {
+        const message = 'Please add at least one line item before saving draft.';
+        addToast(message, 'error');
+        throw new Error(message);
+      }
+
+      const created = await dispatch(createInvoiceThunk(buildInvoicePayload({
         ...draftData,
-        savedAt: new Date().toISOString(),
+        customerId: resolvedCustomerId,
+        lineItems: normalizedLineItems,
         status: 'draft'
+      }))).unwrap();
+      const mappedDraft = mapInvoiceFromApi(created);
+      addToast('Draft saved successfully!', 'success');
+      return {
+        ...mappedDraft,
+        savedAt: created?.updatedAt || created?.createdAt || new Date().toISOString()
       };
-      draftStorage.saveDraft(newDraft);
-      setLocalDrafts((prev) => [...(Array.isArray(prev) ? prev : []), newDraft]);
-      
-      addToast('Draft saved locally (not synced yet). Complete customer and item details to sync draft.', 'warning');
-      return newDraft;
     } catch (error) {
-      addToast('Error saving draft', 'error');
+      if (!(error instanceof Error) || !/Please (select|add)/i.test(error.message)) {
+        addToast(error?.message || 'Error saving draft', 'error');
+      }
       throw error;
     }
   };
@@ -905,23 +916,16 @@ export const InvoiceProvider = ({ children }) => {
   const deleteDraft = async (id) => {
     try {
       const backendDraft = invoices.find((invoice) => invoice.id === id && invoice.status === 'draft');
-      if (backendDraft) {
-        const updated = await updateInvoice(id, { status: 'void' });
-        if (!updated) {
-          return false;
-        }
-        addToast(`Draft ${backendDraft.invoiceNumber || ''} deleted successfully!`, 'success');
-        return true;
+      if (!backendDraft) {
+        addToast('Draft not found or already removed', 'warning');
+        return false;
       }
 
-      const draftToDelete = localDrafts.find(d => d.id === id);
-      draftStorage.deleteDraft(id);
-      setLocalDrafts((prev) => prev.filter((draft) => draft.id !== id));
-      
-      addToast(`Draft ${draftToDelete?.invoiceNumber || ''} deleted successfully!`, 'success');
+      await dispatch(deleteInvoiceThunk(id)).unwrap();
+      addToast(`Draft ${backendDraft.invoiceNumber || ''} deleted successfully!`, 'success');
       return true;
     } catch (error) {
-      addToast('Error deleting draft', 'error');
+      addToast(error?.message || 'Error deleting draft', 'error');
       return false;
     }
   };
@@ -937,32 +941,14 @@ export const InvoiceProvider = ({ children }) => {
         throw new Error('Draft not found');
       }
 
-      if (!String(draftId).startsWith('draft_')) {
-        const updatedDraft = await updateInvoice(draftId, {
-          status: 'sent',
-          sentAt: new Date().toISOString()
-        });
-        if (!updatedDraft) {
-          throw new Error('Unable to convert backend draft');
-        }
-        return updatedDraft;
-      }
-
-      const invoiceData = {
-        ...draft,
-        id: `inv_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+      const updatedDraft = await updateInvoice(draftId, {
         status: 'sent',
-        paymentStatus: 'pending'
-      };
-
-      delete invoiceData.savedAt;
-      
-      const newInvoice = await addInvoice(invoiceData);
-      await deleteDraft(draftId);
-
-      return newInvoice;
+        sentAt: new Date().toISOString()
+      });
+      if (!updatedDraft) {
+        throw new Error('Unable to convert draft');
+      }
+      return updatedDraft;
     } catch (error) {
       addToast('Error converting draft to invoice', 'error');
       throw error;
@@ -1018,7 +1004,7 @@ export const InvoiceProvider = ({ children }) => {
       
       addToast(`Exported ${invoicesToExport.length} invoices as CSV!`, 'success');
       return true;
-    } catch (error) {
+    } catch {
       addToast('Error exporting CSV', 'error');
       return false;
     }
@@ -1055,7 +1041,7 @@ export const InvoiceProvider = ({ children }) => {
       
       addToast(`Exported ${invoicesToExport.length} invoices successfully!`, 'success');
       return true;
-    } catch (error) {
+    } catch {
       addToast('Error exporting invoices', 'error');
       return false;
     }

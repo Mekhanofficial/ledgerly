@@ -126,6 +126,41 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
 
   const showAvatarImage = Boolean(computedAvatarUrl) && !avatarLoadError;
 
+  const toNumber = (value, fallback = 0) => {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : fallback;
+    }
+    if (typeof value === 'string') {
+      const normalized = value.replace(/[^0-9.-]/g, '');
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+    if (value && typeof value === 'object') {
+      return toNumber(
+        value.amount
+        ?? value.total
+        ?? value.value
+        ?? value.raw
+        ?? fallback,
+        fallback
+      );
+    }
+    return fallback;
+  };
+
+  const resolveInvoiceAmount = (invoice = {}) => {
+    return toNumber(
+      invoice.totalAmount
+      ?? invoice.total
+      ?? invoice.amount
+      ?? invoice.grandTotal
+      ?? invoice.raw?.totalAmount
+      ?? invoice.raw?.total
+      ?? invoice.raw?.amount
+      ?? 0
+    );
+  };
+
   const formatRevenue = (value) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric) || numeric <= 0) {
@@ -143,7 +178,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   const getUserStats = () => {
     const totalInvoices = invoices?.length || 0;
     const totalCustomers = customers?.length || 0;
-    const totalRevenue = invoices?.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0) || 0;
+    const totalRevenue = invoices?.reduce((sum, inv) => sum + resolveInvoiceAmount(inv), 0) || 0;
 
     if (isClient) {
       const paidCount = invoices?.filter(inv => inv.status === 'paid').length || 0;
@@ -162,7 +197,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
     ];
   };
 
-  const userStats = useMemo(() => getUserStats(), [invoices, customers]);
+  const userStats = useMemo(() => getUserStats(), [invoices, customers, isClient, baseCurrency]);
 
   // Handle search
   const handleSearch = (e) => {
@@ -324,7 +359,10 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   };
 
   return (
-    <header className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+    <header
+      data-dashboard-navbar="true"
+      className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800"
+    >
       <div className="px-4 sm:px-6 lg:px-8">
         {/* Mobile Search Bar - Full Width when active */}
         {isSearchOpen && (

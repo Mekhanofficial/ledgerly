@@ -459,3 +459,48 @@
   background-image: linear-gradient(#1F2937, #1F2937), 
                     linear-gradient(to right, #8B5CF6, #EC4899);
 }
+/* Add to your global CSS file (e.g., index.css or App.css) */
+
+/* Glowing border trail animation enhancement */
+@keyframes pulseGlowLight {
+  0%, 100% {
+    box-shadow:
+      0 0 7px rgba(14, 165, 233, 0.82),
+      0 0 14px rgba(14, 165, 233, 0.45);
+  }
+  50% {
+    box-shadow:
+      0 0 10px rgba(2, 132, 199, 0.92),
+      0 0 18px rgba(56, 189, 248, 0.55);
+  }
+}
+
+@keyframes pulseGlowDark {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(56, 189, 248, 0.98),
+      0 0 22px rgba(14, 165, 233, 0.86),
+      0 0 36px rgba(186, 230, 253, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 13px rgba(56, 189, 248, 1),
+      0 0 28px rgba(14, 165, 233, 0.92),
+      0 0 44px rgba(186, 230, 253, 0.62);
+  }
+}
+
+.glowing-border-trail {
+  filter: saturate(1.18) brightness(1.03);
+}
+
+.glowing-border-trail-light {
+  animation: pulseGlowLight 3.6s ease-in-out infinite;
+  mix-blend-mode: normal;
+}
+
+.glowing-border-trail-dark {
+  animation: pulseGlowDark 4.8s ease-in-out infinite;
+  mix-blend-mode: screen;
+  filter: saturate(1.55) brightness(1.12);
+}

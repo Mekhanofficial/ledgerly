@@ -13,9 +13,18 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
   const [selectedPremiumTemplate, setSelectedPremiumTemplate] = useState(null);
   const [previewTemplate, setPreviewTemplate] = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
+  const TEMPLATE_BUNDLE_PRICING = {
+    PREMIUM: 10000,
+    ELITE: 25000
+  };
 
-  const hasPaidAccess = templates.some((template) => template.hasAccess && (template.category === 'PREMIUM' || template.category === 'ELITE'));
-  const hasLockedTemplates = templates.some((template) => template.category !== 'CUSTOM' && template.hasAccess === false);
+  const resolveAccess = (template) => {
+    if (typeof template?.isUnlocked === 'boolean') return template.isUnlocked;
+    return template?.hasAccess !== false;
+  };
+
+  const hasPaidAccess = templates.some((template) => resolveAccess(template) && (template.category === 'PREMIUM' || template.category === 'ELITE'));
+  const hasLockedTemplates = templates.some((template) => template.category !== 'CUSTOM' && !resolveAccess(template));
   
   const filteredTemplates = activeTab === 'all' 
     ? templates 
@@ -51,7 +60,64 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
     return 'a higher plan';
   };
 
-  const resolveAccess = (template) => template?.hasAccess !== false;
+  const resolveTier = (template = {}) => {
+    const tierCandidate = String(template?.tier || '').trim().toUpperCase();
+    if (tierCandidate === 'PREMIUM' || tierCandidate === 'ELITE' || tierCandidate === 'STANDARD') {
+      return tierCandidate;
+    }
+    const category = String(template?.category || '').trim().toUpperCase();
+    if (category === 'ELITE') return 'ELITE';
+    if (category === 'PREMIUM') return 'PREMIUM';
+    return 'STANDARD';
+  };
+
+  const getTierDescription = (category) => {
+    const normalized = String(category || '').toUpperCase();
+    if (normalized === 'STANDARD') return 'Clean, professional templates included in Starter+';
+    if (normalized === 'PREMIUM') return 'Advanced designs included in Professional+';
+    if (normalized === 'ELITE') return 'Top-tier designs included in Enterprise';
+    return 'Premium invoice template';
+  };
+
+  const getTierValuePositioning = (tier) => {
+    if (tier === 'PREMIUM') {
+      return 'Designed for growing businesses that want polished, brand-ready invoices.';
+    }
+    if (tier === 'ELITE') {
+      return 'High-end identity-driven invoice designs for agencies, startups, and premium brands.';
+    }
+    return null;
+  };
+
+  const formatNgn = (value) => {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return '₦0';
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  const getIncludedPlanLabel = (template) => {
+    const tier = resolveTier(template);
+    if (tier === 'ELITE') return 'Included in Enterprise Plan';
+    if (tier === 'PREMIUM') return 'Included in Professional Plan';
+    return 'Included in Starter Plan';
+  };
+
+  const getBundlePrice = (template) => {
+    const tier = resolveTier(template);
+    if (tier === 'ELITE') return TEMPLATE_BUNDLE_PRICING.ELITE;
+    return TEMPLATE_BUNDLE_PRICING.PREMIUM;
+  };
+
+  const getBundleCtaLabel = (template) => {
+    const tier = resolveTier(template);
+    if (tier === 'ELITE') return `Unlock All Elite - ${formatNgn(TEMPLATE_BUNDLE_PRICING.ELITE)}`;
+    return `Unlock All Premium - ${formatNgn(TEMPLATE_BUNDLE_PRICING.PREMIUM)}`;
+  };
 
   const handleTemplateClick = (template) => {
     if (!resolveAccess(template)) {
@@ -88,10 +154,10 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
   const handlePurchase = async () => {
     try {
       if (!selectedPremiumTemplate) return;
-      await onPurchaseTemplate(selectedPremiumTemplate.id);
+      await onPurchaseTemplate(selectedPremiumTemplate);
       addToast(`Successfully purchased ${selectedPremiumTemplate.name}!`, 'success');
       setSelectedPremiumTemplate(null);
-    } catch (error) {
+    } catch {
       addToast('Purchase failed. Please try again.', 'error');
     }
   };
@@ -99,10 +165,12 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
   const handleBundlePurchase = async () => {
     if (!onPurchaseBundle) return;
     try {
-      await onPurchaseBundle();
-      addToast('All templates unlocked successfully!', 'success');
+      if (!selectedPremiumTemplate) return;
+      const tier = resolveTier(selectedPremiumTemplate) === 'ELITE' ? 'elite' : 'premium';
+      await onPurchaseBundle(tier);
+      addToast(`${tier === 'elite' ? 'Elite' : 'Premium'} bundle checkout started`, 'success');
       setSelectedPremiumTemplate(null);
-    } catch (error) {
+    } catch {
       addToast('Bundle purchase failed. Please try again.', 'error');
     }
   };
@@ -123,6 +191,8 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
     const activeCategory = categories.find(cat => cat.id === activeTab);
     return activeCategory ? activeCategory.label : 'All Templates';
   };
+
+  const activeTierPositioning = getTierValuePositioning(String(activeTab || '').toUpperCase());
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -245,6 +315,15 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
           </span>
         )}
       </div>
+      {activeTierPositioning && (
+        <div className={`rounded-lg border px-4 py-3 text-sm ${
+          isDarkMode
+            ? 'bg-gray-800/70 border-gray-700 text-gray-200'
+            : 'bg-gray-50 border-gray-200 text-gray-700'
+        }`}>
+          {activeTierPositioning}
+        </div>
+      )}
 
       {/* Empty State */}
       {filteredTemplates.length === 0 ? (
@@ -317,9 +396,10 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-6">
                       <Lock className="w-12 h-12 text-white mb-3" />
                       <h3 className="text-white font-semibold text-lg mb-2">{categoryLabel} Template</h3>
-                      <p className="text-gray-200 text-center text-sm mb-4">
-                        Upgrade to {formatPlanLabel(template.requiredPlan)} or purchase for ${template.price}
-                      </p>
+                      <div className="text-gray-200 text-center text-sm mb-4 space-y-1">
+                        <p>{`Unlock for ${formatNgn(template.price)}`}</p>
+                        <p className="text-gray-300">{getIncludedPlanLabel(template)}</p>
+                      </div>
                       <div className="flex flex-col sm:flex-row gap-3">
                         <button
                           onClick={() => handlePreview(template)}
@@ -338,7 +418,7 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                             onClick={() => setSelectedPremiumTemplate(template)}
                             className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90"
                           >
-                            Purchase for ${template.price}
+                            Unlock for {formatNgn(template.price)}
                           </button>
                         )}
                       </div>
@@ -402,7 +482,7 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                           </span>
                           {isLocked && (
                             <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-                              ${template.price}
+                              {formatNgn(template.price)}
                             </span>
                           )}
                         </div>
@@ -482,20 +562,18 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                         {selectedPremiumTemplate.name}
                       </h3>
                       <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {getCategoryLabel(selectedPremiumTemplate.category)} Template
+                        {getTierDescription(selectedPremiumTemplate.category)}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      ${selectedPremiumTemplate.price}
+                      {formatNgn(selectedPremiumTemplate.price)}
                     </div>
                     <div className="text-sm text-gray-500">One-time purchase</div>
-                    {selectedPremiumTemplate.requiredPlan && (
-                      <div className="text-xs text-gray-400">
-                        Included in {formatPlanLabel(selectedPremiumTemplate.requiredPlan)}
-                      </div>
-                    )}
+                    <div className="text-xs text-gray-400">
+                      {getIncludedPlanLabel(selectedPremiumTemplate)}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -595,12 +673,12 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                   >
                     Upgrade to {formatPlanLabel(selectedPremiumTemplate.requiredPlan)}
                   </button>
-                  {onPurchaseBundle && (
+                  {onPurchaseBundle && selectedPremiumTemplate?.isBundleEligible !== false && resolveTier(selectedPremiumTemplate) !== 'STANDARD' && (
                     <button
                       onClick={handleBundlePurchase}
                       className="px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-lg text-sm font-medium hover:opacity-90"
                     >
-                      Unlock All Templates - $79
+                      {getBundleCtaLabel(selectedPremiumTemplate)}
                     </button>
                   )}
                   {selectedPremiumTemplate.canPurchase !== false && (
@@ -609,12 +687,12 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                       className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-medium hover:opacity-90 flex items-center justify-center gap-2"
                     >
                       <Lock className="w-4 h-4" />
-                      Purchase Template - ${selectedPremiumTemplate.price}
+                      Unlock for {formatNgn(selectedPremiumTemplate.price)}
                     </button>
                   )}
                 </div>
                 <p className={`text-xs text-center mt-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
-                  One-time payment. Lifetime access. 30-day money-back guarantee.
+                  {`Single unlock ${formatNgn(selectedPremiumTemplate.price)} • Bundle ${formatNgn(getBundlePrice(selectedPremiumTemplate))} • Lifetime access`}
                 </p>
               </div>
             </div>

@@ -1,5 +1,5 @@
 // src/routes/invoices/CreateInvoice.js
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, Mail, Download, Repeat, Save, Printer, Palette, Package, Search, Plus, X } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
@@ -21,6 +21,14 @@ import { useTheme } from '../../context/ThemeContext';
 import { isMultiCurrencyPlan } from '../../utils/subscription';
 import templateStorage, { hasTemplateAccess } from '../../utils/templateStorage';
 import { resolveTemplateStyleVariant } from '../../utils/templateStyleVariants';
+import {
+  buildBrandedEmailMessage,
+  getEmailSenderConfig,
+  getWatermarkFooterText,
+  resolveInvoiceBaseUrl,
+  shouldHideLedgerlyBrandingEverywhere,
+  shouldShowWatermark
+} from '../../utils/brandingPlan';
 import { fetchTaxSettings } from '../../services/taxSettingsService';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -172,6 +180,17 @@ const CreateInvoice = () => {
   const { accountInfo } = useAccount();
   const baseCurrency = accountInfo?.currency || 'USD';
   const canUseMultiCurrency = isMultiCurrencyPlan(accountInfo?.plan, accountInfo?.subscriptionStatus);
+  const watermarkEnabled = useMemo(() => shouldShowWatermark(accountInfo), [accountInfo]);
+  const watermarkFooterText = useMemo(() => getWatermarkFooterText(accountInfo), [accountInfo]);
+  const emailSenderConfig = useMemo(() => getEmailSenderConfig(accountInfo), [accountInfo]);
+  const hideLedgerlyBrandingEverywhere = useMemo(
+    () => shouldHideLedgerlyBrandingEverywhere(accountInfo),
+    [accountInfo]
+  );
+  const invoiceBaseUrl = useMemo(
+    () => resolveInvoiceBaseUrl(accountInfo, 'https://ledgerly.com'),
+    [accountInfo]
+  );
   
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -207,10 +226,12 @@ const CreateInvoice = () => {
   // Customer state
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', address: '' });
+
+  const createLineItemId = () => `line_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   
   // Line items state - EMPTY BY DEFAULT
   const [lineItems, setLineItems] = useState([
-    { id: 1, description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }
+    { id: createLineItemId(), description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }
   ]);
 
   // Tax settings state
@@ -404,8 +425,8 @@ const CreateInvoice = () => {
 
   // Handler functions for line items
   const updateLineItem = (id, field, value) => {
-    setLineItems(lineItems.map(item => {
-      if (item.id === id) {
+    setLineItems((prevItems) => prevItems.map((item) => {
+      if (String(item.id) === String(id)) {
         const updatedItem = { ...item, [field]: value, tax: 0 };
 
         if (field === 'quantity' || field === 'rate') {
@@ -427,17 +448,17 @@ const CreateInvoice = () => {
   };
 
   const addLineItem = () => {
-    const newId = lineItems.length > 0 ? Math.max(...lineItems.map(item => item.id)) + 1 : 1;
-    setLineItems([
-      ...lineItems,
-      { id: newId, description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }
-    ]);
+    setLineItems((prevItems) => ([
+      ...prevItems,
+      { id: createLineItemId(), description: '', quantity: 1, rate: 0.00, tax: 0, amount: 0.00 }
+    ]));
   };
 
   const removeLineItem = (id) => {
-    if (lineItems.length > 1) {
-      setLineItems(lineItems.filter(item => item.id !== id));
-    }
+    setLineItems((prevItems) => {
+      if (prevItems.length <= 1) return prevItems;
+      return prevItems.filter((item) => String(item.id) !== String(id));
+    });
   };
 
   const resolveProductStock = (product = {}) => {
@@ -465,25 +486,26 @@ const CreateInvoice = () => {
 
   // Add product from inventory
   const addProductFromInventory = (product) => {
-    const newId = lineItems.length > 0 ? Math.max(...lineItems.map(item => item.id)) + 1 : 1;
     const availableStock = resolveProductStock(product);
-    
-    const newItem = {
-      id: newId,
-      description: product.name,
-      quantity: 1,
-      rate: product.price,
-      tax: 0,
-      amount: product.price,
-      productId: product.id,
-      sku: product.sku,
-      stock: availableStock,
-      availableStock
-    };
-    
-    setLineItems([...lineItems, newItem]);
-    setShowProductSelector(false);
-    setProductSearchTerm('');
+
+    setLineItems((prevItems) => {
+      const newItem = {
+        id: createLineItemId(),
+        description: product.name,
+        quantity: 1,
+        rate: product.price,
+        tax: 0,
+        amount: product.price,
+        productId: product.id,
+        sku: product.sku,
+        stock: availableStock,
+        availableStock
+      };
+
+      return [...prevItems, newItem];
+    });
+
+    // Keep selector open so users can add multiple products in one pass.
     addToast(`Product "${product.name}" added to invoice`, 'success');
   };
 
@@ -597,38 +619,58 @@ const CreateInvoice = () => {
     try {
       let customer = getSelectedCustomer();
       if (!customer && newCustomer.name && newCustomer.email) {
-        try {
-          customer = await addCustomer(newCustomer, { showNotificationToast: false });
-        } catch (customerError) {
-          // Allow local draft fallback if customer creation fails.
-          console.warn('Unable to auto-create customer for draft sync:', customerError);
-        }
+        customer = await addCustomer(newCustomer, { showNotificationToast: false });
       }
+
+      const customerId = customer?.id || customer?._id;
+      if (!customerId) {
+        addToast('Please select a customer before saving draft', 'error');
+        return;
+      }
+
+      const normalizedLineItems = attachInventoryReferences(
+        lineItems
+          .map((item) => ({
+            id: item.id || createLineItemId(),
+            description: item.description,
+            quantity: Number(item.quantity) || 0,
+            rate: Number(item.rate) || 0,
+            tax: 0,
+            amount: (Number(item.quantity) || 0) * (Number(item.rate) || 0),
+            productId: item.productId,
+            sku: item.sku
+          }))
+          .filter((item) => String(item.description || '').trim())
+      );
+
+      if (normalizedLineItems.length === 0) {
+        addToast('Please add at least one line item before saving draft', 'error');
+        return;
+      }
+
+      const normalizedSubtotal = normalizedLineItems.reduce((sum, item) => sum + item.amount, 0);
+      const normalizedTaxAmount = taxEnabled
+        ? roundMoney(
+            hasOverrideAmount
+              ? Math.max(0, Number(taxAmountOverride) || 0)
+              : normalizedSubtotal * (effectiveTaxRate / 100)
+          )
+        : 0;
+      const normalizedTotalAmount = roundMoney(normalizedSubtotal + normalizedTaxAmount);
       
       const invoiceData = {
-        id: `draft_${Date.now()}`,
         invoiceNumber,
         issueDate,
         dueDate,
         paymentTerms,
-        customer: customer || newCustomer,
-        customerId: customer?.id,
-        lineItems: attachInventoryReferences(
-          lineItems.map(item => ({
-            description: item.description,
-            quantity: item.quantity,
-            rate: item.rate,
-            tax: item.tax,
-            amount: item.amount,
-            productId: item.productId,
-            sku: item.sku
-          }))
-        ),
-        subtotal,
-        totalTax,
-        totalAmount,
+        customer,
+        customerId,
+        lineItems: normalizedLineItems,
+        subtotal: normalizedSubtotal,
+        totalTax: normalizedTaxAmount,
+        totalAmount: normalizedTotalAmount,
         taxRateUsed: effectiveTaxRate,
-        taxAmount: totalTax,
+        taxAmount: normalizedTaxAmount,
         taxName,
         isTaxOverridden,
         notes,
@@ -677,7 +719,7 @@ const CreateInvoice = () => {
       const templateVariant = resolveTemplateStyleVariant(selectedTemplate, templateMeta);
       const { headerHtml, footerHtml, paddingTop, paddingBottom } = buildTemplateDecorations(templateVariant, colors);
       
-      const companyName = accountInfo?.companyName || 'Ledgerly';
+      const companyName = accountInfo?.companyName || 'Your Business';
       const contactTitle = accountInfo?.contactName ? `Attn: ${accountInfo.contactName}` : '';
       const locationPieces = [
         accountInfo?.city,
@@ -767,9 +809,6 @@ const CreateInvoice = () => {
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <div>
                 <h1 style="font-size: 32px; font-weight: bold; color: ${colors.primary}; margin: 0 0 10px 0;">INVOICE</h1>
-                <div style="background: ${colors.primary}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block;">
-                  ${selectedTemplate.toUpperCase()} TEMPLATE
-                </div>
                 <div style="color: #6c757d; font-size: 14px; margin-top: 15px;">
                   <div><strong>Invoice #:</strong> ${invoiceNumber}</div>
                   <div><strong>Issue Date:</strong> ${new Date(issueDate).toLocaleDateString()}</div>
@@ -869,7 +908,9 @@ const CreateInvoice = () => {
           <!-- Footer -->
           <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #dee2e6; text-align: center; color: #6c757d; font-size: 12px;">
             <div>Thank you for your business!</div>
-            <div style="margin-top: 5px;">Generated by Ledgerly Invoice System • ${selectedTemplate.charAt(0).toUpperCase() + selectedTemplate.slice(1)} Template</div>
+            ${watermarkEnabled && watermarkFooterText
+              ? `<div style="margin-top: 8px; font-size: 11px; color: #9ca3af; opacity: 0.6;">${watermarkFooterText}</div>`
+              : ''}
           </div>
           </div>
         </div>
@@ -929,6 +970,12 @@ const CreateInvoice = () => {
   const handleDownloadPDF = async () => {
     try {
       await generatePDF(true);
+      if (watermarkEnabled) {
+        addToast(
+          'Remove Ledgerly branding and unlock professional features -> Upgrade to Professional',
+          'info'
+        );
+      }
     } catch {
       addToast('Error downloading PDF', 'error');
     }
@@ -1030,6 +1077,7 @@ const CreateInvoice = () => {
           : 0
       );
       const sanitizedTotalAmount = roundMoney(sanitizedSubtotal + sanitizedTotalTax);
+      const brandedEmailMessage = buildBrandedEmailMessage(emailMessage, accountInfo);
       
       const invoiceData = {
         id: `inv_${Date.now()}`,
@@ -1062,7 +1110,7 @@ const CreateInvoice = () => {
         notes,
         terms,
         emailSubject,
-        emailMessage,
+        emailMessage: brandedEmailMessage,
         currency: resolvedCurrency,
         status: 'draft',
         createdAt: new Date().toISOString(),
@@ -1078,7 +1126,11 @@ const CreateInvoice = () => {
       const sentInvoice = await sendInvoice(createdInvoice.id, {
         templateStyle: selectedTemplate,
         emailSubject,
-        emailMessage
+        emailMessage: brandedEmailMessage,
+        emailFrom: emailSenderConfig.fromAddress,
+        emailFooterText: emailSenderConfig.footerText,
+        hideLedgerlyBrandingEverywhere,
+        invoiceBaseUrl
       }, { throwOnError: true });
       if (!sentInvoice) {
         throw new Error('Invoice created, but email delivery failed. Check SMTP settings and resend from invoice list.');
@@ -1156,6 +1208,30 @@ const CreateInvoice = () => {
           </div>
         `
       : '';
+
+    const printCompanyName = accountInfo?.companyName || 'Your Business';
+    const printContactTitle = accountInfo?.contactName ? `Attn: ${accountInfo.contactName}` : '';
+    const printLocationPieces = [
+      accountInfo?.city,
+      accountInfo?.state,
+      accountInfo?.zipCode
+    ].filter(Boolean);
+    const printLocationLine = printLocationPieces.length ? printLocationPieces.join(', ') : '';
+    const printCompanyLines = [
+      accountInfo?.address,
+      printLocationLine,
+      accountInfo?.country
+    ].filter(Boolean);
+    const printCompanyLinesHtml = printCompanyLines.map((line) => `${line}<br>`).join('');
+    const printContactLines = [
+      accountInfo?.email,
+      accountInfo?.phone,
+      accountInfo?.website
+    ].filter(Boolean);
+    const printContactLinesHtml = printContactLines.map((line) => `${line}<br>`).join('');
+    const printWatermarkHtml = watermarkEnabled && watermarkFooterText
+      ? `<div style="margin-top: 14px; text-align: center; font-size: 11px; color: #9ca3af; opacity: 0.6;">${watermarkFooterText}</div>`
+      : '';
     
     const printContent = `
       <html>
@@ -1190,11 +1266,11 @@ const CreateInvoice = () => {
                   </div>
                 </div>
                 <div style="text-align: right;">
-                  <div style="font-size: 18px; font-weight: bold; color: ${printColors.primary}; margin-bottom: 10px;">LEDGERLY</div>
+                  <div style="font-size: 18px; font-weight: bold; color: ${printColors.primary}; margin-bottom: 10px;">${printCompanyName}</div>
                   <div style="color: #6c757d; font-size: 14px;">
-                    123 Business Street<br>
-                    City, State 12345<br>
-                    contact@ledgerly.com
+                    ${printContactTitle ? `${printContactTitle}<br>` : ''}
+                    ${printCompanyLinesHtml}
+                    ${printContactLinesHtml}
                   </div>
                 </div>
               </div>
@@ -1266,6 +1342,7 @@ const CreateInvoice = () => {
                 <div style="color: #495057; line-height: 1.6; font-size: 13px; white-space: pre-line;">${terms}</div>
               </div>
             ` : ''}
+            ${printWatermarkHtml}
             
             <div class="no-print" style="margin-top: 50px; text-align: center; padding-top: 20px; border-top: 1px solid #ddd;">
               <button onclick="window.print()" style="padding: 12px 24px; background: ${printColors.primary}; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">

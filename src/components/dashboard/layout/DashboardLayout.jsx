@@ -1,3 +1,4 @@
+// layouts/DashboardLayout.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -6,6 +7,7 @@ import { useAccount } from '../../../context/AccountContext';
 import NavBar from '../../dashboard/layout/NavBar';
 import SideBar from '../../dashboard/layout/SideBar';
 import { resolveAuthUser } from '../../../utils/userDisplay';
+import GlowingBorderTrail from '../../ui/GlowingBorderTrail';
 
 const DashboardLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -68,6 +70,14 @@ const DashboardLayout = ({ children }) => {
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark' : ''}`}>
+      {/* Glowing Border Animation */}
+      <GlowingBorderTrail 
+        isActive={true} 
+        duration={24000} 
+        pauseDuration={0}
+        isDarkMode={isDarkMode}
+      />
+
       {/* Mobile sidebar backdrop */}
       {mobileSidebarOpen && (
         <div 

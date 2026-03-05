@@ -1223,20 +1223,22 @@ const LiveChat = () => {
                   } text-xs`}>
                     Quick actions:
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {quickReplies.map((reply, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleQuickReply(reply)}
-                        className={`px-3 py-1.5 rounded-full transition-colors ${
-                          isDarkMode
-                            ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                            : 'bg-primary-50 hover:bg-primary-100 text-primary-700'
-                        } text-xs font-medium`}
-                      >
-                        {reply}
-                      </button>
-                    ))}
+                  <div className="overflow-x-auto no-scrollbar">
+                    <div className="flex w-max gap-2 pr-2">
+                      {quickReplies.map((reply, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleQuickReply(reply)}
+                          className={`px-3 py-1.5 rounded-full whitespace-nowrap flex-shrink-0 transition-colors ${
+                            isDarkMode
+                              ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                              : 'bg-primary-50 hover:bg-primary-100 text-primary-700'
+                          } text-xs font-medium`}
+                        >
+                          {reply}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 

@@ -30,6 +30,9 @@ export const resolveApiBaseUrl = () => {
       return LOCAL_API_FALLBACK;
     }
     const normalized = normalizeBaseUrl(rawUrl);
+    if (isRelativeUrl(normalized)) {
+      return normalized;
+    }
     const pointsToLocal = /localhost|127\.0\.0\.1/i.test(normalized);
     if (!pointsToLocal && !allowRemoteOnLocalhost) {
       return LOCAL_API_FALLBACK;
@@ -43,13 +46,13 @@ export const resolveApiBaseUrl = () => {
       return PROD_API_FALLBACK;
     }
     if (isRelativeUrl(normalized)) {
-      return PROD_API_FALLBACK;
+      return normalized;
     }
     if (isBrowser) {
       try {
         const parsed = new URL(normalized, window.location.origin);
         if (parsed.origin === window.location.origin) {
-          return PROD_API_FALLBACK;
+          return normalized;
         }
       } catch {
         return PROD_API_FALLBACK;

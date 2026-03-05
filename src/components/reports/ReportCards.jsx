@@ -3,7 +3,16 @@ import React from 'react';
 import { BarChart3, PieChart, TrendingUp, Download, Calendar, Trash2, Eye } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewReport, onExport, reportType = 'all' }) => {
+const ReportCards = ({
+  onGenerateReport,
+  reports = [],
+  onDeleteReport,
+  onViewReport,
+  onExport,
+  reportType = 'all',
+  dateRange = 'last-30-days',
+  onDateRangeChange
+}) => {
   const { isDarkMode } = useTheme();
   
   const reportTemplates = [
@@ -159,13 +168,23 @@ const ReportCards = ({ onGenerateReport, reports = [], onDeleteReport, onViewRep
               <Calendar className={`w-4 h-4 mr-2 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-400'
               }`} />
-              <select className={`border-none focus:ring-0 text-sm bg-transparent ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`} defaultValue="last-30-days">
+              <select
+                value={dateRange}
+                onChange={(event) => {
+                  if (typeof onDateRangeChange === 'function') {
+                    onDateRangeChange(event.target.value);
+                  }
+                }}
+                className={`border-none focus:ring-0 text-sm bg-transparent ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}
+              >
                 <option value="last-7-days">Last 7 days</option>
                 <option value="last-30-days">Last 30 days</option>
                 <option value="this-month">This month</option>
                 <option value="last-month">Last month</option>
+                <option value="this-quarter">This quarter</option>
+                <option value="this-year">This year</option>
                 <option value="custom">Custom range</option>
               </select>
             </div>

@@ -1,6 +1,8 @@
 // src/components/reports/GeneratedReportsList.js - FIXED VERSION
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { BarChart3 } from 'lucide-react';
+import TablePagination from '../ui/TablePagination';
+import { useTablePagination } from '../../hooks/usePagination';
 
 const GeneratedReportsList = memo(({ 
   reports = [], 
@@ -10,6 +12,18 @@ const GeneratedReportsList = memo(({
   onDeleteReport, 
   isDarkMode = false 
 }) => {
+  const validReports = useMemo(
+    () => (Array.isArray(reports) ? reports.filter((report) => report && report.id) : []),
+    [reports]
+  );
+  const {
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    paginatedItems: paginatedReports
+  } = useTablePagination(validReports, { initialRowsPerPage: 5 });
+
   const getStatusColor = (status) => {
     switch(status?.toLowerCase?.()) {
       case 'completed': 
@@ -61,7 +75,7 @@ const GeneratedReportsList = memo(({
           <h3 className={`text-lg font-semibold ${
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
-            Generated Reports ({reports?.length || 0})
+            Generated Reports ({validReports.length})
           </h3>
           {typeof onLoadReports === 'function' && (
             <button 
@@ -78,7 +92,7 @@ const GeneratedReportsList = memo(({
         </div>
       </div>
       
-      {!reports || reports.length === 0 ? (
+      {validReports.length === 0 ? (
         <div className="p-12 text-center">
           <BarChart3 className={`w-12 h-12 mx-auto mb-4 ${
             isDarkMode ? 'text-gray-600' : 'text-gray-400'
@@ -98,12 +112,7 @@ const GeneratedReportsList = memo(({
         <div className={`divide-y ${
           isDarkMode ? 'divide-gray-700' : 'divide-gray-200'
         }`}>
-          {reports.map((report) => {
-            if (!report || !report.id) {
-              console.warn('Invalid report found:', report);
-              return null;
-            }
-            
+          {paginatedReports.map((report) => {
             return (
               <div key={report.id} className={`px-6 py-4 flex items-center justify-between ${
                 isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
@@ -189,6 +198,17 @@ const GeneratedReportsList = memo(({
             );
           })}
         </div>
+      )}
+      {validReports.length > 0 && (
+        <TablePagination
+          page={page}
+          totalItems={validReports.length}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={setRowsPerPage}
+          isDarkMode={isDarkMode}
+          itemLabel="reports"
+        />
       )}
     </div>
   );

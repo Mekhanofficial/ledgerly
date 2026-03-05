@@ -1,93 +1,212 @@
 // src/components/reports/ReportStats.js
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TrendingUp, DollarSign, ShoppingCart, Users, BarChart3 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAccount } from '../../context/AccountContext';
 import { formatCurrency } from '../../utils/currency';
 
-const ReportStats = () => {
+const DATE_RANGE_LABELS = {
+  'last-7-days': 'Last 7 days',
+  'last-30-days': 'Last 30 days',
+  'this-month': 'This month',
+  'last-month': 'Last month',
+  'this-quarter': 'This quarter',
+  'this-year': 'This year',
+  custom: 'Custom range'
+};
+
+const ReportStats = ({ dateRange = 'last-30-days' }) => {
   const { isDarkMode } = useTheme();
   const { invoices, customers } = useInvoice();
   const { accountInfo } = useAccount();
   const baseCurrency = accountInfo?.currency || 'USD';
   const formatMoney = (value, options = {}) =>
     formatCurrency(value, baseCurrency, options);
-  
-  // Calculate real stats from invoices and customers
-  const calculateStats = () => {
-    // Total Revenue
-    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
-    
-    // Total Sales (number of invoices)
-    const totalSales = invoices.length;
-    
-    // New Customers (last 30 days)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const newCustomers = customers.filter(c => {
-      const customerDate = new Date(c.createdAt || c.joinedDate);
-      return customerDate > thirtyDaysAgo;
-    }).length;
-    
-    // Average Order Value
-    const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
-    
-    // Calculate changes from previous period (using simple calculations)
-    const calculateChange = (current, previous) => {
-      if (previous === 0) return current > 0 ? '+100.0%' : '0.0%';
-      const change = ((current - previous) / previous * 100);
-      return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
-    };
-    
-    // For demo purposes, calculate "previous period" stats
-    // In a real app, you'd compare with actual historical data
-    const previousRevenue = totalRevenue * 0.85; // Simulated 15% less
-    const previousSales = Math.floor(totalSales * 0.92); // Simulated 8% less
-    const previousCustomers = Math.floor(newCustomers * 0.8); // Simulated 20% less
-    const previousAvgOrder = avgOrderValue * 0.94; // Simulated 6% less
-    
-    return {
-      totalRevenue: {
-        value: formatMoney(totalRevenue),
-        change: calculateChange(totalRevenue, previousRevenue),
-        raw: totalRevenue
-      },
-      totalSales: {
-        value: totalSales.toLocaleString(),
-        change: calculateChange(totalSales, previousSales),
-        raw: totalSales
-      },
-      newCustomers: {
-        value: newCustomers.toString(),
-        change: calculateChange(newCustomers, previousCustomers),
-        raw: newCustomers
-      },
-      avgOrderValue: {
-        value: formatMoney(avgOrderValue),
-        change: calculateChange(avgOrderValue, previousAvgOrder),
-        raw: avgOrderValue
-      }
-    };
+
+  const toNumber = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
   };
-  
-  const statsData = calculateStats();
-  
-  // Additional insights - moved this BEFORE it's used in stats array
-  const getInsights = () => {
-    const paidInvoices = invoices.filter(inv => inv.status === 'paid').length;
-    const overdueInvoices = invoices.filter(inv => inv.status === 'overdue').length;
-    const collectionRate = statsData.totalSales.raw > 0 ? (paidInvoices / statsData.totalSales.raw * 100).toFixed(1) : 0;
-    
+
+  const parseDateValue = (value) => {
+    if (!value) return null;
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dateOnlyMatch) {
+        const year = Number(dateOnlyMatch[1]);
+        const month = Number(dateOnlyMatch[2]) - 1;
+        const day = Number(dateOnlyMatch[3]);
+        const localDate = new Date(year, month, day);
+        return Number.isNaN(localDate.getTime()) ? null : localDate;
+      }
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const resolveDateRange = (rangeId) => {
+    const now = new Date();
+    const startOfDay = (date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    const endOfDay = (date) => {
+      const d = new Date(date);
+      d.setHours(23, 59, 59, 999);
+      return d;
+    };
+
+    let start = null;
+    let end = endOfDay(now);
+
+    switch (rangeId) {
+      case 'last-7-days':
+        start = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6));
+        break;
+      case 'this-month':
+        start = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+        break;
+      case 'last-month':
+        start = startOfDay(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+        end = endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
+        break;
+      case 'this-quarter': {
+        const quarter = Math.floor(now.getMonth() / 3);
+        start = startOfDay(new Date(now.getFullYear(), quarter * 3, 1));
+        break;
+      }
+      case 'this-year':
+        start = startOfDay(new Date(now.getFullYear(), 0, 1));
+        break;
+      case 'custom':
+        start = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+        break;
+      case 'last-30-days':
+      default:
+        start = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29));
+        break;
+    }
+
+    const duration = Math.max(0, end.getTime() - start.getTime());
+    const previousEnd = new Date(start.getTime() - 1);
+    const previousStart = new Date(previousEnd.getTime() - duration);
+
     return {
-      paidInvoices,
-      overdueInvoices,
-      collectionRate,
-      totalCustomers: customers.length,
-      activeCustomers: customers.filter(c => (c.transactions || 0) > 0).length
+      start,
+      end,
+      previousStart,
+      previousEnd,
+      label: DATE_RANGE_LABELS[rangeId] || DATE_RANGE_LABELS['last-30-days']
     };
   };
 
-  const insights = getInsights();
+  const range = useMemo(() => resolveDateRange(dateRange), [dateRange]);
+
+  const resolveInvoiceTimestamp = (invoice) => {
+    const raw = invoice?.issueDate || invoice?.date || invoice?.sentDate || invoice?.createdAt;
+    const parsed = parseDateValue(raw);
+    return parsed ? parsed.getTime() : null;
+  };
+
+  const resolveCustomerTimestamp = (customer) => {
+    const raw = customer?.createdAt || customer?.joinedDate || customer?.date;
+    const parsed = parseDateValue(raw);
+    return parsed ? parsed.getTime() : null;
+  };
+
+  const inRange = (timestamp, start, end) =>
+    timestamp != null && timestamp >= start.getTime() && timestamp <= end.getTime();
+
+  const currentInvoices = useMemo(
+    () => invoices.filter((inv) => inRange(resolveInvoiceTimestamp(inv), range.start, range.end)),
+    [invoices, range]
+  );
+
+  const previousInvoices = useMemo(
+    () => invoices.filter((inv) => inRange(resolveInvoiceTimestamp(inv), range.previousStart, range.previousEnd)),
+    [invoices, range]
+  );
+
+  const currentCustomers = useMemo(
+    () => customers.filter((customer) => inRange(resolveCustomerTimestamp(customer), range.start, range.end)),
+    [customers, range]
+  );
+
+  const previousCustomers = useMemo(
+    () => customers.filter((customer) => inRange(resolveCustomerTimestamp(customer), range.previousStart, range.previousEnd)),
+    [customers, range]
+  );
+
+  const calculateChange = (current, previous) => {
+    if (previous === 0) return current > 0 ? '+100.0%' : '0.0%';
+    const change = ((current - previous) / previous) * 100;
+    return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
+  };
+
+  const totalRevenue = currentInvoices.reduce((sum, inv) => sum + toNumber(inv.totalAmount || inv.amount || inv.total), 0);
+  const previousRevenue = previousInvoices.reduce((sum, inv) => sum + toNumber(inv.totalAmount || inv.amount || inv.total), 0);
+  const totalSales = currentInvoices.length;
+  const previousSales = previousInvoices.length;
+  const newCustomers = currentCustomers.length;
+  const previousNewCustomers = previousCustomers.length;
+  const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
+  const previousAvgOrder = previousSales > 0 ? previousRevenue / previousSales : 0;
+
+  const statsData = {
+    totalRevenue: {
+      value: formatMoney(totalRevenue),
+      change: calculateChange(totalRevenue, previousRevenue),
+      raw: totalRevenue
+    },
+    totalSales: {
+      value: totalSales.toLocaleString(),
+      change: calculateChange(totalSales, previousSales),
+      raw: totalSales
+    },
+    newCustomers: {
+      value: newCustomers.toString(),
+      change: calculateChange(newCustomers, previousNewCustomers),
+      raw: newCustomers
+    },
+    avgOrderValue: {
+      value: formatMoney(avgOrderValue),
+      change: calculateChange(avgOrderValue, previousAvgOrder),
+      raw: avgOrderValue
+    }
+  };
+
+  const paidInvoices = currentInvoices.filter(
+    (inv) => String(inv.status || '').toLowerCase() === 'paid'
+  );
+  const overdueInvoices = currentInvoices.filter(
+    (inv) => String(inv.status || '').toLowerCase() === 'overdue'
+  );
+  const customerIdsInRange = new Set(
+    currentInvoices
+      .map((inv) => {
+        if (typeof inv.customer === 'object' && inv.customer) {
+          return inv.customer._id || inv.customer.id || null;
+        }
+        return inv.customerId || inv.customer || null;
+      })
+      .filter(Boolean)
+  );
+
+  const insights = {
+    paidInvoices: paidInvoices.length,
+    overdueInvoices: overdueInvoices.length,
+    collectionRate: statsData.totalSales.raw > 0
+      ? ((paidInvoices.length / statsData.totalSales.raw) * 100).toFixed(1)
+      : 0,
+    totalCustomers: customers.length,
+    activeCustomers: customerIdsInRange.size
+  };
   
   const stats = [
     {
@@ -123,7 +242,7 @@ const ReportStats = () => {
       change: statsData.avgOrderValue.change,
       icon: TrendingUp,
       color: 'bg-amber-500',
-      description: `Highest: ${formatMoney(Math.max(...invoices.map(inv => inv.totalAmount || inv.amount || 0), 0))}`,
+      description: `Highest: ${formatMoney(Math.max(...currentInvoices.map((inv) => toNumber(inv.totalAmount || inv.amount || inv.total)), 0))}`,
       rawValue: statsData.avgOrderValue.raw
     }
   ];
@@ -186,7 +305,7 @@ const ReportStats = () => {
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
-                      This month
+                      {range.label}
                     </span>
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
                       {stat.label === 'Total Revenue'
@@ -276,9 +395,9 @@ const ReportStats = () => {
             <div className={`text-xs ${
               isDarkMode ? 'text-gray-400' : 'text-gray-500'
             }`}>
-              {formatMoney(invoices
-                .filter(inv => inv.status === 'overdue')
-                .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0)
+              {formatMoney(currentInvoices
+                .filter((inv) => String(inv.status || '').toLowerCase() === 'overdue')
+                .reduce((sum, inv) => sum + toNumber(inv.totalAmount || inv.amount || inv.total), 0)
               )}
             </div>
           </div>
@@ -319,7 +438,7 @@ const ReportStats = () => {
             <div className={`text-xs ${
               isDarkMode ? 'text-gray-400' : 'text-gray-500'
             }`}>
-              Draft: {invoices.filter(inv => inv.status === 'draft').length}
+              Draft: {currentInvoices.filter((inv) => String(inv.status || '').toLowerCase() === 'draft').length}
             </div>
           </div>
         </div>

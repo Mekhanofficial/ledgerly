@@ -1,5 +1,5 @@
 // src/components/reports/ReportCharts.js - COMPLETE FIXED VERSION
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../context/InvoiceContext';
@@ -50,7 +50,17 @@ const CustomChartTooltip = ({ active, payload, label, isDarkMode, formatValue })
   return null;
 };
 
-const ReportCharts = () => {
+const DATE_RANGE_LABELS = {
+  'last-7-days': 'Last 7 days',
+  'last-30-days': 'Last 30 days',
+  'this-month': 'This month',
+  'last-month': 'Last month',
+  'this-quarter': 'This quarter',
+  'this-year': 'This year',
+  custom: 'Custom range'
+};
+
+const ReportCharts = ({ dateRange = 'last-30-days' }) => {
   const { isDarkMode } = useTheme();
   const { invoices, customers } = useInvoice();
   const { accountInfo } = useAccount();
@@ -68,119 +78,263 @@ const ReportCharts = () => {
     return `${currencySymbol}${numeric.toFixed(0)}`;
   };
   const [activeCustomer, setActiveCustomer] = useState(null);
-  
-  // Calculate real data for charts
-  const calculateMonthlyRevenue = () => {
+  const toNumber = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  const parseDateValue = (value) => {
+    if (!value) return null;
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dateOnlyMatch) {
+        const year = Number(dateOnlyMatch[1]);
+        const month = Number(dateOnlyMatch[2]) - 1;
+        const day = Number(dateOnlyMatch[3]);
+        const localDate = new Date(year, month, day);
+        return Number.isNaN(localDate.getTime()) ? null : localDate;
+      }
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const resolveDateRange = (rangeId) => {
+    const now = new Date();
+    const startOfDay = (date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+    const endOfDay = (date) => {
+      const d = new Date(date);
+      d.setHours(23, 59, 59, 999);
+      return d;
+    };
+
+    let start = null;
+    let end = endOfDay(now);
+
+    switch (rangeId) {
+      case 'last-7-days':
+        start = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6));
+        break;
+      case 'this-month':
+        start = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+        break;
+      case 'last-month':
+        start = startOfDay(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+        end = endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
+        break;
+      case 'this-quarter': {
+        const quarter = Math.floor(now.getMonth() / 3);
+        start = startOfDay(new Date(now.getFullYear(), quarter * 3, 1));
+        break;
+      }
+      case 'this-year':
+        start = startOfDay(new Date(now.getFullYear(), 0, 1));
+        break;
+      case 'custom':
+        start = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+        break;
+      case 'last-30-days':
+      default:
+        start = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29));
+        break;
+    }
+
+    return {
+      start,
+      end,
+      label: DATE_RANGE_LABELS[rangeId] || DATE_RANGE_LABELS['last-30-days']
+    };
+  };
+
+  const selectedRange = useMemo(() => resolveDateRange(dateRange), [dateRange]);
+
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((invoice) => {
+      const parsed = parseDateValue(invoice?.issueDate || invoice?.date || invoice?.createdAt);
+      if (!parsed) return false;
+      const timestamp = parsed.getTime();
+      return timestamp >= selectedRange.start.getTime() && timestamp <= selectedRange.end.getTime();
+    });
+  }, [invoices, selectedRange]);
+
+  const monthlyData = useMemo(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const currentYear = new Date().getFullYear();
-    
+
     return months.map((month, index) => {
-      const monthRevenue = invoices
-        .filter(inv => {
-          const invDate = new Date(inv.issueDate || inv.createdAt);
-          return invDate.getMonth() === index && invDate.getFullYear() === currentYear;
-        })
-        .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
-      
-      const monthInvoices = invoices.filter(inv => {
-        const invDate = new Date(inv.issueDate || inv.createdAt);
-        return invDate.getMonth() === index && invDate.getFullYear() === currentYear;
-      }).length;
-      
-      const monthPaid = invoices
-        .filter(inv => {
-          const invDate = new Date(inv.issueDate || inv.createdAt);
-          return invDate.getMonth() === index && 
-                 invDate.getFullYear() === currentYear && 
-                 inv.status === 'paid';
-        })
-        .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
-      
+      const monthInvoices = filteredInvoices.filter((invoice) => {
+        const invDate = parseDateValue(invoice?.issueDate || invoice?.date || invoice?.createdAt);
+        return invDate && invDate.getMonth() === index && invDate.getFullYear() === currentYear;
+      });
+
+      const monthRevenue = monthInvoices.reduce(
+        (sum, invoice) => sum + toNumber(invoice.totalAmount || invoice.amount || invoice.total),
+        0
+      );
+      const monthPaid = monthInvoices
+        .filter((invoice) => String(invoice.status || '').toLowerCase() === 'paid')
+        .reduce((sum, invoice) => sum + toNumber(invoice.totalAmount || invoice.amount || invoice.total), 0);
+
       return {
         month,
         revenue: monthRevenue,
-        invoices: monthInvoices,
+        invoices: monthInvoices.length,
         paid: monthPaid,
-        pending: monthRevenue - monthPaid
+        pending: Math.max(0, monthRevenue - monthPaid)
       };
     });
-  };
+  }, [filteredInvoices]);
 
-  // Calculate top customers for pie chart
-  const calculateTopCustomers = () => {
-    const customerData = customers.map(customer => {
-      const customerInvoices = invoices.filter(inv => 
-        inv.customerId === customer.id || inv.customer === customer.name
-      );
-      const customerRevenue = customerInvoices.reduce(
-        (sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 
-        0
-      );
-      
-      const customerPaid = customerInvoices
-        .filter(inv => inv.status === 'paid')
-        .reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
-      
-      const paymentRate = customerRevenue > 0 ? (customerPaid / customerRevenue * 100) : 0;
-      
-      return {
-        id: customer.id || customer.name,
-        name: customer.name,
-        displayName: customer.name.length > 15 ? customer.name.substring(0, 12) + '...' : customer.name,
-        total: customerRevenue,
-        invoices: customerInvoices.length,
-        paid: customerPaid,
-        paymentRate: paymentRate.toFixed(0),
-        lastInvoice: customerInvoices.length > 0 ? 
-          new Date(Math.max(...customerInvoices.map(inv => new Date(inv.issueDate || inv.createdAt).getTime()))) 
-          : null
-      };
-    })
-    .filter(c => c.total > 0)
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
+  const topCustomers = useMemo(() => {
+    const customerData = customers
+      .map((customer) => {
+        const customerId = String(customer.id || customer._id || '');
+        const customerName = String(customer.name || '').trim().toLowerCase();
+        const customerInvoices = filteredInvoices.filter((invoice) => {
+          const invoiceCustomerId = String(
+            invoice.customerId || invoice.customer?._id || invoice.customer?.id || ''
+          );
+          const invoiceCustomerName = String(
+            (typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.name)
+            || invoice.customerName
+            || ''
+          ).trim().toLowerCase();
 
-    // Set active customer to the first one if not set
-    if (customerData.length > 0 && !activeCustomer) {
-      setActiveCustomer(customerData[0].id);
-    }
+          if (customerId && invoiceCustomerId) {
+            return customerId === invoiceCustomerId;
+          }
+          return customerName && invoiceCustomerName && customerName === invoiceCustomerName;
+        });
+
+        const customerRevenue = customerInvoices.reduce(
+          (sum, invoice) => sum + toNumber(invoice.totalAmount || invoice.amount || invoice.total),
+          0
+        );
+
+        const customerPaid = customerInvoices
+          .filter((invoice) => String(invoice.status || '').toLowerCase() === 'paid')
+          .reduce((sum, invoice) => sum + toNumber(invoice.totalAmount || invoice.amount || invoice.total), 0);
+
+        const paymentRate = customerRevenue > 0 ? (customerPaid / customerRevenue) * 100 : 0;
+
+        return {
+          id: customer.id || customer._id || customer.name,
+          name: customer.name,
+          displayName: customer.name.length > 15 ? `${customer.name.substring(0, 12)}...` : customer.name,
+          total: customerRevenue,
+          invoices: customerInvoices.length,
+          paid: customerPaid,
+          paymentRate: paymentRate.toFixed(0),
+          lastInvoice: customerInvoices.length > 0
+            ? new Date(Math.max(...customerInvoices.map((invoice) => {
+                const value = parseDateValue(invoice?.issueDate || invoice?.date || invoice?.createdAt);
+                return value ? value.getTime() : 0;
+              })))
+            : null
+        };
+      })
+      .filter((customer) => customer.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
 
     return customerData;
-  };
+  }, [customers, filteredInvoices]);
 
-  // Calculate insights
-  const calculateInsights = () => {
-    const paidInvoices = invoices.filter(inv => inv.status === 'paid');
-    const pendingInvoices = invoices.filter(inv => inv.status === 'sent' || inv.status === 'pending');
-    const overdueInvoices = invoices.filter(inv => inv.status === 'overdue');
-    
-    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
-    const paidRevenue = paidInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
-    const pendingRevenue = pendingInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
-    const overdueRevenue = overdueInvoices.reduce((sum, inv) => sum + (inv.totalAmount || inv.amount || 0), 0);
-    
-    const avgInvoiceValue = invoices.length > 0 ? totalRevenue / invoices.length : 0;
-    const collectionRate = totalRevenue > 0 ? (paidRevenue / totalRevenue * 100) : 0;
-    
+  useEffect(() => {
+    if (!topCustomers.length) {
+      setActiveCustomer(null);
+      return;
+    }
+    const exists = topCustomers.some((customer) => customer.id === activeCustomer);
+    if (!exists) {
+      setActiveCustomer(topCustomers[0].id);
+    }
+  }, [topCustomers, activeCustomer]);
+
+  const insights = useMemo(() => {
+    const paidInvoices = filteredInvoices.filter(
+      (invoice) => String(invoice.status || '').toLowerCase() === 'paid'
+    );
+    const pendingInvoices = filteredInvoices.filter((invoice) => {
+      const status = String(invoice.status || '').toLowerCase();
+      return status === 'sent' || status === 'pending';
+    });
+    const overdueInvoices = filteredInvoices.filter(
+      (invoice) => String(invoice.status || '').toLowerCase() === 'overdue'
+    );
+
+    const totalRevenue = filteredInvoices.reduce(
+      (sum, invoice) => sum + toNumber(invoice.totalAmount || invoice.amount || invoice.total),
+      0
+    );
+    const paidRevenue = paidInvoices.reduce(
+      (sum, invoice) => sum + toNumber(invoice.totalAmount || invoice.amount || invoice.total),
+      0
+    );
+    const pendingRevenue = pendingInvoices.reduce(
+      (sum, invoice) => sum + toNumber(invoice.totalAmount || invoice.amount || invoice.total),
+      0
+    );
+    const overdueRevenue = overdueInvoices.reduce(
+      (sum, invoice) => sum + toNumber(invoice.totalAmount || invoice.amount || invoice.total),
+      0
+    );
+
+    const avgInvoiceValue = filteredInvoices.length > 0 ? totalRevenue / filteredInvoices.length : 0;
+    const collectionRate = totalRevenue > 0 ? (paidRevenue / totalRevenue) * 100 : 0;
+    const rangeDays = Math.max(1, Math.ceil((selectedRange.end.getTime() - selectedRange.start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    const bestMonth = monthlyData.reduce(
+      (max, month) => (month.revenue > max.revenue ? month : max),
+      { revenue: 0, month: 'None' }
+    );
+
     return {
-      bestMonth: () => {
-        const monthlyData = calculateMonthlyRevenue();
-        const bestMonth = monthlyData.reduce((max, month) => month.revenue > max.revenue ? month : max, { revenue: 0, month: 'None' });
-        return { month: bestMonth.month, revenue: bestMonth.revenue };
-      },
-      avgDailySales: avgInvoiceValue > 0 ? (avgInvoiceValue * invoices.length / 30).toFixed(0) : 0,
+      bestMonth: () => ({ month: bestMonth.month, revenue: bestMonth.revenue }),
+      avgDailySales: avgInvoiceValue > 0 ? (totalRevenue / rangeDays).toFixed(0) : 0,
       collectionRate: collectionRate.toFixed(1),
       pendingAmount: pendingRevenue,
       overdueAmount: overdueRevenue,
       paidCount: paidInvoices.length,
       pendingCount: pendingInvoices.length,
-      totalRevenue: totalRevenue
+      totalRevenue
     };
-  };
+  }, [filteredInvoices, monthlyData, selectedRange]);
 
-  const monthlyData = calculateMonthlyRevenue();
-  const topCustomers = calculateTopCustomers();
-  const insights = calculateInsights();
+  const growthSummary = useMemo(() => {
+    if (monthlyData.length < 2) {
+      return { isUp: false, value: '0.0%' };
+    }
+
+    const firstRevenue = toNumber(monthlyData[0]?.revenue);
+    const lastRevenue = toNumber(monthlyData[monthlyData.length - 1]?.revenue);
+
+    if (firstRevenue <= 0) {
+      if (lastRevenue > 0) return { isUp: true, value: '+100.0%' };
+      return { isUp: false, value: '0.0%' };
+    }
+
+    const change = ((lastRevenue - firstRevenue) / firstRevenue) * 100;
+    return {
+      isUp: change >= 0,
+      value: `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`
+    };
+  }, [monthlyData]);
+
+  const topCustomersTotal = useMemo(
+    () => topCustomers.reduce((sum, customer) => sum + toNumber(customer.total), 0),
+    [topCustomers]
+  );
+  const topCustomersShare = insights.totalRevenue > 0
+    ? ((topCustomersTotal / insights.totalRevenue) * 100).toFixed(1)
+    : '0.0';
 
   // Find active customer data
   const activeCustomerData = useMemo(() => {
@@ -229,7 +383,7 @@ const ReportCharts = () => {
           cx={cx}
           cy={cy}
           innerRadius={innerRadius}
-          outerRadius={outerRadius + 8}
+          outerRadius={outerRadius + 5}
           startAngle={startAngle}
           endAngle={endAngle}
           fill={fill}
@@ -258,11 +412,11 @@ const ReportCharts = () => {
     }
 
     return (
-      <div className="h-[340px] md:h-[440px] w-full">
+      <div className="h-[420px] md:h-[520px] w-full">
         <div className="flex flex-col lg:flex-row h-full gap-4 lg:gap-6">
-          {/* Pie Chart - Larger and properly centered */}
-          <div className="lg:w-2/3 h-2/3 lg:h-full">
-            <ResponsiveContainer width="100%" height="100%">
+          {/* Pie Chart - Larger, centered and with overlay labels */}
+          <div className="relative lg:w-2/3 h-[260px] md:h-[340px] lg:h-full flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
               <PieChart>
                 <Tooltip 
                   formatter={(value) => [formatMoneyNoDecimals(value), 'Revenue']}
@@ -280,8 +434,8 @@ const ReportCharts = () => {
                   nameKey="displayName"
                   cx="50%"
                   cy="50%"
-                  innerRadius="45%"
-                  outerRadius="75%"
+                  innerRadius="58%"
+                  outerRadius="90%"
                   paddingAngle={3}
                   strokeWidth={2}
                   stroke={isDarkMode ? '#1f2937' : '#f9fafb'}
@@ -296,56 +450,34 @@ const ReportCharts = () => {
                     />
                   ))}
                 </Pie>
-                {/* Central text with proper positioning */}
-                <text
-                  x="50%"
-                  y="45%"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className={isDarkMode ? 'fill-white' : 'fill-gray-900'}
-                  style={{ 
-                    fontSize: 'clamp(1.25rem, 4vw, 2rem)', 
-                    fontWeight: 'bold',
-                    fontFamily: 'system-ui, -apple-system, sans-serif'
-                  }}
-                >
-                  {formatMoneyNoDecimals(activeCustomerData?.total || 0)}
-                </text>
-                <text
-                  x="50%"
-                  y="55%"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className={isDarkMode ? 'fill-gray-400' : 'fill-gray-600'}
-                  style={{ 
-                    fontSize: 'clamp(0.75rem, 2.5vw, 1rem)',
-                    fontFamily: 'system-ui, -apple-system, sans-serif'
-                  }}
-                >
-                  {activeCustomerData?.displayName || 'No data'}
-                </text>
-                <text
-                  x="50%"
-                  y="65%"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className={parseFloat(activeCustomerData?.paymentRate || 0) > 70 
-                    ? (isDarkMode ? 'fill-emerald-400' : 'fill-emerald-600') 
-                    : (isDarkMode ? 'fill-amber-400' : 'fill-amber-600')}
-                  style={{ 
-                    fontSize: 'clamp(0.65rem, 2vw, 0.85rem)',
-                    fontWeight: '600',
-                    fontFamily: 'system-ui, -apple-system, sans-serif'
-                  }}
-                >
-                  {activeCustomerData?.paymentRate || '0'}% Paid
-                </text>
               </PieChart>
             </ResponsiveContainer>
+
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="max-w-[64%] px-2 text-center">
+                <div className={`font-bold leading-tight break-words ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`} style={{ fontSize: 'clamp(1rem, 2.1vw, 1.9rem)' }}>
+                  {formatMoneyNoDecimals(activeCustomerData?.total || 0)}
+                </div>
+                <div className={`mt-1 text-xs md:text-sm truncate ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  {activeCustomerData?.displayName || 'No data'}
+                </div>
+                <div className={`mt-1 text-[11px] md:text-xs font-semibold ${
+                  parseFloat(activeCustomerData?.paymentRate || 0) > 70
+                    ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
+                    : (isDarkMode ? 'text-amber-400' : 'text-amber-600')
+                }`}>
+                  {activeCustomerData?.paymentRate || '0'}% Paid
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Customer Legend - Responsive */}
-          <div className="lg:w-1/3 h-1/3 lg:h-full">
+          <div className="lg:w-1/3 h-[160px] md:h-[170px] lg:h-full">
             <div className={`h-full ${isDarkMode ? 'bg-gray-800/30' : 'bg-gray-50'} rounded-lg md:rounded-xl p-3 md:p-4 flex flex-col`}>
               <h4 className={`font-semibold mb-2 md:mb-3 text-xs md:text-sm uppercase tracking-wider ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-500'
@@ -426,7 +558,7 @@ const ReportCharts = () => {
                   <div className={`text-xs font-medium whitespace-nowrap ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-700'
                   }`}>
-                    {((topCustomers.reduce((sum, c) => sum + c.total, 0) / insights.totalRevenue) * 100 || 0).toFixed(1)}%
+                    {topCustomersShare}%
                   </div>
                 </div>
               </div>
@@ -455,30 +587,28 @@ const ReportCharts = () => {
             <p className={`mt-1 text-xs md:text-sm ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              Monthly revenue for {new Date().getFullYear()}
+              Revenue trend for {selectedRange.label}
             </p>
           </div>
           <div className={`flex items-center text-sm md:text-base ${
-            monthlyData.length > 1 && monthlyData[monthlyData.length - 1].revenue > monthlyData[0].revenue
+            growthSummary.isUp
               ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
               : (isDarkMode ? 'text-red-400' : 'text-red-600')
           }`}>
-            {monthlyData.length > 1 && monthlyData[monthlyData.length - 1].revenue > monthlyData[0].revenue ? (
+            {growthSummary.isUp ? (
               <TrendingUp className="w-3 h-3 md:w-4 md:h-4 mr-1" />
             ) : (
               <TrendingDown className="w-3 h-3 md:w-4 md:h-4 mr-1" />
             )}
             <span className="font-medium">
-              {monthlyData.length > 1 
-                ? `${((monthlyData[monthlyData.length - 1].revenue - monthlyData[0].revenue) / monthlyData[0].revenue * 100).toFixed(1)}%` 
-                : '0%'} growth
+              {growthSummary.value} growth
             </span>
           </div>
         </div>
         
         {/* Bar Chart with Recharts - Responsive */}
         <div className="h-48 md:h-64">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
             <BarChart
               data={monthlyData}
               margin={{ top: 10, right: 20, left: 0, bottom: 0 }}

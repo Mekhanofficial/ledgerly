@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { formatCurrency as formatMoneyUtil } from './currency';
+import { getWatermarkFooterText, shouldShowWatermark } from './brandingPlan';
 
 // ----------------------------------------------------------------------
 // TEMPLATE DEFINITIONS (consolidated)
@@ -230,6 +231,23 @@ const normalizeInvoiceItems = (invoiceData) => {
       amount
     };
   });
+};
+
+const addLedgerlyFooterWatermark = (doc, companyData = {}) => {
+  if (!shouldShowWatermark(companyData)) return;
+  const watermarkText = getWatermarkFooterText(companyData);
+  if (!watermarkText) return;
+
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let page = 1; page <= totalPages; page += 1) {
+    doc.setPage(page);
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(130, 130, 130);
+    doc.text(watermarkText, pageWidth / 2, pageHeight - 8, { align: 'center' });
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -792,7 +810,16 @@ export const generateInvoicePDF = (invoiceData, templateId = 'standard', company
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
-  const template = getTemplate(templateId);
+  const templateBase = getTemplate(templateId);
+  const template = {
+    ...templateBase,
+    layout: {
+      ...(templateBase?.layout || {}),
+      // Disable template-name watermarks globally. Branding watermark is plan-driven.
+      showWatermark: false,
+      watermarkText: ''
+    }
+  };
   setActiveCurrency(invoiceData?.currency || companyData?.currency || 'USD');
 
   // Route to appropriate drawing function
@@ -842,6 +869,8 @@ export const generateInvoicePDF = (invoiceData, templateId = 'standard', company
         drawBasicInvoice(doc, template, invoiceData, companyData, pageWidth, pageHeight);
       }
   }
+
+  addLedgerlyFooterWatermark(doc, companyData);
 
   return doc;
 };

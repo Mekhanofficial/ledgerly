@@ -149,7 +149,11 @@ const RecurringInvoices = () => {
       saveInvoice(invoiceData);
 
       // Generate PDF
-      const pdfDoc = generateInvoicePDF(invoiceData);
+      const pdfDoc = generateInvoicePDF(
+        invoiceData,
+        invoice.templateStyle || 'standard',
+        accountInfo
+      );
       pdfDoc.save(`${newInvoiceNumber}.pdf`);
       
       // Update cycles completed

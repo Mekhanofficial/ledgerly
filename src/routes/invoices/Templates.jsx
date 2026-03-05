@@ -11,6 +11,24 @@ import { useToast } from '../../context/ToastContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { initializeTemplatePayment } from '../../services/billingService';
 
+const TEMPLATE_BUNDLE_IDS = {
+  premium: 'bundle_premium_templates',
+  elite: 'bundle_elite_templates',
+  all: 'bundle_all_templates'
+};
+
+const resolveTemplateTier = (template = {}) => {
+  const tierCandidate = String(template?.tier || '').trim().toLowerCase();
+  if (tierCandidate === 'premium' || tierCandidate === 'elite' || tierCandidate === 'standard') {
+    return tierCandidate;
+  }
+  const category = String(template?.category || '').trim().toLowerCase();
+  if (category === 'premium' || category === 'elite' || category === 'standard') {
+    return category;
+  }
+  return 'standard';
+};
+
 const InvoiceTemplates = () => {
   const { isDarkMode } = useTheme();
   const navigate = useNavigate();
@@ -22,7 +40,7 @@ const InvoiceTemplates = () => {
   const [favoriteMap, setFavoriteMap] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('template_favorites') || '{}');
-    } catch (error) {
+    } catch {
       return {};
     }
   });
@@ -33,8 +51,16 @@ const InvoiceTemplates = () => {
       isFavorite: favorites[template.id] ?? template.isFavorite
     }));
   };
-  const hasPaidAccess = templates.some((template) => template.hasAccess && (template.category === 'PREMIUM' || template.category === 'ELITE'));
-  const hasLockedTemplates = templates.some((template) => template.category !== 'CUSTOM' && template.hasAccess === false);
+
+  const resolveTemplateAccess = (template) => {
+    if (typeof template?.isUnlocked === 'boolean') return template.isUnlocked;
+    return template?.hasAccess !== false;
+  };
+
+  const hasPaidAccess = templates.some((template) =>
+    resolveTemplateAccess(template) && (template.category === 'PREMIUM' || template.category === 'ELITE')
+  );
+  const hasLockedTemplates = templates.some((template) => template.category !== 'CUSTOM' && !resolveTemplateAccess(template));
   
   // Load templates on component mount
   useEffect(() => {
@@ -93,9 +119,26 @@ const InvoiceTemplates = () => {
     return false;
   };
 
-  const handlePurchaseTemplate = async (templateId) => {
+  const handlePurchaseTemplate = async (templateOrId) => {
     try {
-      const response = await initializeTemplatePayment({ templateId });
+      const template = typeof templateOrId === 'string'
+        ? templates.find((item) => item.id === templateOrId)
+        : templateOrId;
+      const templateId = typeof templateOrId === 'string'
+        ? templateOrId
+        : templateOrId?.id;
+      if (!templateId) {
+        addToast('Missing template information for checkout', 'error');
+        return;
+      }
+      const tier = resolveTemplateTier(template || {});
+
+      const response = await initializeTemplatePayment({
+        templateId,
+        type: 'template',
+        purchaseType: 'single',
+        tier
+      });
       const data = response?.data || response;
       if (!redirectToCheckout(data)) {
         addToast('Unable to start payment. Please try again.', 'error');
@@ -106,9 +149,19 @@ const InvoiceTemplates = () => {
     }
   };
 
-  const handlePurchaseBundle = async () => {
+  const handlePurchaseBundle = async (bundleTier = 'premium') => {
     try {
-      const response = await initializeTemplatePayment({ type: 'lifetime' });
+      const normalizedTier = ['premium', 'elite', 'all'].includes(String(bundleTier || '').toLowerCase())
+        ? String(bundleTier).toLowerCase()
+        : 'premium';
+      const bundleTemplateId = TEMPLATE_BUNDLE_IDS[normalizedTier] || TEMPLATE_BUNDLE_IDS.premium;
+      const response = await initializeTemplatePayment({
+        type: normalizedTier === 'all' ? 'lifetime' : 'bundle',
+        templateId: bundleTemplateId,
+        purchaseType: 'bundle',
+        bundleTier: normalizedTier,
+        unlockAllTemplates: normalizedTier === 'all'
+      });
       const data = response?.data || response;
       if (!redirectToCheckout(data)) {
         addToast('Unable to start payment. Please try again.', 'error');

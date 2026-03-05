@@ -11,33 +11,60 @@ const PLAN_FEATURES = {
     '100 invoices per month',
     'Unlimited receipts',
     'Basic reporting',
-    'Email support',
     'Single user',
-    'Mobile app access',
-    'Access to 5 Standard templates only'
+    '5 Standard templates',
+    'No recurring invoices',
+    'No API',
+    'No team'
   ],
   professional: [
     'Unlimited invoices',
     'Advanced reporting',
     '5 team members',
-    'Priority support',
     'Recurring invoices',
-    'Inventory management',
+    'Inventory',
     'Customer database',
     'Multi-currency',
-    'API access (limited)',
-    'Access to Standard + Premium templates'
+    'Limited API',
+    'All Standard + Premium templates'
   ],
   enterprise: [
     'Everything in Professional',
     '20 team members',
-    'Full API access',
+    'Full API',
     'White-label branding',
     'Custom workflows',
     'Dedicated manager',
     'SLA guarantee',
-    'Access to all templates including Elite'
+    'All templates (Standard + Premium + Elite)'
   ]
+};
+
+const PLAN_PRICING = {
+  starter: {
+    id: 'starter',
+    name: 'Starter',
+    monthlyPrice: 2000,
+    yearlyPrice: 24000
+  },
+  professional: {
+    id: 'professional',
+    name: 'Professional',
+    monthlyPrice: 7000,
+    yearlyPrice: 84000
+  },
+  enterprise: {
+    id: 'enterprise',
+    name: 'Enterprise',
+    monthlyPrice: 30000,
+    yearlyPrice: 360000
+  }
+};
+
+const ADD_ON_PRICING = {
+  whiteLabel: { monthly: 5000, yearly: 60000 },
+  extraSeats: { monthly: 1500, yearly: 18000 },
+  analytics: { monthly: 3000, yearly: 36000 }
 };
 
 const BillingSettings = () => {
@@ -98,10 +125,15 @@ const BillingSettings = () => {
   }, []);
 
   const planCatalog = useMemo(() => {
-    const catalog = billing?.planCatalog || {};
+    const apiCatalog = billing?.planCatalog || {};
     const order = ['starter', 'professional', 'enterprise'];
     return order
-      .map((id) => catalog[id])
+      .map((id) => ({
+        ...(apiCatalog[id] || {}),
+        ...(PLAN_PRICING[id] || {}),
+        id,
+        name: PLAN_PRICING[id]?.name || apiCatalog[id]?.name || id
+      }))
       .filter(Boolean);
   }, [billing]);
 
@@ -111,6 +143,7 @@ const BillingSettings = () => {
   const currentCycle = currentSubscription?.billingCycle || 'monthly';
   const currentStatus = String(currentSubscription?.status || 'active').toLowerCase();
   const hasPlanChanges = selectedPlan !== currentPlan || billingCycle !== currentCycle;
+  const isYearly = billingCycle === 'yearly';
 
   const formatDate = (value) => {
     if (!value) return 'Not set';
@@ -126,9 +159,12 @@ const BillingSettings = () => {
   const formatCurrency = (value) => {
     const amount = Number(value);
     if (!Number.isFinite(amount)) return value;
+    const hasWholeAmount = Number.isInteger(amount);
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
-      currency: pricingCurrency
+      currency: pricingCurrency,
+      minimumFractionDigits: hasWholeAmount ? 0 : 2,
+      maximumFractionDigits: hasWholeAmount ? 0 : 2
     }).format(amount);
   };
 
@@ -389,7 +425,7 @@ const BillingSettings = () => {
               >
                 Yearly
                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-700">
-                  Save 20%
+                  Recommended
                 </span>
               </button>
             </div>
@@ -399,7 +435,7 @@ const BillingSettings = () => {
             {planCatalog.map((plan) => {
               const isSelected = selectedPlan === plan.id;
               const isPopular = plan.id === 'professional';
-              const price = billingCycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
+              const price = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
               const features = PLAN_FEATURES[plan.id] || [];
 
               return (
@@ -442,9 +478,14 @@ const BillingSettings = () => {
                     <span className={`text-sm ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-600'
                     }`}>
-                      /{billingCycle === 'yearly' ? 'year' : 'month'}
+                      /{isYearly ? 'year' : 'month'}
                     </span>
                   </div>
+                  {isYearly && Number(plan.monthlyPrice) > 0 && (
+                    <div className="mt-1 text-xs text-emerald-600">
+                      ({formatCurrency(plan.monthlyPrice)}/month equivalent)
+                    </div>
+                  )}
                   <div className="mt-4 space-y-2">
                     {features.map((feature) => (
                       <div key={feature} className="flex items-start gap-2 text-sm">
@@ -514,6 +555,9 @@ const BillingSettings = () => {
                     }`}>
                       Remove Ledgerly branding (Professional+)
                     </p>
+                    <p className="mt-1 text-xs text-purple-600 dark:text-purple-400">
+                      {isYearly ? formatCurrency(ADD_ON_PRICING.whiteLabel.yearly) : formatCurrency(ADD_ON_PRICING.whiteLabel.monthly)} {isYearly ? 'per year' : 'per month'}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -554,7 +598,7 @@ const BillingSettings = () => {
                     <p className={`text-xs ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-500'
                     }`}>
-                      ₦5 per additional seat
+                      {isYearly ? formatCurrency(ADD_ON_PRICING.extraSeats.yearly) : formatCurrency(ADD_ON_PRICING.extraSeats.monthly)} {isYearly ? 'per year per seat' : 'per month per seat'}
                     </p>
                   </div>
                   <Users className="w-5 h-5 text-primary-500" />
@@ -599,7 +643,7 @@ const BillingSettings = () => {
                     <p className={`text-xs ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-500'
                     }`}>
-                      ₦10 per month
+                      {isYearly ? formatCurrency(ADD_ON_PRICING.analytics.yearly) : formatCurrency(ADD_ON_PRICING.analytics.monthly)} {isYearly ? 'per year' : 'per month'}
                     </p>
                   </div>
                   <Zap className="w-5 h-5 text-primary-500" />
@@ -628,7 +672,7 @@ const BillingSettings = () => {
               <div className={`text-sm ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Add-ons are billed monthly and can be changed anytime.
+                Add-ons are billed {isYearly ? 'yearly' : 'monthly'} and can be changed anytime.
               </div>
               <button
                 type="button"

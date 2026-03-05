@@ -216,13 +216,15 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className={`hidden lg:flex flex-col fixed inset-y-0 left-0 z-30 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 ${isOpen ? 'w-64' : 'w-20'}`}>
+      <aside
+        data-dashboard-sidebar="true"
+        className={`hidden lg:flex flex-col fixed inset-y-0 left-0 z-30 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 ${isOpen ? 'w-64' : 'w-20'}`}
+      >
         {/* Logo */}
-        <div className="flex items-center h-16 px-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center h-16 px-4">
           <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center flex-shrink-0">
-            <img src={logo} alt="Ledgerly logo" className="w-6 h-6 object-contain" />
+            <img src={logo} alt="Ledgerly" className="w-6 h-6 object-contain" />
           </div>
-          {isOpen && <span className="sr-only">Ledgerly</span>}
         </div>
 
         {/* Main Menu */}
@@ -270,9 +272,8 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center">
             <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center">
-              <img src={logo} alt="Ledgerly logo" className="w-6 h-6 object-contain" />
+              <img src={logo} alt="Ledgerly" className="w-6 h-6 object-contain" />
             </div>
-            <span className="sr-only">Ledgerly</span>
           </div>
           <button
             onClick={onMobileToggle}
