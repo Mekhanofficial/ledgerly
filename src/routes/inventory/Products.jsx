@@ -107,11 +107,11 @@ const Products = () => {
     
     if (stock === 0) {
       return isDarkMode 
-        ? <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-900/30 text-red-300 rounded-full">
+        ? <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-900/30 text-red-300 rounded-full whitespace-nowrap">
             <AlertCircle className="w-3 h-3 mr-1" />
             Out of Stock
           </span>
-        : <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
+        : <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full whitespace-nowrap">
             <AlertCircle className="w-3 h-3 mr-1" />
             Out of Stock
           </span>;
@@ -119,22 +119,22 @@ const Products = () => {
     
     if (stock <= (product.reorderLevel || 10)) {
       return isDarkMode 
-        ? <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-amber-900/30 text-amber-300 rounded-full">
+        ? <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-amber-900/30 text-amber-300 rounded-full whitespace-nowrap">
             <AlertCircle className="w-3 h-3 mr-1" />
             Low Stock
           </span>
-        : <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded-full">
+        : <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded-full whitespace-nowrap">
             <AlertCircle className="w-3 h-3 mr-1" />
             Low Stock
           </span>;
     }
     
     return isDarkMode 
-      ? <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-emerald-900/30 text-emerald-300 rounded-full">
+      ? <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-emerald-900/30 text-emerald-300 rounded-full whitespace-nowrap">
           <CheckCircle className="w-3 h-3 mr-1" />
           In Stock
         </span>
-      : <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full">
+      : <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full whitespace-nowrap">
           <CheckCircle className="w-3 h-3 mr-1" />
           In Stock
         </span>;
@@ -547,7 +547,7 @@ const Products = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowMobileFilters(!showMobileFilters)}
-                  className="lg:hidden flex items-center justify-center px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
+                  className="lg:hidden flex items-center justify-center px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm whitespace-nowrap"
                 >
                   <Filter className="w-4 h-4 mr-2" />
                   {getActiveFilterLabel()}
@@ -597,7 +597,7 @@ const Products = () => {
                       setFilter(status);
                       setShowMobileFilters(false);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${
                       filter === status
                         ? 'bg-primary-600 text-white'
                         : isDarkMode

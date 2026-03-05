@@ -107,11 +107,6 @@ const EditProduct = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        addToast('Image size should be less than 2MB', 'error');
-        return;
-      }
-      
       if (!file.type.startsWith('image/')) {
         addToast('Please select an image file', 'error');
         return;
@@ -119,11 +114,6 @@ const EditProduct = () => {
       
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result;
-        if (base64String.length > 500000) {
-          addToast('Image is too large, please use a smaller image', 'error');
-          return;
-        }
         setFormData(prev => ({ ...prev, image: reader.result }));
       };
       reader.readAsDataURL(file);
@@ -496,7 +486,7 @@ const EditProduct = () => {
                           Click to upload product image
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          PNG, JPG up to 2MB
+                          PNG, JPG
                         </p>
                       </div>
                     )}

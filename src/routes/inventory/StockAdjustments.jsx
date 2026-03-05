@@ -279,7 +279,7 @@ const StockAdjustments = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowMobileFilters(!showMobileFilters)}
-                  className="lg:hidden flex items-center justify-center px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
+                  className="lg:hidden flex items-center justify-center px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm whitespace-nowrap"
                 >
                   <Filter className="w-4 h-4 mr-2" />
                   Filters
@@ -328,7 +328,7 @@ const StockAdjustments = () => {
                       setFilter(type);
                       setShowMobileFilters(false);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${
                       filter === type
                         ? 'bg-primary-600 text-white'
                         : isDarkMode
@@ -447,7 +447,7 @@ const StockAdjustments = () => {
                           </div>
                         </td>
                         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(adj.type)}`}>
+                          <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${getTypeColor(adj.type)}`}>
                             <TypeIcon className="w-3 h-3 mr-1" />
                             {adj.type}
                           </span>

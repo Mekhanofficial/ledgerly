@@ -117,7 +117,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
       <div className={`rounded-2xl border p-4 ${
         isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
       }`}>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h3 className={`text-sm font-semibold uppercase tracking-wider ${
               isDarkMode ? 'text-gray-300' : 'text-gray-700'
@@ -130,7 +130,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
               {filteredProducts.length} result{filteredProducts.length === 1 ? '' : 's'} from {products.length} inventory items
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:w-auto">
             {[
               { label: 'Cart Units', value: cartUnits },
               { label: 'Low Stock', value: lowStockCount },
@@ -138,7 +138,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className={`rounded-xl border px-3 py-2 ${
+                className={`min-w-0 rounded-xl border px-3 py-2 ${
                   isDarkMode ? 'border-gray-600 bg-gray-900/60' : 'border-gray-200 bg-gray-50'
                 }`}
               >
@@ -157,8 +157,8 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px]">
-          <div className="relative">
+        <div className="mt-4 flex flex-wrap gap-3">
+          <div className="relative min-w-[220px] flex-[2_1_320px]">
             <Search className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${
               isDarkMode ? 'text-gray-400' : 'text-gray-400'
             }`} />
@@ -175,7 +175,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
             />
           </div>
 
-          <div>
+          <div className="min-w-[170px] flex-1 sm:flex-[1_1_180px]">
             <label className={`mb-1 flex items-center gap-1 text-xs font-medium ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
             }`}>
@@ -200,7 +200,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
             </select>
           </div>
 
-          <div>
+          <div className="min-w-[150px] flex-1 sm:flex-[1_1_170px]">
             <label className={`mb-1 block text-xs font-medium ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
             }`}>

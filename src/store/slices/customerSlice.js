@@ -114,6 +114,18 @@ export const deleteCustomer = createAsyncThunk(
   }
 );
 
+export const sendCustomerStatement = createAsyncThunk(
+  'customers/sendStatement',
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await api.post(`/customers/${id}/send-statement`);
+      return response.data?.data || { customerId: id };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to send customer statement');
+    }
+  }
+);
+
 const initialState = {
   customers: [],
   currentCustomer: null,

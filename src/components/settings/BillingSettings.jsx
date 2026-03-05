@@ -463,7 +463,7 @@ const BillingSettings = () => {
                     }`}>
                       {plan.name}
                     </h5>
-                    {currentPlan === plan.id && (
+                    {currentPlan === plan.id && currentCycle === billingCycle && (
                       <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary-100 text-primary-700">
                         Current
                       </span>

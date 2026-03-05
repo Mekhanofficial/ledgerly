@@ -186,7 +186,7 @@ const ReceiptPreview = ({
                   <div className="text-lg font-semibold tracking-tight" style={{ color: templatePalette.primary }}>
                     {companyName}
                   </div>
-                  <div className={`mt-1 text-xs leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <div className={`mt-1 text-xs leading-relaxed break-words ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                     {locationParts.length ? locationParts.join(' | ') : 'Business address not configured'}
                     {contactLine ? ` | ${contactLine}` : ''}
                   </div>
@@ -227,11 +227,11 @@ const ReceiptPreview = ({
               </div>
             </section>
 
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <div className={`rounded-xl border p-4 ${
+            <section className="flex flex-wrap gap-4">
+              <div className={`min-w-[260px] flex-1 rounded-xl border p-4 ${
                 isDarkMode ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-white'
               }`}>
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <User className={`h-4 w-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
                     <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Customer</h3>
@@ -240,7 +240,7 @@ const ReceiptPreview = ({
                     type="button"
                     onClick={onSelectCustomer}
                     disabled={isProcessing}
-                    className={`text-xs font-medium ${
+                    className={`whitespace-nowrap text-xs font-medium ${
                       isDarkMode ? 'text-primary-300 hover:text-primary-200' : 'text-primary-600 hover:text-primary-700'
                     } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
                   >
@@ -255,7 +255,7 @@ const ReceiptPreview = ({
                     <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       {selectedCustomer?.name || customerName || 'Customer'}
                     </div>
-                    <div className={`mt-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <div className={`mt-1 break-all text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       {previewEmail || 'No email on file'}
                     </div>
                   </div>
@@ -288,16 +288,16 @@ const ReceiptPreview = ({
                 )}
               </div>
 
-              <div className={`rounded-xl border p-4 ${
+              <div className={`min-w-[260px] flex-1 rounded-xl border p-4 ${
                 isDarkMode ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-white'
               }`}>
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Payment Method</h3>
                   <button
                     type="button"
                     onClick={onSelectPaymentMethod}
                     disabled={isProcessing}
-                    className={`text-xs font-medium ${
+                    className={`whitespace-nowrap text-xs font-medium ${
                       isDarkMode ? 'text-primary-300 hover:text-primary-200' : 'text-primary-600 hover:text-primary-700'
                     } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
                   >
@@ -317,7 +317,7 @@ const ReceiptPreview = ({
                     />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {['Cash', 'Card', 'Mobile Money'].map((method) => {
                       const Icon = method === 'Cash' ? Wallet : method === 'Card' ? CreditCard : Smartphone;
                       const active = paymentMethod === method;
@@ -327,7 +327,7 @@ const ReceiptPreview = ({
                           type="button"
                           onClick={() => setPaymentMethod(method)}
                           disabled={isProcessing}
-                          className={`rounded-xl border px-2 py-3 text-center transition ${
+                          className={`min-w-0 rounded-xl border px-2 py-3 text-center transition ${
                             active
                               ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
                               : isDarkMode
@@ -336,7 +336,7 @@ const ReceiptPreview = ({
                           } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
                         >
                           <Icon className="mx-auto h-4 w-4" />
-                          <span className="mt-1 block text-[11px] font-medium">{method}</span>
+                          <span className="mt-1 block truncate text-[11px] font-medium" title={method}>{method}</span>
                         </button>
                       );
                     })}
@@ -348,8 +348,8 @@ const ReceiptPreview = ({
             <section className={`rounded-xl border p-4 ${
               isDarkMode ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-white'
             }`}>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-                <div>
+              <div className="flex flex-wrap gap-4">
+                <div className="min-w-[240px] flex-1">
                   <div className="mb-2 flex items-center justify-between">
                     <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Receipt Template</h3>
                     <div className="flex items-center gap-1">
@@ -381,7 +381,7 @@ const ReceiptPreview = ({
                   </div>
                 </div>
 
-                <div>
+                <div className="min-w-[240px] flex-1">
                   <label className={`mb-2 block text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                     Notes
                   </label>
@@ -488,34 +488,34 @@ const ReceiptPreview = ({
               )}
             </section>
 
-            <section className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(240px,320px)]">
-              <div className={`rounded-xl border p-4 ${
+            <section className="flex flex-wrap gap-4">
+              <div className={`min-w-[260px] flex-1 rounded-xl border p-4 ${
                 isDarkMode ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-white'
               }`}>
                 <h3 className={`mb-3 text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   Payment Summary
                 </h3>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between gap-3 text-sm">
                     <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Subtotal</span>
-                    <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{formatMoney(subtotal)}</span>
+                    <span className={`whitespace-nowrap text-right ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{formatMoney(subtotal)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between gap-3 text-sm">
                     <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Tax (8.5%)</span>
-                    <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{formatMoney(tax)}</span>
+                    <span className={`whitespace-nowrap text-right ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{formatMoney(tax)}</span>
                   </div>
                   <div className={`mt-2 flex items-center justify-between rounded-xl border px-3 py-2 ${
                     isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
                   }`}>
                     <span className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Total</span>
-                    <span className="text-lg font-semibold" style={{ color: templatePalette.primary }}>
+                    <span className="whitespace-nowrap text-lg font-semibold text-right" style={{ color: templatePalette.primary }}>
                       {formatMoney(total)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className={`rounded-xl border p-4 ${
+              <div className={`min-w-[260px] flex-1 rounded-xl border p-4 ${
                 isDarkMode ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-white'
               }`}>
                 <h3 className={`mb-3 text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>

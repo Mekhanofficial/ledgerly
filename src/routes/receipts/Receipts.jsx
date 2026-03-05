@@ -649,7 +649,7 @@ const Receipts = () => {
           )}
 
           {/* Main POS Workspace */}
-          <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1.25fr)_minmax(380px,0.95fr)]'}`}>
+          <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.9fr)]'}`}>
             <section className={`${isMobile && showMobileReceipt ? 'hidden' : 'block'}`}>
               <div className={`rounded-2xl border ${
                 isDarkMode ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'
@@ -685,7 +685,7 @@ const Receipts = () => {
                 <div className={`rounded-2xl border px-5 py-4 ${
                   isDarkMode ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'
                 }`}>
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         Checkout & Receipt
@@ -694,7 +694,7 @@ const Receipts = () => {
                         Confirm customer, payment method, and issue the receipt.
                       </p>
                     </div>
-                    <div className={`rounded-xl px-3 py-2 text-right ${
+                    <div className={`shrink-0 rounded-xl px-3 py-2 text-right ${
                       isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-gray-50 border border-gray-200'
                     }`}>
                       <div className={`text-[11px] uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Total</div>

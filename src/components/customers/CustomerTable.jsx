@@ -5,7 +5,7 @@ import { useAccount } from '../../context/AccountContext';
 import TablePagination from '../ui/TablePagination';
 import { useTablePagination } from '../../hooks/usePagination';
 
-const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete }) => {
+const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete, isSendingStatement = false }) => {
   const { isDarkMode } = useTheme();
   const { accountInfo } = useAccount();
   const currencyCode = accountInfo?.currency || 'USD';
@@ -157,10 +157,13 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete })
             {selectedCustomers.length > 0 && (
               <button
                 onClick={() => onSendStatement(selectedCustomers)}
-                className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                disabled={isSendingStatement}
+                className={`flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 ${
+                  isSendingStatement ? 'opacity-60 cursor-not-allowed' : ''
+                }`}
               >
                 <Send className="w-4 h-4 mr-2" />
-                Send Statements ({selectedCustomers.length})
+                {isSendingStatement ? 'Sending...' : `Send Statements (${selectedCustomers.length})`}
               </button>
             )}
           </div>
@@ -382,11 +385,12 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete })
                     {/* Send Statement Button */}
                     <button
                       onClick={() => onSendStatement([customer.id])}
+                      disabled={isSendingStatement}
                       className={`p-1.5 rounded-lg ${
                         isDarkMode 
                           ? 'text-primary-400 hover:bg-primary-900/20' 
                           : 'text-primary-600 hover:bg-primary-50'
-                      }`}
+                      } ${isSendingStatement ? 'opacity-60 cursor-not-allowed' : ''}`}
                       title="Send Statement"
                     >
                       <Send className="w-4 h-4" />

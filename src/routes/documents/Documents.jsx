@@ -17,7 +17,6 @@ const DOCUMENT_PLAN_CONFIG = {
     label: 'Starter (Free)',
     maxDocuments: 50,
     maxStorageBytes: 250 * MB,
-    maxFileSizeBytes: 5 * MB,
     allowBulkUpload: false,
     allowFolderOrganization: false,
     allowAdvancedTagging: false,
@@ -32,7 +31,6 @@ const DOCUMENT_PLAN_CONFIG = {
     label: 'Professional',
     maxDocuments: 1000,
     maxStorageBytes: 5 * GB,
-    maxFileSizeBytes: 15 * MB,
     allowBulkUpload: true,
     allowFolderOrganization: false,
     allowAdvancedTagging: false,
@@ -56,7 +54,6 @@ const DOCUMENT_PLAN_CONFIG = {
     label: 'Enterprise',
     maxDocuments: 10000,
     maxStorageBytes: 50 * GB,
-    maxFileSizeBytes: 50 * MB,
     allowBulkUpload: true,
     allowFolderOrganization: true,
     allowAdvancedTagging: true,
@@ -208,11 +205,6 @@ const Documents = () => {
         return;
       }
 
-      if (fileSize > planConfig.maxFileSizeBytes) {
-        skippedFiles.push(`${fileName} (exceeds ${formatFileSize(planConfig.maxFileSizeBytes)})`);
-        return;
-      }
-
       if (projectedCount + 1 > planConfig.maxDocuments) {
         skippedFiles.push(`${fileName} (document limit reached)`);
         return;
@@ -229,7 +221,7 @@ const Documents = () => {
     });
 
     if (!uploadQueue.length) {
-      addToast('No files were uploaded. Check file type, file size, and remaining storage.', 'warning');
+      addToast('No files were uploaded. Check file type, plan limits, and remaining storage.', 'warning');
       if (skippedFiles.length) {
         addToast(`Skipped: ${skippedFiles.slice(0, 2).join(', ')}`, 'warning');
       }
@@ -337,8 +329,7 @@ const Documents = () => {
               Upload PDFs, scans, and business documents for quick access.
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Plan: {planConfig.label} | Max documents: {planConfig.maxDocuments.toLocaleString()} | Max file size:{' '}
-              {formatFileSize(planConfig.maxFileSizeBytes)} | Supported: {planConfig.supportedTypesLabel}
+              Plan: {planConfig.label} | Max documents: {planConfig.maxDocuments.toLocaleString()} | Supported: {planConfig.supportedTypesLabel}
             </p>
             {isStarterPlan && (
               <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">

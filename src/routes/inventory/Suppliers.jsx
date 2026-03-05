@@ -23,31 +23,31 @@ const Suppliers = () => {
   const getStatusBadge = (status) => {
     if (status === 'Active') {
       return isDarkMode 
-        ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-900/30 text-emerald-300">
+        ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-900/30 text-emerald-300 whitespace-nowrap">
             <CheckCircle className="w-3 h-3 mr-1" />
             Active
           </span>
-        : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+        : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 whitespace-nowrap">
             <CheckCircle className="w-3 h-3 mr-1" />
             Active
           </span>;
     }
     if (status === 'Pending') {
       return isDarkMode 
-        ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-900/30 text-amber-300">
+        ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-900/30 text-amber-300 whitespace-nowrap">
             <Clock className="w-3 h-3 mr-1" />
             Pending
           </span>
-        : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+        : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 whitespace-nowrap">
             <Clock className="w-3 h-3 mr-1" />
             Pending
           </span>;
     }
     return isDarkMode 
-      ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-300">
+      ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-300 whitespace-nowrap">
           Inactive
         </span>
-      : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+      : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 whitespace-nowrap">
           Inactive
         </span>;
   };
@@ -188,7 +188,7 @@ const Suppliers = () => {
                   <button
                     key={status}
                     onClick={() => setStatusFilter(status)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${
                       statusFilter === status
                         ? 'bg-primary-600 text-white'
                         : isDarkMode

@@ -72,10 +72,6 @@ const NewProduct = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        addToast('Image size should be less than 5MB', 'error');
-        return;
-      }
       // Convert image to base64 for storage
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -431,7 +427,7 @@ const NewProduct = () => {
                           Click to upload product image
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          PNG, JPG up to 5MB
+                          PNG, JPG
                         </p>
                       </div>
                     )}

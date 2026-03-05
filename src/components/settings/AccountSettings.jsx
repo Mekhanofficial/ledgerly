@@ -119,12 +119,6 @@ const AccountSettings = () => {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      addToast('Profile photo must be 10MB or smaller', 'error');
-      event.target.value = '';
-      return;
-    }
-
     if (previewRef.current) {
       URL.revokeObjectURL(previewRef.current);
     }
@@ -198,7 +192,7 @@ const AccountSettings = () => {
             <p className={`text-xs ${
               isDarkMode ? 'text-gray-400' : 'text-gray-500'
             }`}>
-              Upload a JPEG, PNG, or WEBP image (max 10MB).
+              Upload a JPEG, PNG, or WEBP image.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <label

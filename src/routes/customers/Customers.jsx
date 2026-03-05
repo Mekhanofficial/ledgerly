@@ -8,7 +8,12 @@ import CustomerStats from '../../components/customers/CustomerStats';
 import CustomerTable from '../../components/customers/CustomerTable';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
-import { fetchCustomers, createCustomer as createCustomerThunk, deleteCustomer as deleteCustomerThunk } from '../../store/slices/customerSlice';
+import {
+  fetchCustomers,
+  createCustomer as createCustomerThunk,
+  deleteCustomer as deleteCustomerThunk,
+  sendCustomerStatement as sendCustomerStatementThunk
+} from '../../store/slices/customerSlice';
 import { buildCustomerPayload, mapCustomerFromApi } from '../../utils/customerAdapter';
 
 const Customers = () => {
@@ -25,6 +30,7 @@ const Customers = () => {
     phone: '',
     address: ''
   });
+  const [isSendingStatements, setIsSendingStatements] = useState(false);
   const addCustomerNameRef = useRef(null);
 
   const customers = useMemo(
@@ -77,10 +83,58 @@ const Customers = () => {
     }
   };
 
-  const handleSendStatement = (customerIds) => {
-    console.log('Send statement to customers:', customerIds);
-    addToast(`Sending statements to ${customerIds.length} customers...`, 'info');
-    // Implement send statement functionality
+  const handleSendStatement = async (customerIds) => {
+    const ids = [...new Set((customerIds || []).filter(Boolean))];
+    if (!ids.length) {
+      addToast('Select at least one customer', 'warning');
+      return;
+    }
+
+    setIsSendingStatements(true);
+
+    try {
+      const results = await Promise.allSettled(
+        ids.map((id) => dispatch(sendCustomerStatementThunk(id)).unwrap())
+      );
+
+      const failed = [];
+      let successCount = 0;
+      let singleSuccessName = '';
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successCount += 1;
+          if (!singleSuccessName) {
+            singleSuccessName = result.value?.customerName || customers.find((c) => c.id === ids[index])?.name || '';
+          }
+          return;
+        }
+
+        const customerName = customers.find((c) => c.id === ids[index])?.name || 'Customer';
+        const reason =
+          typeof result.reason === 'string'
+            ? result.reason
+            : result.reason?.message || 'Failed to send statement';
+        failed.push(`${customerName}: ${reason}`);
+      });
+
+      if (successCount > 0) {
+        if (successCount === 1) {
+          addToast(`Statement sent to ${singleSuccessName || 'customer'}`, 'success');
+        } else {
+          addToast(`Statements sent to ${successCount} customers`, 'success');
+        }
+      }
+
+      if (failed.length > 0) {
+        addToast(failed[0], 'error');
+        if (failed.length > 1) {
+          addToast(`${failed.length - 1} more statement(s) failed`, 'warning');
+        }
+      }
+    } finally {
+      setIsSendingStatements(false);
+    }
   };
 
   const handleViewCustomer = (customerId) => {
@@ -191,6 +245,7 @@ const Customers = () => {
           onView={handleViewCustomer}
           onEdit={handleEditCustomer}
           onDelete={handleDeleteCustomer}
+          isSendingStatement={isSendingStatements}
         />
 
         {/* Add Customer Modal */}

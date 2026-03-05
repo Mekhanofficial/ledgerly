@@ -14,6 +14,10 @@ const Pricing = () => {
   const { addToast } = useToast();
   const { accountInfo } = useAccount();
   const currentPlan = useMemo(() => normalizePlanId(accountInfo?.plan), [accountInfo]);
+  const currentCycle = useMemo(
+    () => (accountInfo?.billingCycle === 'yearly' ? 'yearly' : 'monthly'),
+    [accountInfo]
+  );
   const subscriptionStatus = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
   const isSubscriptionActive = subscriptionStatus !== 'expired';
   const pricingCurrency = 'NGN';
@@ -277,7 +281,9 @@ const Pricing = () => {
                       : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
-                  {isSubscriptionActive && currentPlan === plan.id ? 'Current Plan' : plan.buttonText}
+                  {isSubscriptionActive && currentPlan === plan.id && currentCycle === billingCycle
+                    ? 'Current Plan'
+                    : plan.buttonText}
                 </button>
 
                 <div className="space-y-3">

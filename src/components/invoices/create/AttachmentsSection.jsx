@@ -8,38 +8,20 @@ const AttachmentsSection = ({ attachments, setAttachments }) => {
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    
-    // Validate file size (max 10MB)
-    const validFiles = files.filter(file => {
-      if (file.size > 10 * 1024 * 1024) {
-        addToast(`${file.name} exceeds 10MB limit`, 'error');
-        return false;
-      }
-      return true;
-    });
-    
-    if (validFiles.length > 0) {
-      setAttachments([...attachments, ...validFiles]);
-      addToast(`${validFiles.length} file(s) uploaded successfully`, 'success');
+
+    if (files.length > 0) {
+      setAttachments([...attachments, ...files]);
+      addToast(`${files.length} file(s) uploaded successfully`, 'success');
     }
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files);
-    
-    // Validate file size (max 10MB)
-    const validFiles = files.filter(file => {
-      if (file.size > 10 * 1024 * 1024) {
-        addToast(`${file.name} exceeds 10MB limit`, 'error');
-        return false;
-      }
-      return true;
-    });
-    
-    if (validFiles.length > 0) {
-      setAttachments([...attachments, ...validFiles]);
-      addToast(`${validFiles.length} file(s) uploaded successfully`, 'success');
+
+    if (files.length > 0) {
+      setAttachments([...attachments, ...files]);
+      addToast(`${files.length} file(s) uploaded successfully`, 'success');
     }
   };
 
@@ -88,7 +70,7 @@ const AttachmentsSection = ({ attachments, setAttachments }) => {
           Drag & drop files or click to upload
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Supports: PDF, JPG, PNG, DOC, DOCX (Max 10MB each)
+          Supports: PDF, JPG, PNG, DOC, DOCX
         </p>
         <input
           id="file-upload"

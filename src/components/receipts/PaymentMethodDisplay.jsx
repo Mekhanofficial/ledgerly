@@ -76,11 +76,11 @@ const PaymentMethodDisplay = ({ method, details, isDarkMode, compact = false }) 
         <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
       </div>
       <div className="ml-3 sm:ml-4 flex-1 min-w-0">
-        <div className={`font-medium text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+        <div className={`font-medium text-sm sm:text-base truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
           {getMethodLabel(method)}
         </div>
         {details && (
-          <div className={`text-xs sm:text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          <div className={`text-xs sm:text-sm mt-1 break-all ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
             {details}
           </div>
         )}
