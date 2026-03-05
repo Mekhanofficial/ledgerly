@@ -8,7 +8,7 @@ const parseTimeout = (value, fallback) => {
 
 const api = axios.create({
   baseURL: resolveApiBaseUrl(),
-  timeout: parseTimeout(import.meta.env.VITE_API_TIMEOUT_MS, 30000),
+  timeout: parseTimeout(import.meta.env.VITE_API_TIMEOUT_MS, 45000),
 });
 
 api.interceptors.request.use(

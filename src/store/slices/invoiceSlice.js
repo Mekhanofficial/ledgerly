@@ -26,6 +26,16 @@ const extractApiError = (error, fallbackMessage) => {
   };
 };
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const INVOICE_SEND_TIMEOUT_MS = parsePositiveInt(
+  import.meta.env.VITE_INVOICE_SEND_TIMEOUT_MS,
+  parsePositiveInt(import.meta.env.VITE_API_TIMEOUT_MS, 120000)
+);
+
 const fetchAllPages = async (path, params = {}, pageSize = 200) => {
   const limit = params.limit ?? pageSize;
   let page = params.page ?? 1;
@@ -140,7 +150,11 @@ export const sendInvoice = createAsyncThunk(
         return rejectWithValue('Invoice id is required');
       }
       const data = typeof payload === 'object' ? payload?.data : undefined;
-      const response = await api.post(`/invoices/${id}/send`, data && Object.keys(data).length ? data : undefined);
+      const response = await api.post(
+        `/invoices/${id}/send`,
+        data && Object.keys(data).length ? data : undefined,
+        { timeout: INVOICE_SEND_TIMEOUT_MS }
+      );
       return response.data.data;
     } catch (error) {
       const apiError = extractApiError(error, 'Failed to send invoice');
