@@ -12,9 +12,11 @@ const normalizeListPayload = (payload) => {
 const extractApiError = (error, fallbackMessage) => {
   const status = error?.response?.status;
   const data = error?.response?.data;
-  const message = data?.error
-    || data?.message
-    || data?.details
+  const normalizedResponseMessage =
+    typeof data === 'string'
+      ? data
+      : data?.error || data?.message || data?.details;
+  const message = normalizedResponseMessage
     || error?.message
     || fallbackMessage;
   return {
@@ -141,7 +143,8 @@ export const sendInvoice = createAsyncThunk(
       const response = await api.post(`/invoices/${id}/send`, data && Object.keys(data).length ? data : undefined);
       return response.data.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || 'Failed to send invoice');
+      const apiError = extractApiError(error, 'Failed to send invoice');
+      return rejectWithValue(apiError.message);
     }
   }
 );
