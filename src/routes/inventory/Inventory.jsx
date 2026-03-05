@@ -177,8 +177,11 @@ const Inventory = () => {
       .then(() => {
         addToast('Inventory data refreshed', 'success');
       })
-      .catch(() => {
-        addToast('Failed to refresh inventory data', 'error');
+      .catch((error) => {
+        const message = typeof error === 'string'
+          ? error
+          : error?.response?.data?.error || error?.message || 'Failed to refresh inventory data';
+        addToast(message, 'error');
       });
   };
 

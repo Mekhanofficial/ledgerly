@@ -9,6 +9,25 @@ const normalizeListPayload = (payload) => {
   return [];
 };
 
+const normalizeBooleanParam = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  return undefined;
+};
+
+const filterByActiveStatus = (items = [], requestedIsActive) => {
+  const normalizedIsActive = normalizeBooleanParam(requestedIsActive);
+  if (normalizedIsActive === undefined) return items;
+  if (normalizedIsActive) {
+    // Treat undefined as active to support legacy records missing this field.
+    return items.filter((item) => item?.isActive !== false);
+  }
+  return items.filter((item) => item?.isActive === false);
+};
+
 const fetchAllPages = async (path, params = {}, pageSize = 200) => {
   const limit = params.limit ?? pageSize;
   let page = params.page ?? 1;
@@ -59,6 +78,26 @@ export const fetchProducts = createAsyncThunk(
   async (params = {}, { rejectWithValue }) => {
     try {
       const payload = await fetchAllPages('/products', params, 200);
+      const requestedIsActive = normalizeBooleanParam(params?.isActive);
+      const data = normalizeListPayload(payload);
+
+      if (requestedIsActive !== undefined && data.length === 0) {
+        const fallbackParams = { ...params };
+        delete fallbackParams.isActive;
+
+        const fallbackPayload = await fetchAllPages('/products', fallbackParams, 200);
+        const fallbackData = normalizeListPayload(fallbackPayload);
+        const filteredFallbackData = filterByActiveStatus(fallbackData, requestedIsActive);
+
+        return {
+          ...fallbackPayload,
+          data: filteredFallbackData,
+          count: filteredFallbackData.length,
+          total: filteredFallbackData.length,
+          pages: 1
+        };
+      }
+
       return payload;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || 'Failed to fetch products');
