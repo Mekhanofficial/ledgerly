@@ -213,6 +213,7 @@ const SignUpPage = () => {
           password: formData.password,
           phone: formData.phone.trim(),
           businessName: formData.businessName.trim(),
+          country: formData.country,
           currencyCode: formData.currencyCode,
           // Only these fields are expected by backend register function
           // Remove other fields that backend doesn't accept

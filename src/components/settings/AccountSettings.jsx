@@ -3,6 +3,7 @@ import { User, Mail, Building, MapPin, Save, Camera, Trash2 } from 'lucide-react
 import { useTheme } from '../../context/ThemeContext';
 import { useAccount } from '../../context/AccountContext';
 import { useToast } from '../../context/ToastContext';
+import countryData from '../../data/CountryData.json';
 
 const AccountSettings = () => {
   const { isDarkMode } = useTheme();
@@ -48,6 +49,19 @@ const AccountSettings = () => {
       return defaultCurrencyOptions;
     }
     return [{ value: currentCurrency, label: `${currentCurrency} (Selected)` }, ...defaultCurrencyOptions];
+  })();
+  const countryOptions = (() => {
+    const names = Array.from(
+      new Set(
+        (Array.isArray(countryData) ? countryData : [])
+          .map((entry) => String(entry?.name || '').trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+    const selectedCountry = String(formData.country || '').trim();
+    if (!selectedCountry) return names;
+    const alreadyPresent = names.some((name) => name.toLowerCase() === selectedCountry.toLowerCase());
+    return alreadyPresent ? names : [selectedCountry, ...names];
   })();
 
   useEffect(() => {
@@ -427,11 +441,11 @@ const AccountSettings = () => {
                       : 'border-gray-300 text-gray-900'
                   }`}
                 >
-                  <option>United States</option>
-                  <option>Canada</option>
-                  <option>United Kingdom</option>
-                  <option>Australia</option>
-                  <option>Other</option>
+                  {countryOptions.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
