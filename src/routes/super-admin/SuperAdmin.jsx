@@ -35,6 +35,59 @@ const createPartnerFormState = (businessId = '') => ({
   scopes: ['templates:read', 'invoices:create', 'invoices:read']
 });
 
+const TABLE_PAGE_SIZE = 10;
+
+const paginateRows = (rows, page, pageSize = TABLE_PAGE_SIZE) => {
+  const total = Array.isArray(rows) ? rows.length : 0;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(page || 1, 1), pageCount);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, total);
+  return {
+    rows: (rows || []).slice(startIndex, endIndex),
+    total,
+    pageCount,
+    page: safePage,
+    start: total === 0 ? 0 : startIndex + 1,
+    end: endIndex
+  };
+};
+
+const TablePagination = ({ pageData, onPageChange }) => {
+  if (!pageData || pageData.total <= TABLE_PAGE_SIZE) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-gray-500">
+      <p>
+        Showing {pageData.start}-{pageData.end} of {pageData.total}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onPageChange(pageData.page - 1)}
+          disabled={pageData.page <= 1}
+          className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Prev
+        </button>
+        <span className="text-gray-600 dark:text-gray-300">
+          Page {pageData.page} of {pageData.pageCount}
+        </span>
+        <button
+          type="button"
+          onClick={() => onPageChange(pageData.page + 1)}
+          disabled={pageData.page >= pageData.pageCount}
+          className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const SuperAdmin = () => {
   const authUser = useSelector((state) => state.auth.user);
   const isSuperAdmin = authUser?.role === 'super_admin';
@@ -65,6 +118,23 @@ const SuperAdmin = () => {
   const [savingPartner, setSavingPartner] = useState(false);
   const [generatedPartnerKey, setGeneratedPartnerKey] = useState('');
   const [partnerError, setPartnerError] = useState('');
+  const [tablePages, setTablePages] = useState({
+    users: 1,
+    businesses: 1,
+    invoices: 1,
+    payments: 1,
+    customers: 1,
+    products: 1,
+    receipts: 1,
+    partners: 1
+  });
+
+  const setTablePage = (table, nextPage) => {
+    setTablePages((prev) => ({
+      ...prev,
+      [table]: Math.max(1, Number(nextPage) || 1)
+    }));
+  };
 
   const fetchOverview = async () => {
     if (!isSuperAdmin) return;
@@ -395,6 +465,115 @@ const SuperAdmin = () => {
     });
   }, [partners, searchPartners]);
 
+  const filteredInvoices = useMemo(() => {
+    if (!searchInvoices) return invoices;
+    const term = searchInvoices.toLowerCase();
+    return invoices.filter((invoice) =>
+      `${invoice.invoiceNumber || ''} ${invoice.status || ''}`.toLowerCase().includes(term)
+    );
+  }, [invoices, searchInvoices]);
+
+  const filteredPayments = useMemo(() => {
+    if (!searchPayments) return payments;
+    const term = searchPayments.toLowerCase();
+    return payments.filter((payment) =>
+      `${payment.paymentMethod || ''} ${payment.status || ''}`.toLowerCase().includes(term)
+    );
+  }, [payments, searchPayments]);
+
+  const filteredCustomers = useMemo(() => {
+    if (!searchCustomers) return customers;
+    const term = searchCustomers.toLowerCase();
+    return customers.filter((customer) =>
+      `${customer.name || ''} ${customer.email || ''}`.toLowerCase().includes(term)
+    );
+  }, [customers, searchCustomers]);
+
+  const filteredProducts = useMemo(() => {
+    if (!searchProducts) return products;
+    const term = searchProducts.toLowerCase();
+    return products.filter((product) =>
+      `${product.name || ''} ${product.sku || ''}`.toLowerCase().includes(term)
+    );
+  }, [products, searchProducts]);
+
+  const filteredReceipts = useMemo(() => {
+    if (!searchReceipts) return receipts;
+    const term = searchReceipts.toLowerCase();
+    return receipts.filter((receipt) =>
+      `${receipt.receiptNumber || ''} ${receipt.paymentMethod || ''}`.toLowerCase().includes(term)
+    );
+  }, [receipts, searchReceipts]);
+
+  const paginatedUsers = useMemo(
+    () => paginateRows(filteredUsers, tablePages.users),
+    [filteredUsers, tablePages.users]
+  );
+  const paginatedBusinesses = useMemo(
+    () => paginateRows(filteredBusinesses, tablePages.businesses),
+    [filteredBusinesses, tablePages.businesses]
+  );
+  const paginatedInvoices = useMemo(
+    () => paginateRows(filteredInvoices, tablePages.invoices),
+    [filteredInvoices, tablePages.invoices]
+  );
+  const paginatedPayments = useMemo(
+    () => paginateRows(filteredPayments, tablePages.payments),
+    [filteredPayments, tablePages.payments]
+  );
+  const paginatedCustomers = useMemo(
+    () => paginateRows(filteredCustomers, tablePages.customers),
+    [filteredCustomers, tablePages.customers]
+  );
+  const paginatedProducts = useMemo(
+    () => paginateRows(filteredProducts, tablePages.products),
+    [filteredProducts, tablePages.products]
+  );
+  const paginatedReceipts = useMemo(
+    () => paginateRows(filteredReceipts, tablePages.receipts),
+    [filteredReceipts, tablePages.receipts]
+  );
+  const paginatedPartners = useMemo(
+    () => paginateRows(filteredPartners, tablePages.partners),
+    [filteredPartners, tablePages.partners]
+  );
+
+  useEffect(() => {
+    const pageCounts = {
+      users: paginatedUsers.pageCount,
+      businesses: paginatedBusinesses.pageCount,
+      invoices: paginatedInvoices.pageCount,
+      payments: paginatedPayments.pageCount,
+      customers: paginatedCustomers.pageCount,
+      products: paginatedProducts.pageCount,
+      receipts: paginatedReceipts.pageCount,
+      partners: paginatedPartners.pageCount
+    };
+
+    setTablePages((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.entries(pageCounts).forEach(([table, pageCount]) => {
+        const currentPage = Math.max(1, Number(prev[table]) || 1);
+        const boundedPage = Math.min(currentPage, pageCount);
+        if (boundedPage !== currentPage) {
+          next[table] = boundedPage;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [
+    paginatedUsers.pageCount,
+    paginatedBusinesses.pageCount,
+    paginatedInvoices.pageCount,
+    paginatedPayments.pageCount,
+    paginatedCustomers.pageCount,
+    paginatedProducts.pageCount,
+    paginatedReceipts.pageCount,
+    paginatedPartners.pageCount
+  ]);
+
   const updateUser = async (userId, payload) => {
     try {
       await api.put(`/super-admin/users/${userId}`, payload);
@@ -504,7 +683,10 @@ const SuperAdmin = () => {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Users</h2>
             <input
               value={searchUsers}
-              onChange={(event) => setSearchUsers(event.target.value)}
+              onChange={(event) => {
+                setSearchUsers(event.target.value);
+                setTablePage('users', 1);
+              }}
               placeholder="Search users"
               className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
             />
@@ -529,7 +711,7 @@ const SuperAdmin = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => (
+                  paginatedUsers.rows.map((user) => (
                     <tr key={user._id} className="border-t border-gray-100 dark:border-gray-700">
                       <td className="py-2 px-3 text-gray-900 dark:text-white">{user.name}</td>
                       <td className="py-2 px-3 text-gray-500">{user.email}</td>
@@ -565,6 +747,10 @@ const SuperAdmin = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            pageData={paginatedUsers}
+            onPageChange={(page) => setTablePage('users', page)}
+          />
         </div>
       )}
 
@@ -574,7 +760,10 @@ const SuperAdmin = () => {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Businesses</h2>
             <input
               value={searchBusinesses}
-              onChange={(event) => setSearchBusinesses(event.target.value)}
+              onChange={(event) => {
+                setSearchBusinesses(event.target.value);
+                setTablePage('businesses', 1);
+              }}
               placeholder="Search businesses"
               className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
             />
@@ -598,7 +787,7 @@ const SuperAdmin = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredBusinesses.map((biz) => (
+                  paginatedBusinesses.rows.map((biz) => (
                     <tr key={biz._id} className="border-t border-gray-100 dark:border-gray-700">
                       <td className="py-2 px-3 text-gray-900 dark:text-white">{biz.name}</td>
                       <td className="py-2 px-3 text-gray-500">{biz.email}</td>
@@ -623,6 +812,10 @@ const SuperAdmin = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            pageData={paginatedBusinesses}
+            onPageChange={(page) => setTablePage('businesses', page)}
+          />
           <p className="text-xs text-gray-400 mt-3">
             Owner role: {getUserRoleLabel(authUser)}
           </p>
@@ -635,7 +828,10 @@ const SuperAdmin = () => {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Invoices</h2>
             <input
               value={searchInvoices}
-              onChange={(event) => setSearchInvoices(event.target.value)}
+              onChange={(event) => {
+                setSearchInvoices(event.target.value);
+                setTablePage('invoices', 1);
+              }}
               placeholder="Search invoices"
               className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
             />
@@ -659,15 +855,7 @@ const SuperAdmin = () => {
                     </td>
                   </tr>
                 ) : (
-                  invoices
-                    .filter((invoice) =>
-                      searchInvoices
-                        ? `${invoice.invoiceNumber} ${invoice.status}`
-                            .toLowerCase()
-                            .includes(searchInvoices.toLowerCase())
-                        : true
-                    )
-                    .map((invoice) => (
+                  paginatedInvoices.rows.map((invoice) => (
                       <tr key={invoice._id} className="border-t border-gray-100 dark:border-gray-700">
                         <td className="py-2 px-3 text-gray-900 dark:text-white">{invoice.invoiceNumber}</td>
                         <td className="py-2 px-3 text-gray-500">{invoice.business?.name || '-'}</td>
@@ -682,6 +870,10 @@ const SuperAdmin = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            pageData={paginatedInvoices}
+            onPageChange={(page) => setTablePage('invoices', page)}
+          />
         </div>
       )}
 
@@ -691,7 +883,10 @@ const SuperAdmin = () => {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Payments</h2>
             <input
               value={searchPayments}
-              onChange={(event) => setSearchPayments(event.target.value)}
+              onChange={(event) => {
+                setSearchPayments(event.target.value);
+                setTablePage('payments', 1);
+              }}
               placeholder="Search payments"
               className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
             />
@@ -715,15 +910,7 @@ const SuperAdmin = () => {
                     </td>
                   </tr>
                 ) : (
-                  payments
-                    .filter((payment) =>
-                      searchPayments
-                        ? `${payment.paymentMethod} ${payment.status}`
-                            .toLowerCase()
-                            .includes(searchPayments.toLowerCase())
-                        : true
-                    )
-                    .map((payment) => (
+                  paginatedPayments.rows.map((payment) => (
                       <tr key={payment._id} className="border-t border-gray-100 dark:border-gray-700">
                         <td className="py-2 px-3 text-gray-900 dark:text-white">
                           {payment.invoice?.invoiceNumber || '-'}
@@ -740,6 +927,10 @@ const SuperAdmin = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            pageData={paginatedPayments}
+            onPageChange={(page) => setTablePage('payments', page)}
+          />
         </div>
       )}
 
@@ -749,7 +940,10 @@ const SuperAdmin = () => {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Customers</h2>
             <input
               value={searchCustomers}
-              onChange={(event) => setSearchCustomers(event.target.value)}
+              onChange={(event) => {
+                setSearchCustomers(event.target.value);
+                setTablePage('customers', 1);
+              }}
               placeholder="Search customers"
               className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
             />
@@ -772,15 +966,7 @@ const SuperAdmin = () => {
                     </td>
                   </tr>
                 ) : (
-                  customers
-                    .filter((customer) =>
-                      searchCustomers
-                        ? `${customer.name} ${customer.email || ''}`
-                            .toLowerCase()
-                            .includes(searchCustomers.toLowerCase())
-                        : true
-                    )
-                    .map((customer) => (
+                  paginatedCustomers.rows.map((customer) => (
                       <tr key={customer._id} className="border-t border-gray-100 dark:border-gray-700">
                         <td className="py-2 px-3 text-gray-900 dark:text-white">{customer.name}</td>
                         <td className="py-2 px-3 text-gray-500">{customer.email || '-'}</td>
@@ -794,6 +980,10 @@ const SuperAdmin = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            pageData={paginatedCustomers}
+            onPageChange={(page) => setTablePage('customers', page)}
+          />
         </div>
       )}
 
@@ -803,7 +993,10 @@ const SuperAdmin = () => {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Products</h2>
             <input
               value={searchProducts}
-              onChange={(event) => setSearchProducts(event.target.value)}
+              onChange={(event) => {
+                setSearchProducts(event.target.value);
+                setTablePage('products', 1);
+              }}
               placeholder="Search products"
               className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
             />
@@ -826,15 +1019,7 @@ const SuperAdmin = () => {
                     </td>
                   </tr>
                 ) : (
-                  products
-                    .filter((product) =>
-                      searchProducts
-                        ? `${product.name} ${product.sku || ''}`
-                            .toLowerCase()
-                            .includes(searchProducts.toLowerCase())
-                        : true
-                    )
-                    .map((product) => (
+                  paginatedProducts.rows.map((product) => (
                       <tr key={product._id} className="border-t border-gray-100 dark:border-gray-700">
                         <td className="py-2 px-3 text-gray-900 dark:text-white">{product.name}</td>
                         <td className="py-2 px-3 text-gray-500">{product.sku || '-'}</td>
@@ -848,6 +1033,10 @@ const SuperAdmin = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            pageData={paginatedProducts}
+            onPageChange={(page) => setTablePage('products', page)}
+          />
         </div>
       )}
 
@@ -857,7 +1046,10 @@ const SuperAdmin = () => {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Receipts</h2>
             <input
               value={searchReceipts}
-              onChange={(event) => setSearchReceipts(event.target.value)}
+              onChange={(event) => {
+                setSearchReceipts(event.target.value);
+                setTablePage('receipts', 1);
+              }}
               placeholder="Search receipts"
               className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
             />
@@ -880,15 +1072,7 @@ const SuperAdmin = () => {
                     </td>
                   </tr>
                 ) : (
-                  receipts
-                    .filter((receipt) =>
-                      searchReceipts
-                        ? `${receipt.receiptNumber} ${receipt.paymentMethod || ''}`
-                            .toLowerCase()
-                            .includes(searchReceipts.toLowerCase())
-                        : true
-                    )
-                    .map((receipt) => (
+                  paginatedReceipts.rows.map((receipt) => (
                       <tr key={receipt._id} className="border-t border-gray-100 dark:border-gray-700">
                         <td className="py-2 px-3 text-gray-900 dark:text-white">{receipt.receiptNumber}</td>
                         <td className="py-2 px-3 text-gray-500">{receipt.business?.name || '-'}</td>
@@ -902,6 +1086,10 @@ const SuperAdmin = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination
+            pageData={paginatedReceipts}
+            onPageChange={(page) => setTablePage('receipts', page)}
+          />
         </div>
       )}
 
@@ -1132,7 +1320,10 @@ const SuperAdmin = () => {
               <div className="flex flex-col sm:flex-row gap-2">
                 <select
                   value={partnerBusinessFilter}
-                  onChange={(event) => setPartnerBusinessFilter(event.target.value)}
+                  onChange={(event) => {
+                    setPartnerBusinessFilter(event.target.value);
+                    setTablePage('partners', 1);
+                  }}
                   className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
                 >
                   <option value="">All businesses</option>
@@ -1144,7 +1335,10 @@ const SuperAdmin = () => {
                 </select>
                 <input
                   value={searchPartners}
-                  onChange={(event) => setSearchPartners(event.target.value)}
+                  onChange={(event) => {
+                    setSearchPartners(event.target.value);
+                    setTablePage('partners', 1);
+                  }}
                   placeholder="Search partners"
                   className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
                 />
@@ -1173,7 +1367,7 @@ const SuperAdmin = () => {
                       </td>
                     </tr>
                   ) : (
-                    filteredPartners.map((partner) => (
+                    paginatedPartners.rows.map((partner) => (
                       <tr key={partner._id} className="border-t border-gray-100 dark:border-gray-700">
                         <td className="py-2 px-3">
                           <p className="text-gray-900 dark:text-white font-medium">{partner.name}</p>
@@ -1229,6 +1423,10 @@ const SuperAdmin = () => {
                 </tbody>
               </table>
             </div>
+            <TablePagination
+              pageData={paginatedPartners}
+              onPageChange={(page) => setTablePage('partners', page)}
+            />
           </div>
         </div>
       )}

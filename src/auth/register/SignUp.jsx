@@ -276,9 +276,15 @@ const SignUpPage = () => {
     if (!verificationEmail || otpVerified) return;
     const result = await dispatch(resendEmailOtp(verificationEmail));
     if (result.meta.requestStatus === 'fulfilled') {
+      const otpSent = result.payload?.data?.otpSent !== false;
+      const otpError = result.payload?.data?.otpError;
       setOtpVerified(false);
       setRedirectSeconds(0);
-      setOtpNotice(result.payload?.message || 'Verification code sent.');
+      setOtpNotice(
+        otpSent
+          ? (result.payload?.message || 'Verification code sent.')
+          : (otpError || result.payload?.message || 'We could not send verification code right now. Please try again shortly.')
+      );
     }
   };
 

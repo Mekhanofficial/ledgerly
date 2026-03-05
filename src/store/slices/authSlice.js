@@ -278,11 +278,17 @@ const authSlice = createSlice({
       })
       .addCase(resendEmailOtp.fulfilled, (state, action) => {
         state.loading = false;
+        const otpSent = action.payload?.data?.otpSent !== false;
+        const otpError = action.payload?.data?.otpError || '';
         state.pendingVerification = {
           email: action.payload?.data?.email || state.pendingVerification?.email || null,
-          expiresInMinutes: action.payload?.data?.expiresInMinutes || state.pendingVerification?.expiresInMinutes
+          expiresInMinutes: action.payload?.data?.expiresInMinutes || state.pendingVerification?.expiresInMinutes,
+          otpSent,
+          otpError
         };
-        state.verificationMessage = action.payload?.message || 'Verification code sent';
+        state.verificationMessage = otpSent
+          ? (action.payload?.message || 'Verification code sent')
+          : (otpError || action.payload?.message || 'We could not send verification code right now. Please try again shortly.');
       })
       .addCase(resendEmailOtp.rejected, (state, action) => {
         state.loading = false;

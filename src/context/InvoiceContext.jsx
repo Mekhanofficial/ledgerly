@@ -143,6 +143,22 @@ export const InvoiceProvider = ({ children }) => {
     }
   }, [dispatch, isAuthenticated, canAccessCustomers, canAccessProducts]);
 
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+
+    const refreshInvoices = () => {
+      dispatch(fetchInvoices());
+    };
+
+    const intervalId = setInterval(refreshInvoices, 60000);
+    window.addEventListener('focus', refreshInvoices);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', refreshInvoices);
+    };
+  }, [dispatch, isAuthenticated]);
+
   const refreshTemplates = useCallback(async () => {
     if (!canAccessTemplates) {
       const fallback = dedupeTemplates(templateStorage.getAllTemplates());
