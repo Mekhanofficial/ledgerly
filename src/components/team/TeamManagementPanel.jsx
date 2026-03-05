@@ -140,6 +140,7 @@ const TeamManagementPanel = () => {
         customerId: inviteForm.role === 'client' ? inviteForm.customerId : undefined
       });
       const inviteUrl = response?.data?.data?.inviteUrl;
+      const inviteEmailSent = response?.data?.data?.inviteEmailSent !== false;
       if (inviteUrl) {
         setShareInvite({
           open: true,
@@ -148,7 +149,7 @@ const TeamManagementPanel = () => {
         });
       }
       const message = response?.data?.message || 'Invitation sent successfully';
-      addToast(message, 'success');
+      addToast(message, inviteEmailSent ? 'success' : 'warning');
       setInviteForm({ name: '', email: '', role: 'staff', customerId: '' });
       await fetchTeam();
     } catch (error) {
@@ -201,6 +202,7 @@ const TeamManagementPanel = () => {
     try {
       const response = await api.post(`/team/${memberId}/resend-invite`);
       const inviteUrl = response?.data?.data?.inviteUrl;
+      const inviteEmailSent = response?.data?.data?.inviteEmailSent !== false;
       if (inviteUrl) {
         const member = teamMembers.find((item) => item._id === memberId);
         setShareInvite({
@@ -210,7 +212,7 @@ const TeamManagementPanel = () => {
         });
       }
       const message = response?.data?.message || 'Invitation resent';
-      addToast(message, 'success');
+      addToast(message, inviteEmailSent ? 'success' : 'warning');
     } catch (error) {
       addToast(error?.response?.data?.error || 'Failed to resend invitation', 'error');
     } finally {
