@@ -38,6 +38,7 @@ import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter'
 import { recurringStorage } from '../utils/recurringStorage';
 import { formatCurrency } from '../utils/currency';
 import { buildInvoiceEmailPdfAttachment } from '../utils/invoiceEmailPdf';
+import { buildReceiptEmailPdfAttachment } from '../utils/receiptEmailPdf';
 
 const dedupeTemplates = (templates = []) => {
   const map = new Map();
@@ -651,12 +652,68 @@ export const InvoiceProvider = ({ children }) => {
       const invoice = invoices.find(inv => inv.id === id);
       const defaultAmount = invoice?.balance ?? invoice?.totalAmount ?? invoice?.amount ?? 0;
       const amount = paymentData.amount ?? defaultAmount;
+      const resolvedTemplateStyle = paymentData.templateStyle || invoice?.templateStyle || 'standard';
 
       if (!amount || amount <= 0) {
         if (showToast) {
           addToast('Invalid payment amount', 'error');
         }
         return null;
+      }
+
+      let receiptPdfAttachment = null;
+      if (invoice) {
+        try {
+          const normalizedItems = Array.isArray(invoice.lineItems) ? invoice.lineItems : [];
+          const subtotal = Number(invoice.subtotal)
+            || normalizedItems.reduce(
+              (sum, item) => sum + (Number(item.quantity || 0) * Number(item.rate || 0)),
+              0
+            );
+          const totalTax = Number(invoice.totalTax ?? invoice.taxAmount ?? 0) || 0;
+          const total = Number(invoice.totalAmount ?? invoice.amount ?? (subtotal + totalTax)) || 0;
+          const amountPaid = Number(amount) || total;
+          const change = Math.max(0, amountPaid - total);
+          const customerName = typeof invoice.customer === 'string'
+            ? invoice.customer
+            : (invoice.customer?.name || invoice.customerName || 'Customer');
+          const customerEmail = invoice.customerEmail || invoice.customer?.email || '';
+          const customerPhone = invoice.customerPhone || invoice.customer?.phone || '';
+
+          const receiptPreviewData = {
+            id: `receipt-${invoice.invoiceNumber || invoice.number || id}`,
+            receiptNumber: invoice.invoiceNumber || invoice.number || String(id),
+            date: new Date().toLocaleDateString(),
+            customerName,
+            customerEmail,
+            customerPhone,
+            items: normalizedItems.map((item) => ({
+              name: item.description || 'Item',
+              quantity: Number(item.quantity || 0),
+              price: Number(item.rate || 0)
+            })),
+            subtotal,
+            tax: totalTax,
+            total,
+            amountPaid,
+            change,
+            paymentMethod: paymentData.paymentMethod || 'manual',
+            paymentReference: paymentData.paymentReference || '',
+            status: 'completed',
+            currency: invoice.currency || baseCurrency,
+            templateStyle: resolvedTemplateStyle,
+            notes: paymentData.notes || invoice.notes || ''
+          };
+
+          receiptPdfAttachment = buildReceiptEmailPdfAttachment({
+            receiptData: receiptPreviewData,
+            accountInfo,
+            templateId: resolvedTemplateStyle,
+            fallbackReceiptId: String(id)
+          });
+        } catch (attachmentError) {
+          console.warn('Unable to prepare frontend receipt PDF attachment for auto-email:', attachmentError);
+        }
       }
 
       const result = await dispatch(recordPayment({
@@ -666,7 +723,9 @@ export const InvoiceProvider = ({ children }) => {
           paymentMethod: paymentData.paymentMethod || 'manual',
           paymentReference: paymentData.paymentReference,
           paymentGateway: paymentData.paymentGateway,
-          notes: paymentData.notes
+          notes: paymentData.notes,
+          templateStyle: resolvedTemplateStyle,
+          ...(receiptPdfAttachment ? { receiptPdfAttachment } : {})
         }
       })).unwrap();
 

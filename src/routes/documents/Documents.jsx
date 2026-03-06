@@ -1,5 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, UploadCloud, Camera, Trash2, Eye, HardDrive, Files, Archive } from 'lucide-react';
+import {
+  FileText,
+  UploadCloud,
+  Camera,
+  Trash2,
+  Eye,
+  HardDrive,
+  Files,
+  Archive,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  ExternalLink
+} from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
@@ -125,6 +138,7 @@ const Documents = () => {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [activeDocumentId, setActiveDocumentId] = useState(null);
   const uploadInputRef = useRef(null);
   const bulkUploadInputRef = useRef(null);
   const scanInputRef = useRef(null);
@@ -152,6 +166,17 @@ const Documents = () => {
   );
 
   const canUploadMore = remainingDocuments > 0 && remainingStorage > 0;
+  const activeDocumentIndex = useMemo(
+    () => documents.findIndex((doc) => String(doc.id) === String(activeDocumentId)),
+    [documents, activeDocumentId]
+  );
+  const activeDocument = activeDocumentIndex >= 0 ? documents[activeDocumentIndex] : null;
+  const activeDocumentUrl = useMemo(
+    () => buildDocumentUrl(activeDocument || {}),
+    [activeDocument]
+  );
+  const canViewPreviousDocument = activeDocumentIndex > 0;
+  const canViewNextDocument = activeDocumentIndex >= 0 && activeDocumentIndex < documents.length - 1;
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -279,14 +304,57 @@ const Documents = () => {
     }
   };
 
+  const closeDocumentViewer = useCallback(() => {
+    setActiveDocumentId(null);
+  }, []);
+
+  const openDocumentViewer = useCallback((docId) => {
+    setActiveDocumentId(docId);
+  }, []);
+
   const handleView = (doc) => {
     const url = buildDocumentUrl(doc);
-    if (!url) {
+    if (!url || !doc?.id) {
       addToast('Unable to open document', 'warning');
       return;
     }
-    window.open(url, '_blank', 'noopener,noreferrer');
+    openDocumentViewer(doc.id);
   };
+
+  const handlePreviousDocument = useCallback(() => {
+    if (!canViewPreviousDocument) return;
+    const previous = documents[activeDocumentIndex - 1];
+    if (previous?.id) {
+      setActiveDocumentId(previous.id);
+    }
+  }, [canViewPreviousDocument, documents, activeDocumentIndex]);
+
+  const handleNextDocument = useCallback(() => {
+    if (!canViewNextDocument) return;
+    const next = documents[activeDocumentIndex + 1];
+    if (next?.id) {
+      setActiveDocumentId(next.id);
+    }
+  }, [canViewNextDocument, documents, activeDocumentIndex]);
+
+  useEffect(() => {
+    if (!activeDocument) return undefined;
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeDocumentViewer();
+      } else if (event.key === 'ArrowLeft') {
+        handlePreviousDocument();
+      } else if (event.key === 'ArrowRight') {
+        handleNextDocument();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [activeDocument, closeDocumentViewer, handlePreviousDocument, handleNextDocument]);
 
   const handleExportMetadata = () => {
     if (!planConfig.allowExportArchiveTools) return;
@@ -515,6 +583,73 @@ const Documents = () => {
           )}
         </div>
       </div>
+
+      {activeDocument && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-3 md:p-6">
+          <div className="w-full h-full max-w-7xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
+            <div className="px-4 md:px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm md:text-base font-semibold text-gray-900 dark:text-white truncate">
+                  {activeDocument.name}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {activeDocumentIndex + 1} of {documents.length} • {formatFileSize(activeDocument.size)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePreviousDocument}
+                  disabled={!canViewPreviousDocument}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Previous document"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextDocument}
+                  disabled={!canViewNextDocument}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Next document"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <a
+                  href={activeDocumentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open
+                </a>
+                <button
+                  type="button"
+                  onClick={closeDocumentViewer}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  aria-label="Close document viewer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 bg-gray-100 dark:bg-gray-950">
+              {activeDocumentUrl ? (
+                <iframe
+                  title={activeDocument.name}
+                  src={activeDocumentUrl}
+                  className="w-full h-full border-0"
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+                  Unable to preview this document.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };

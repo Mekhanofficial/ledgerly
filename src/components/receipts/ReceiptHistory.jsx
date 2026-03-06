@@ -4,6 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
 import { generateReceiptPDF } from '../../utils/receiptPdfGenerator';
+import { buildReceiptEmailPdfAttachment } from '../../utils/receiptEmailPdf';
 import { formatCurrency } from '../../utils/currency';
 import { emailReceipt as emailReceiptService } from '../../services/receiptService';
 import TablePagination from '../ui/TablePagination';
@@ -48,6 +49,7 @@ const ReceiptHistory = ({ receipts = [], onRefresh, defaultTemplateId }) => {
   const handleResendEmail = async (receipt) => {
     const receiptRecordId = receipt?.recordId || receipt?.metadata?._id || receipt?.id;
     const customerEmail = String(receipt?.customerEmail || '').trim();
+    const resolvedTemplateStyle = receipt?.templateStyle || defaultTemplateId || 'standard';
 
     if (!receiptRecordId) {
       addToast('Missing receipt reference. Refresh and try again.', 'error');
@@ -62,7 +64,18 @@ const ReceiptHistory = ({ receipts = [], onRefresh, defaultTemplateId }) => {
     }
 
     try {
-      await emailReceiptService(receiptRecordId, { customerEmail });
+      const pdfAttachment = buildReceiptEmailPdfAttachment({
+        receiptData: receipt,
+        accountInfo,
+        templateId: resolvedTemplateStyle,
+        fallbackReceiptId: receiptRecordId
+      });
+
+      await emailReceiptService(receiptRecordId, {
+        customerEmail,
+        templateStyle: resolvedTemplateStyle,
+        ...(pdfAttachment ? { pdfAttachment } : {})
+      });
       addToast(`Receipt ${receipt.id} sent to ${customerEmail}`, 'success');
     } catch (error) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to send receipt email';

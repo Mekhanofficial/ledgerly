@@ -11,6 +11,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import { usePayments } from '../../context/PaymentContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { generateReceiptPDF, getReceiptTemplatePreference, setReceiptTemplatePreference } from '../../utils/receiptPdfGenerator';
+import { buildReceiptEmailPdfAttachment } from '../../utils/receiptEmailPdf';
 import { useAccount } from '../../context/AccountContext';
 import { hasTemplateAccess } from '../../utils/templateStorage';
 import { formatCurrency } from '../../utils/currency';
@@ -153,13 +154,31 @@ const Receipts = () => {
     return { subtotal, tax, total };
   };
 
-  const sendReceiptEmail = async (receiptData, fallbackEmail = '') => {
+  const sendReceiptEmail = async (receiptData, fallbackEmail = '', options = {}) => {
     const receiptId = receiptData?.recordId || receiptData?.metadata?._id || receiptData?.id;
     if (!receiptId) {
       throw new Error('Unable to send receipt email: missing receipt reference');
     }
+
     const resolvedEmail = String(fallbackEmail || receiptData?.customerEmail || '').trim();
-    const payload = resolvedEmail ? { customerEmail: resolvedEmail } : {};
+    const resolvedTemplateStyle = options.templateId
+      || receiptData?.templateStyle
+      || receiptData?.templateId
+      || selectedTemplateId
+      || 'standard';
+
+    const pdfAttachment = buildReceiptEmailPdfAttachment({
+      receiptData,
+      accountInfo,
+      templateId: resolvedTemplateStyle,
+      fallbackReceiptId: receiptId
+    });
+
+    const payload = {
+      ...(resolvedEmail ? { customerEmail: resolvedEmail } : {}),
+      ...(resolvedTemplateStyle ? { templateStyle: resolvedTemplateStyle } : {}),
+      ...(pdfAttachment ? { pdfAttachment } : {})
+    };
     const response = await emailReceiptService(receiptId, payload);
     return response;
   };
@@ -343,7 +362,7 @@ const Receipts = () => {
       pdfDoc.save(`${createdReceipt.id}.pdf`);
       const receiptCurrency = createdReceipt.currency || baseCurrency;
       const emailTo = customerEmail || selectedCustomer?.email || createdReceipt.customerEmail;
-      await sendReceiptEmail(createdReceipt, emailTo);
+      await sendReceiptEmail(createdReceipt, emailTo, { templateId: selectedTemplateId });
 
       addNotification({
         type: 'receipt',
@@ -433,7 +452,7 @@ const Receipts = () => {
 
       const receiptCurrency = createdReceipt.currency || baseCurrency;
       const emailTo = customerEmail || selectedCustomer?.email || createdReceipt.customerEmail;
-      await sendReceiptEmail(createdReceipt, emailTo);
+      await sendReceiptEmail(createdReceipt, emailTo, { templateId: selectedTemplateId });
       addNotification({
         type: 'receipt',
         title: 'Receipt Emailed',
