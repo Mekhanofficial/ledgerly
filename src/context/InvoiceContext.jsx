@@ -600,7 +600,7 @@ export const InvoiceProvider = ({ children }) => {
         const resolvedTemplateStyle = normalizedEmailOptions?.templateStyle || invoiceForPdf?.templateStyle || 'standard';
         if (invoiceForPdf) {
           try {
-            const pdfAttachment = buildInvoiceEmailPdfAttachment({
+            const pdfAttachment = await buildInvoiceEmailPdfAttachment({
               invoiceData: {
                 ...invoiceForPdf,
                 templateStyle: resolvedTemplateStyle
