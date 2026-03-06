@@ -84,6 +84,27 @@ const toTitleCase = (value) => {
     .replace(/\w\S*/g, (chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1));
 };
 
+const GENERIC_CUSTOMER_NAME_VALUES = new Set([
+  'customer',
+  'name:customer',
+  'name: customer',
+  'customer name',
+  'client',
+  'client name',
+  'clientnamehere'
+]);
+
+const normalizeCustomerDisplayName = (value) => {
+  if (value === null || value === undefined) return '';
+  const candidate = String(value).trim();
+  if (!candidate) return '';
+  const normalized = candidate.toLowerCase().replace(/\s+/g, ' ');
+  if (GENERIC_CUSTOMER_NAME_VALUES.has(normalized)) {
+    return '';
+  }
+  return candidate;
+};
+
 const applyReceiptDecorations = (doc, variant, palette, pageWidth, pageHeight) => {
   const primary = palette.primary;
   const secondary = palette.secondary;
@@ -258,8 +279,9 @@ export const generateReceiptPDF = (receiptData, accountInfo = {}, options = {}) 
   const boxHeaderHeight = 6;
   const boxLineHeight = 5;
 
+  const resolvedCustomerName = normalizeCustomerDisplayName(receiptData.customerName);
   const customerLines = [
-    receiptData.customerName ? `Name: ${receiptData.customerName}` : '',
+    resolvedCustomerName ? `Name: ${resolvedCustomerName}` : '',
     receiptData.customerEmail ? `Email: ${receiptData.customerEmail}` : '',
     receiptData.customerPhone ? `Phone: ${receiptData.customerPhone}` : ''
   ].filter(Boolean);

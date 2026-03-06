@@ -294,7 +294,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {filteredProducts.map((product) => {
               const stock = product.stock || product.quantity || 0;
               const cartQuantity = getCartQuantity(product.id);
@@ -350,9 +350,12 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                               {categoryName}
                             </p>
                           </div>
-                          <span className={`rounded-lg px-2 py-1 text-[11px] font-medium ${
+                          <span
+                            className={`max-w-[120px] truncate rounded-lg px-2 py-1 text-[11px] font-medium ${
                             isDarkMode ? 'bg-gray-900 text-gray-300 border border-gray-700' : 'bg-gray-100 text-gray-700 border border-gray-200'
-                          }`}>
+                          }`}
+                            title={product.sku || 'SKU'}
+                          >
                             {product.sku || 'SKU'}
                           </span>
                         </div>
@@ -375,10 +378,10 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                       </div>
                     </div>
 
-                    <div className={`mt-4 flex items-center justify-between border-t pt-4 ${
+                    <div className={`mt-4 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between ${
                       isDarkMode ? 'border-gray-700' : 'border-gray-100'
                     }`}>
-                      <div>
+                      <div className="min-w-0">
                         <div className={`text-[11px] uppercase tracking-wider ${
                           isDarkMode ? 'text-gray-500' : 'text-gray-500'
                         }`}>
@@ -394,7 +397,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                       <button
                         onClick={() => !isOutOfStock && onAddToCart(product)}
                         disabled={isOutOfStock}
-                        className={`inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium transition ${
+                        className={`inline-flex w-full items-center justify-center rounded-xl px-3 py-2 text-sm font-medium leading-tight transition sm:w-auto sm:shrink-0 ${
                           isOutOfStock
                             ? 'cursor-not-allowed bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                             : 'bg-primary-600 text-white hover:bg-primary-700'
@@ -402,12 +405,12 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                       >
                         {isOutOfStock ? (
                           <>
-                            <AlertCircle className="mr-1.5 h-4 w-4" />
+                            <AlertCircle className="mr-1.5 h-4 w-4 shrink-0" />
                             Out of stock
                           </>
                         ) : (
                           <>
-                            <Package className="mr-1.5 h-4 w-4" />
+                            <Package className="mr-1.5 h-4 w-4 shrink-0" />
                             {cartQuantity > 0 ? `Add More (${cartQuantity})` : 'Add to Cart'}
                           </>
                         )}

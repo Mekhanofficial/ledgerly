@@ -19,6 +19,27 @@ const getReceiptTemplatePreference = () => {
   }
 };
 
+const GENERIC_CUSTOMER_NAME_VALUES = new Set([
+  'customer',
+  'name:customer',
+  'name: customer',
+  'customer name',
+  'client',
+  'client name',
+  'clientnamehere'
+]);
+
+const normalizeCustomerName = (value) => {
+  if (value === null || value === undefined) return '';
+  const candidate = String(value).trim();
+  if (!candidate) return '';
+  const normalized = candidate.toLowerCase().replace(/\s+/g, ' ');
+  if (GENERIC_CUSTOMER_NAME_VALUES.has(normalized)) {
+    return '';
+  }
+  return candidate;
+};
+
 const mapPaymentToTransaction = (payment = {}) => {
   const invoice = payment.invoice || {};
   const customer = payment.customer || {};
@@ -52,7 +73,8 @@ const mapPaymentToTransaction = (payment = {}) => {
 
 const mapReceiptToUi = (receipt = {}) => {
   const invoice = receipt.invoice || {};
-  const customer = receipt.customer || {};
+  const customer = receipt.customer && typeof receipt.customer === 'object' ? receipt.customer : {};
+  const customerIdFallback = typeof receipt.customer === 'string' ? receipt.customer : undefined;
   const rawDate = receipt.date || receipt.createdAt || new Date().toISOString();
   const displayDate = rawDate ? new Date(rawDate).toLocaleString() : '';
   const items = Array.isArray(receipt.items)
@@ -64,6 +86,20 @@ const mapReceiptToUi = (receipt = {}) => {
     : [];
   const taxAmount = receipt.tax?.amount ?? receipt.tax ?? 0;
   const currency = receipt.currency || invoice.currency || receipt.currencyCode;
+  const fallbackCustomerName = normalizeCustomerName(
+    receipt.customerName
+    || customer.name
+    || receipt.metadata?.customerName
+    || receipt.customerDisplayName
+  );
+  const fallbackCustomerEmail =
+    receipt.customerEmail
+    || receipt.customer?.email
+    || receipt.metadata?.customerEmail;
+  const fallbackCustomerPhone =
+    receipt.customerPhone
+    || receipt.customer?.phone
+    || receipt.metadata?.customerPhone;
 
   return {
     id: receipt.receiptNumber || receipt._id || receipt.id,
@@ -71,9 +107,10 @@ const mapReceiptToUi = (receipt = {}) => {
     receiptNumber: receipt.receiptNumber,
     invoiceId: invoice._id || invoice.id,
     invoiceNumber: invoice.invoiceNumber,
-    customerId: customer._id || customer.id,
-    customerName: customer.name || receipt.customerName || 'Customer',
-    customerEmail: customer.email || receipt.customerEmail,
+    customerId: customer._id || customer.id || customerIdFallback,
+    customerName: normalizeCustomerName(customer.name) || fallbackCustomerName || 'Walk-in Customer',
+    customerEmail: customer.email || fallbackCustomerEmail,
+    customerPhone: customer.phone || fallbackCustomerPhone,
     items,
     subtotal: receipt.subtotal ?? 0,
     tax: taxAmount ?? 0,
@@ -522,7 +559,29 @@ export const PaymentProvider = ({ children }) => {
         const created = await createReceipt(payload);
         const createdReceipt = created?.data || created?.receipt || created;
         await Promise.all([refreshTransactions(), refreshReceipts()]);
-        return createdReceipt ? mapReceiptToUi(createdReceipt) : null;
+        if (!createdReceipt) return null;
+        const createdCustomer = createdReceipt.customer && typeof createdReceipt.customer === 'object'
+          ? createdReceipt.customer
+          : {};
+
+        return mapReceiptToUi({
+          ...createdReceipt,
+          customerName:
+            createdReceipt.customerName
+            || createdCustomer.name
+            || receiptPayload.customerName
+            || transactionData.customerName,
+          customerEmail:
+            createdReceipt.customerEmail
+            || createdCustomer.email
+            || receiptPayload.customerEmail
+            || transactionData.customerEmail,
+          customerPhone:
+            createdReceipt.customerPhone
+            || createdCustomer.phone
+            || receiptPayload.customerPhone
+            || transactionData.customerPhone
+        });
       }
 
       const newTransaction = {
