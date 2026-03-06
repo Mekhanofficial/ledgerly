@@ -456,6 +456,7 @@ const EditInvoice = () => {
 
       const sentInvoice = await sendInvoiceFromContext(id, {
         templateStyle: originalInvoice?.templateStyle || 'standard',
+        invoiceData: draftPayload,
         emailSubject,
         emailMessage: brandedEmailMessage,
         emailFrom: emailSenderConfig.fromAddress,

@@ -203,7 +203,7 @@ const InvoiceTemplates = () => {
           <div className="flex items-center gap-2 md:gap-3">
             {hasLockedTemplates && (
               <button 
-                onClick={() => navigate('/pricing')}
+                onClick={() => navigate('/payments/pricing')}
                 className="flex items-center justify-center px-3 py-2 md:px-4 md:py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 text-sm md:text-base whitespace-nowrap"
               >
                 <Crown className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
@@ -270,7 +270,7 @@ const InvoiceTemplates = () => {
                     </div>
                   </div>
                   <button 
-                    onClick={() => navigate('/pricing')}
+                    onClick={() => navigate('/payments/pricing')}
                     className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 font-semibold whitespace-nowrap"
                   >
                     View Pricing

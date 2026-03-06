@@ -13,6 +13,7 @@ import {
 } from '../utils/brandingPlan';
 import {
   fetchInvoices,
+  fetchInvoiceById,
   createInvoice as createInvoiceThunk,
   updateInvoice as updateInvoiceThunk,
   deleteInvoice as deleteInvoiceThunk,
@@ -36,6 +37,7 @@ import { mapCustomerFromApi, buildCustomerPayload } from '../utils/customerAdapt
 import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter';
 import { recurringStorage } from '../utils/recurringStorage';
 import { formatCurrency } from '../utils/currency';
+import { buildInvoiceEmailPdfAttachment } from '../utils/invoiceEmailPdf';
 
 const dedupeTemplates = (templates = []) => {
   const map = new Map();
@@ -527,26 +529,101 @@ export const InvoiceProvider = ({ children }) => {
     }
   };
 
+  const resolveInvoiceForEmailPdf = useCallback(async (id, candidateInvoice = null) => {
+    const normalizeCandidate = (value) => {
+      if (!value || typeof value !== 'object') return null;
+      const normalizedId = value.id || value._id || id;
+      return mapInvoiceFromApi({
+        ...value,
+        id: normalizedId,
+        _id: normalizedId
+      });
+    };
+
+    const isRenderable = (value) => {
+      if (!value || typeof value !== 'object') return false;
+      const hasItems = (Array.isArray(value.lineItems) && value.lineItems.length > 0)
+        || (Array.isArray(value.items) && value.items.length > 0);
+      return hasItems
+        || Boolean(value.invoiceNumber)
+        || Boolean(value.totalAmount)
+        || Boolean(value.subtotal);
+    };
+
+    const fromCandidate = normalizeCandidate(candidateInvoice);
+    if (isRenderable(fromCandidate)) {
+      return fromCandidate;
+    }
+
+    const local = invoices.find((invoice) => String(invoice.id) === String(id));
+    if (isRenderable(local)) {
+      return local;
+    }
+
+    try {
+      const fetched = await dispatch(fetchInvoiceById(id)).unwrap();
+      const mapped = mapInvoiceFromApi(fetched);
+      return isRenderable(mapped) ? mapped : null;
+    } catch {
+      return null;
+    }
+  }, [dispatch, invoices]);
+
   const sendInvoice = async (id, emailOptions = null, options = {}) => {
     const throwOnError = options?.throwOnError === true;
     try {
       const senderConfig = getEmailSenderConfig(accountInfo);
       const hideLedgerlyBranding = shouldHideLedgerlyBrandingEverywhere(accountInfo);
       const invoiceBaseUrl = resolveInvoiceBaseUrl(accountInfo, 'https://ledgerly.com');
-      const normalizedEmailOptions = emailOptions && typeof emailOptions === 'object'
-        ? {
-            ...emailOptions,
-            emailMessage: emailOptions.emailMessage != null
-              ? buildBrandedEmailMessage(emailOptions.emailMessage, accountInfo)
-              : emailOptions.emailMessage,
-            emailFrom: emailOptions.emailFrom || senderConfig.fromAddress,
-            emailFooterText: emailOptions.emailFooterText ?? senderConfig.footerText,
-            hideLedgerlyBrandingEverywhere: emailOptions.hideLedgerlyBrandingEverywhere ?? hideLedgerlyBranding,
-            invoiceBaseUrl: emailOptions.invoiceBaseUrl || invoiceBaseUrl
-          }
-        : emailOptions;
+      const hasEmailOptions = emailOptions && typeof emailOptions === 'object';
+      const {
+        invoiceData: explicitInvoiceData,
+        includeFrontendPdf = true,
+        ...emailOptionPayload
+      } = hasEmailOptions ? emailOptions : {};
 
-      const payload = emailOptions && typeof emailOptions === 'object'
+      let normalizedEmailOptions = hasEmailOptions
+        ? {
+            ...emailOptionPayload,
+            emailMessage: emailOptionPayload.emailMessage != null
+              ? buildBrandedEmailMessage(emailOptionPayload.emailMessage, accountInfo)
+              : emailOptionPayload.emailMessage,
+            emailFrom: emailOptionPayload.emailFrom || senderConfig.fromAddress,
+            emailFooterText: emailOptionPayload.emailFooterText ?? senderConfig.footerText,
+            hideLedgerlyBrandingEverywhere: emailOptionPayload.hideLedgerlyBrandingEverywhere ?? hideLedgerlyBranding,
+            invoiceBaseUrl: emailOptionPayload.invoiceBaseUrl || invoiceBaseUrl
+          }
+        : null;
+
+      if (includeFrontendPdf !== false) {
+        const invoiceForPdf = await resolveInvoiceForEmailPdf(id, explicitInvoiceData);
+        const resolvedTemplateStyle = normalizedEmailOptions?.templateStyle || invoiceForPdf?.templateStyle || 'standard';
+        if (invoiceForPdf) {
+          try {
+            const pdfAttachment = buildInvoiceEmailPdfAttachment({
+              invoiceData: {
+                ...invoiceForPdf,
+                templateStyle: resolvedTemplateStyle
+              },
+              templateStyle: resolvedTemplateStyle,
+              companyData: accountInfo,
+              fallbackInvoiceId: id
+            });
+
+            if (pdfAttachment) {
+              normalizedEmailOptions = {
+                ...(normalizedEmailOptions || {}),
+                templateStyle: normalizedEmailOptions?.templateStyle || resolvedTemplateStyle,
+                pdfAttachment
+              };
+            }
+          } catch (pdfError) {
+            console.warn('Unable to generate frontend PDF attachment for invoice email:', pdfError);
+          }
+        }
+      }
+
+      const payload = normalizedEmailOptions && Object.keys(normalizedEmailOptions).length > 0
         ? { id, data: normalizedEmailOptions }
         : id;
       const updated = await dispatch(sendInvoiceThunk(payload)).unwrap();

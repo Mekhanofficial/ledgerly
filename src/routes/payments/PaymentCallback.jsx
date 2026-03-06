@@ -3,11 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { verifyPayment } from '../../services/billingService';
 import { useToast } from '../../context/ToastContext';
+import { useAccount } from '../../context/AccountContext';
 
 const PaymentCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { refreshAccountInfo } = useAccount();
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('Verifying payment...');
 
@@ -27,7 +29,8 @@ const PaymentCallback = () => {
 
     const verify = async () => {
       try {
-        const response = await verifyPayment(reference);
+        await verifyPayment(reference);
+        await refreshAccountInfo({ silent: true });
         if (!isActive) return;
         setStatus('success');
         setMessage('Payment verified. Your account is now updated.');
@@ -45,7 +48,7 @@ const PaymentCallback = () => {
     return () => {
       isActive = false;
     };
-  }, [searchParams, addToast]);
+  }, [searchParams, addToast, refreshAccountInfo]);
 
   return (
     <DashboardLayout>

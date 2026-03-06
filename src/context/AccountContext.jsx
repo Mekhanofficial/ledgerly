@@ -142,6 +142,32 @@ export const AccountProvider = ({ children }) => {
     }
   }, [accountInfo, storageKey]);
 
+  const refreshAccountInfo = useCallback(async ({ silent = false } = {}) => {
+    if (!authUser) {
+      setAccountInfo(EMPTY_ACCOUNT_INFO);
+      if (!silent) setLoading(false);
+      return EMPTY_ACCOUNT_INFO;
+    }
+
+    if (!silent) {
+      setLoading(true);
+    }
+
+    try {
+      const response = await api.get('/business');
+      const normalized = mapBusinessToAccount(response.data.data, authUser);
+      setAccountInfo(normalized);
+      return normalized;
+    } catch (error) {
+      console.error('Failed to load business profile:', error);
+      return null;
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  }, [authUser]);
+
   useEffect(() => {
     let isActive = true;
 
@@ -291,7 +317,7 @@ export const AccountProvider = ({ children }) => {
   }, [resolvedUser, accountInfo, dispatch, canUpdateBusiness]);
 
   return (
-    <AccountContext.Provider value={{ accountInfo, updateAccountInfo, loading }}>
+    <AccountContext.Provider value={{ accountInfo, updateAccountInfo, refreshAccountInfo, loading }}>
       {children}
     </AccountContext.Provider>
   );

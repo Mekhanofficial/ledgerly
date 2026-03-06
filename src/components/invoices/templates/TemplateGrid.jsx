@@ -216,7 +216,7 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
               </p>
             </div>
             <button
-              onClick={() => navigate('/pricing')}
+              onClick={() => navigate('/payments/pricing')}
               className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap"
             >
               View Plans
@@ -400,23 +400,23 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                         <p>{`Unlock for ${formatNgn(template.price)}`}</p>
                         <p className="text-gray-300">{getIncludedPlanLabel(template)}</p>
                       </div>
-                      <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="w-full max-w-[260px] grid grid-cols-1 gap-2">
                         <button
                           onClick={() => handlePreview(template)}
-                          className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20"
+                          className="w-full px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 text-sm text-center leading-tight whitespace-normal break-words"
                         >
                           View Fullscreen
                         </button>
                         <button
-                          onClick={() => navigate('/pricing')}
-                          className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20"
+                          onClick={() => navigate('/payments/pricing')}
+                          className="w-full px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 text-sm text-center leading-tight whitespace-normal break-words"
                         >
                           Upgrade to {formatPlanLabel(template.requiredPlan)}
                         </button>
                         {template.canPurchase !== false && (
                           <button 
                             onClick={() => setSelectedPremiumTemplate(template)}
-                            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90"
+                            className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 text-sm text-center leading-tight whitespace-normal break-words"
                           >
                             Unlock for {formatNgn(template.price)}
                           </button>
@@ -455,16 +455,16 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                   {/* Floating action button */}
                   {!isLocked && (
                     <div className={`
-                      absolute left-1/2 -translate-x-1/2 bottom-24 z-30
+                      absolute left-1/2 -translate-x-1/2 bottom-24 z-30 w-max max-w-[calc(100%-1rem)]
                       transition-all duration-300
                       ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
                     `}>
                       <button
                         onClick={() => handleTemplateClick(template)}
-                        className="px-5 py-2.5 bg-white text-primary-700 rounded-full shadow-xl font-semibold text-sm flex items-center gap-2 border border-primary-200 hover:bg-primary-50 transition-colors"
+                        className="h-10 px-4 bg-white text-primary-700 rounded-full shadow-xl font-semibold text-sm flex items-center gap-2 border border-primary-200 hover:bg-primary-50 transition-colors whitespace-nowrap leading-none"
                       >
-                        <Eye className="w-4 h-4" />
-                        Use Template
+                        <Eye className="w-4 h-4 flex-shrink-0" />
+                        <span className="whitespace-nowrap">Use Template</span>
                       </button>
                     </div>
                   )}
@@ -664,7 +664,7 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                     Cancel
                   </button>
                   <button
-                    onClick={() => navigate('/pricing')}
+                    onClick={() => navigate('/payments/pricing')}
                     className={`px-6 py-3 rounded-lg text-sm font-medium ${
                       isDarkMode
                         ? 'bg-gray-800 text-gray-200 hover:bg-gray-700'

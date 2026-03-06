@@ -39,21 +39,32 @@ const GlowingBorderTrail = ({ isActive = true, duration = 22000, pauseDuration =
     }
   };
 
+  const isSidebarVisible = (node) => {
+    if (!node || typeof window === 'undefined') return false;
+    const style = window.getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+
+    const rect = node.getBoundingClientRect();
+    return (
+      rect.width > 0
+      && rect.height > 0
+      && rect.right > 0
+      && rect.left < window.innerWidth
+      && rect.bottom > 0
+      && rect.top < window.innerHeight
+    );
+  };
+
   const getLayoutElements = () => {
     const navbar =
       document.querySelector('[data-dashboard-navbar="true"]')
       || document.querySelector('header');
 
     const sidebarCandidates = Array.from(
-      document.querySelectorAll('[data-dashboard-sidebar="true"], aside')
+      document.querySelectorAll('[data-dashboard-sidebar="true"]')
     );
 
-    const visibleSidebars = sidebarCandidates
-      .map((node) => ({ node, rect: node.getBoundingClientRect() }))
-      .filter(({ rect }) => rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0)
-      .sort((a, b) => a.rect.left - b.rect.left);
-
-    const sidebar = visibleSidebars[0]?.node || null;
+    const sidebar = sidebarCandidates.find((node) => isSidebarVisible(node)) || null;
 
     return { navbar, sidebar };
   };
@@ -204,12 +215,28 @@ const GlowingBorderTrail = ({ isActive = true, duration = 22000, pauseDuration =
 
   const getPathPoints = (direction = 'forward') => {
     const { navbar, sidebar } = getLayoutElements();
-    if (!navbar || !sidebar) return null;
+    if (!navbar) return null;
 
     const navbarRect = navbar.getBoundingClientRect();
-    const sidebarRect = sidebar.getBoundingClientRect();
     const borderY = navbarRect.bottom - 1;
+    const navbarLeftX = navbarRect.left + 1;
     const navbarRightX = navbarRect.right - 1;
+
+    if (!sidebar) {
+      if (direction === 'reverse') {
+        return [
+          { x: navbarLeftX, y: borderY },
+          { x: navbarRightX, y: borderY }
+        ];
+      }
+
+      return [
+        { x: navbarRightX, y: borderY },
+        { x: navbarLeftX, y: borderY }
+      ];
+    }
+
+    const sidebarRect = sidebar.getBoundingClientRect();
     const sidebarBorderX = sidebarRect.right - 1;
     const sidebarBottomY = sidebarRect.bottom - 1;
 
@@ -242,6 +269,8 @@ const GlowingBorderTrail = ({ isActive = true, duration = 22000, pauseDuration =
         if (isPause && trailRef.current) {
           trailRef.current.style.opacity = '0.96';
         }
+      } else if (trailRef.current) {
+        trailRef.current.style.opacity = '0';
       }
 
       animationRef.current = requestAnimationFrame(animate);

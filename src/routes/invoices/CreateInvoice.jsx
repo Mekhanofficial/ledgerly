@@ -1125,6 +1125,7 @@ const CreateInvoice = () => {
 
       const sentInvoice = await sendInvoice(createdInvoice.id, {
         templateStyle: selectedTemplate,
+        invoiceData,
         emailSubject,
         emailMessage: brandedEmailMessage,
         emailFrom: emailSenderConfig.fromAddress,
