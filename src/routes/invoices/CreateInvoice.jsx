@@ -462,7 +462,7 @@ const CreateInvoice = () => {
   };
 
   const resolveProductStock = (product = {}) => {
-    const available = Number(product.availableStock ?? product.stock);
+    const available = Number(product.availableStock ?? product.available ?? product.stock);
     const total = Number(product.totalStock ?? product.quantity ?? product.stock);
     const reserved = Number(product.reservedStock ?? product.reserved ?? 0);
 
@@ -576,11 +576,32 @@ const CreateInvoice = () => {
       const matchedProduct = resolveProductForLineItem(item);
       const resolvedProductId = item.productId || matchedProduct?.id || '';
       const resolvedSku = item.sku || matchedProduct?.sku || '';
-      const availableStock = Number(
-        matchedProduct?.availableStock
+      const availableCandidate = matchedProduct?.availableStock
+        ?? matchedProduct?.available
         ?? matchedProduct?.stock
         ?? item.availableStock
-      );
+        ?? item.available
+        ?? item.stock;
+      let availableStock = Number(availableCandidate);
+
+      if (!Number.isFinite(availableStock)) {
+        const total = Number(
+          matchedProduct?.totalStock
+          ?? matchedProduct?.quantity
+          ?? matchedProduct?.stock
+          ?? item.totalStock
+          ?? item.quantityInStock
+        );
+        const reserved = Number(
+          matchedProduct?.reservedStock
+          ?? matchedProduct?.reserved
+          ?? item.reservedStock
+          ?? 0
+        );
+        const safeTotal = Number.isFinite(total) ? Math.max(0, total) : 0;
+        const safeReserved = Number.isFinite(reserved) ? Math.max(0, reserved) : 0;
+        availableStock = Math.max(0, safeTotal - safeReserved);
+      }
 
       return {
         ...item,
