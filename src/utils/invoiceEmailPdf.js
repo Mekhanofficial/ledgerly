@@ -3,8 +3,18 @@ import { generateInvoicePDF } from './pdfGenerator';
 const DEFAULT_CONTENT_TYPE = 'application/pdf';
 const DEFAULT_ENCODING = 'base64';
 const BASE64_CHUNK_SIZE = 0x8000;
+const MIN_MEANINGFUL_PDF_BYTES = 2048;
+
+const UNSUPPORTED_TEMPLATE_STYLES = new Set([
+  'cleanbilling',
+  'retailreceipt',
+  'simpleelegant',
+  'urbanedge',
+  'creativeflow'
+]);
 
 const toSafeString = (value) => String(value || '').trim();
+const normalizeTemplateStyle = (value) => toSafeString(value).toLowerCase();
 
 const sanitizeFileName = (value, fallback = 'invoice.pdf') => {
   const candidate = toSafeString(value).replace(/[<>:"/\\|?*]/g, '');
@@ -39,10 +49,17 @@ export const buildInvoiceEmailPdfAttachment = ({
   fallbackInvoiceId = ''
 } = {}) => {
   if (!invoiceData || typeof invoiceData !== 'object') return null;
+  if (UNSUPPORTED_TEMPLATE_STYLES.has(normalizeTemplateStyle(templateStyle))) {
+    return null;
+  }
 
   const doc = generateInvoicePDF(invoiceData, templateStyle || 'standard', companyData || {});
   const buffer = doc.output('arraybuffer');
-  if (!(buffer instanceof ArrayBuffer) || buffer.byteLength === 0) {
+  if (
+    !(buffer instanceof ArrayBuffer)
+    || buffer.byteLength === 0
+    || buffer.byteLength < MIN_MEANINGFUL_PDF_BYTES
+  ) {
     return null;
   }
 
