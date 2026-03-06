@@ -526,15 +526,6 @@ const Receipts = () => {
           <section className={`relative overflow-hidden rounded-2xl border ${
             isDarkMode ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'
           }`}>
-            <div className="pointer-events-none absolute inset-0 opacity-70">
-              <div className={`absolute -top-16 right-12 h-40 w-40 rounded-full blur-3xl ${
-                isDarkMode ? 'bg-primary-500/20' : 'bg-primary-200/60'
-              }`} />
-              <div className={`absolute -bottom-12 left-8 h-32 w-32 rounded-full blur-2xl ${
-                isDarkMode ? 'bg-cyan-500/10' : 'bg-cyan-100/80'
-              }`} />
-            </div>
-
             <div className="relative p-5 md:p-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>

@@ -10,7 +10,7 @@ export const getReceiptTemplatePreference = () => {
   if (typeof window === 'undefined') return null;
   try {
     return localStorage.getItem(RECEIPT_TEMPLATE_STORAGE_KEY);
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -23,7 +23,7 @@ export const setReceiptTemplatePreference = (templateId) => {
     } else {
       localStorage.removeItem(RECEIPT_TEMPLATE_STORAGE_KEY);
     }
-  } catch (error) {
+  } catch {
     // Ignore storage errors (private mode, etc.)
   }
 };
@@ -45,11 +45,6 @@ const resolveTemplateId = (receiptData, templateId) => {
     templateStorage.getDefaultTemplate()?.id ||
     'standard'
   );
-};
-
-const resolveTemplate = (receiptData, templateId) => {
-  const resolvedId = resolveTemplateId(receiptData, templateId);
-  return getTemplateById(resolvedId) || templateStorage.getDefaultTemplate() || {};
 };
 
 const resolveFont = (fontName) => {
@@ -92,10 +87,9 @@ const toTitleCase = (value) => {
 const applyReceiptDecorations = (doc, variant, palette, pageWidth, pageHeight) => {
   const primary = palette.primary;
   const secondary = palette.secondary;
-  const accent = palette.accent;
 
   if (variant === 'classic') {
-    return;
+    return { topCoverage: 0 };
   }
 
   if (variant === 'panel') {
@@ -105,7 +99,7 @@ const applyReceiptDecorations = (doc, variant, palette, pageWidth, pageHeight) =
     doc.rect(0, 28, pageWidth, 6, 'F');
     doc.setFillColor(...primary);
     doc.rect(0, pageHeight - 18, pageWidth * 0.42, 18, 'F');
-    return;
+    return { topCoverage: 34 };
   }
 
   if (variant === 'stripe') {
@@ -121,7 +115,7 @@ const applyReceiptDecorations = (doc, variant, palette, pageWidth, pageHeight) =
     doc.rect(0, pageHeight - 14, pageWidth, 14, 'F');
     doc.setFillColor(...secondary);
     doc.rect(pageWidth * 0.55, pageHeight - 28, pageWidth * 0.45, 14, 'F');
-    return;
+    return { topCoverage: stripeHeight };
   }
 
   if (variant === 'angled') {
@@ -131,21 +125,18 @@ const applyReceiptDecorations = (doc, variant, palette, pageWidth, pageHeight) =
     doc.triangle(pageWidth * 0.35, 0, pageWidth, 0, pageWidth, 22, 'F');
     doc.setFillColor(...primary);
     doc.triangle(pageWidth * 0.4, pageHeight, pageWidth, pageHeight, pageWidth, pageHeight - 24, 'F');
-    return;
+    return { topCoverage: 30 };
   }
 
   doc.setFillColor(...primary);
   doc.rect(0, 0, pageWidth, 26, 'F');
   doc.setFillColor(...secondary);
   doc.rect(0, 26, pageWidth, 6, 'F');
-  doc.setFillColor(...accent);
-  doc.circle(pageWidth * 0.75, 26, 24, 'F');
   doc.setFillColor(...primary);
   doc.rect(0, pageHeight - 18, pageWidth, 18, 'F');
   doc.setFillColor(...secondary);
   doc.rect(0, pageHeight - 26, pageWidth, 8, 'F');
-  doc.setFillColor(...accent);
-  doc.circle(pageWidth * 0.25, pageHeight - 18, 24, 'F');
+  return { topCoverage: 32 };
 };
 
 export const generateReceiptPDF = (receiptData, accountInfo = {}, options = {}) => {
@@ -186,7 +177,7 @@ export const generateReceiptPDF = (receiptData, accountInfo = {}, options = {}) 
     accountInfo?.website || ''
   ].filter(Boolean);
 
-  applyReceiptDecorations(
+  const decorationMetrics = applyReceiptDecorations(
     doc,
     templateVariant,
     {
@@ -197,6 +188,8 @@ export const generateReceiptPDF = (receiptData, accountInfo = {}, options = {}) 
     pageWidth,
     pageHeight
   );
+  const topDecorationCoverage = Number(decorationMetrics?.topCoverage || 0);
+  const minContentY = Math.max(margin + headerOffset, topDecorationCoverage + 8);
 
   const headerHeight = template?.layout?.showHeaderBorder ? 18 : 0;
   const contentWidth = pageWidth - margin * 2;
@@ -212,8 +205,9 @@ export const generateReceiptPDF = (receiptData, accountInfo = {}, options = {}) 
     doc.setFontSize(12);
     doc.text(companyName, margin, 12);
     doc.text('RECEIPT', pageWidth - margin, 12, { align: 'right' });
-    yPos = headerHeight + 10;
+    yPos = Math.max(headerHeight + 10, minContentY);
   } else {
+    yPos = minContentY;
     doc.setTextColor(...primaryColor);
     doc.setFont(titleFont, 'bold');
     doc.setFontSize(20);
