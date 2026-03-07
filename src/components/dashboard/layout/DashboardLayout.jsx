@@ -20,6 +20,8 @@ const DashboardLayout = ({ children }) => {
   const authUser = useSelector((state) => state.auth?.user);
   const resolvedUser = resolveAuthUser(authUser);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const normalizedRole = String(resolvedUser?.role || authUser?.role || '').trim().toLowerCase();
+  const isSuperAdmin = normalizedRole === 'super_admin';
 
   const modalStorageKey = useMemo(() => {
     const id = resolvedUser?.id || resolvedUser?._id;
@@ -27,6 +29,7 @@ const DashboardLayout = ({ children }) => {
   }, [resolvedUser]);
 
   const subscriptionBanner = useMemo(() => {
+    if (isSuperAdmin) return null;
     const status = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
     if (status === 'expired') {
       return {
@@ -49,9 +52,13 @@ const DashboardLayout = ({ children }) => {
       };
     }
     return null;
-  }, [accountInfo]);
+  }, [accountInfo, isSuperAdmin]);
 
   useEffect(() => {
+    if (isSuperAdmin) {
+      setShowUpgradeModal(false);
+      return;
+    }
     const status = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
     if (typeof window === 'undefined') return;
     if (status === 'expired') {
@@ -61,7 +68,7 @@ const DashboardLayout = ({ children }) => {
       setShowUpgradeModal(false);
       sessionStorage.removeItem(modalStorageKey);
     }
-  }, [accountInfo?.subscriptionStatus, modalStorageKey]);
+  }, [accountInfo?.subscriptionStatus, modalStorageKey, isSuperAdmin]);
 
   const handleDismissUpgradeModal = () => {
     setShowUpgradeModal(false);

@@ -10,6 +10,14 @@ const GlowingBorderTrail = ({ isActive = true, duration = 22000, pauseDuration =
   const timelineRef = useRef(null);
   const lineLengthRef = useRef(44);
   const lineThicknessRef = useRef(1);
+  const overlaySelectorsRef = useRef([
+    '[role="dialog"]',
+    '[aria-modal="true"]',
+    '.fixed.inset-0.z-50',
+    '.fixed.inset-0.z-\\[50\\]',
+    '.fixed.inset-0.z-40',
+    '.fixed.inset-0.z-\\[40\\]'
+  ]);
 
   const isValidTimeline = (value) => {
     if (!value || typeof value !== 'object') return false;
@@ -53,6 +61,24 @@ const GlowingBorderTrail = ({ isActive = true, duration = 22000, pauseDuration =
       && rect.bottom > 0
       && rect.top < window.innerHeight
     );
+  };
+
+  const hasVisibleOverlay = () => {
+    if (typeof document === 'undefined') return false;
+
+    const selectors = overlaySelectorsRef.current || [];
+    for (let index = 0; index < selectors.length; index += 1) {
+      const selector = selectors[index];
+      const matches = document.querySelectorAll(selector);
+      for (let nodeIndex = 0; nodeIndex < matches.length; nodeIndex += 1) {
+        const node = matches[nodeIndex];
+        if (!node || node === trailRef.current) continue;
+        if (trailRef.current && node.contains(trailRef.current)) continue;
+        if (isSidebarVisible(node)) return true;
+      }
+    }
+
+    return false;
   };
 
   const getLayoutElements = () => {
@@ -261,6 +287,12 @@ const GlowingBorderTrail = ({ isActive = true, duration = 22000, pauseDuration =
     const animate = () => {
       if (!trailRef.current) return;
 
+      if (hasVisibleOverlay()) {
+        trailRef.current.style.opacity = '0';
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
       const { direction, progress, isPause } = getFrameState();
       const points = getPathPoints(direction);
       if (points) {
@@ -317,7 +349,7 @@ const GlowingBorderTrail = ({ isActive = true, duration = 22000, pauseDuration =
         0 0 14px rgba(14, 165, 233, 0.48);
       border-radius: 999px;
       pointer-events: none;
-      z-index: 9999;
+      z-index: 35;
       opacity: 0;
       transition: opacity 0.45s ease;
       will-change: transform, width, height, background, opacity, box-shadow;
