@@ -20,6 +20,7 @@ const DashboardHeader = ({
   const isClient = user?.role === 'client';
 
   const dateFilters = [
+    { id: 'all', label: 'All', mobileLabel: 'All' },
     { id: 'today', label: 'Today', mobileLabel: 'Today' },
     { id: 'this-week', label: 'This Week', mobileLabel: 'Week' },
     { id: 'this-month', label: 'This Month', mobileLabel: 'Month' },

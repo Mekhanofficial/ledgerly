@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   MoreVertical, 
   Eye, 
@@ -19,14 +19,29 @@ import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAccount } from '../../context/AccountContext';
+import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { formatCurrency, getCurrencySymbol } from '../../utils/currency';
+import { downloadInvoicePdfWithTemplate } from '../../utils/invoicePdfDownload';
 import TablePagination from '../../components/ui/TablePagination';
 import { useTablePagination } from '../../hooks/usePagination';
+import CountUpNumber from '../../components/ui/CountUpNumber';
+import InvoiceTemplateDownloadModal from '../../components/invoices/InvoiceTemplateDownloadModal';
+
+const dedupeTemplates = (templates = []) => {
+  const map = new Map();
+  templates.forEach((template) => {
+    if (template?.id && !map.has(template.id)) {
+      map.set(template.id, template);
+    }
+  });
+  return Array.from(map.values());
+};
 
 const InvoiceList = () => {
   const { isDarkMode } = useTheme();
+  const { addToast } = useToast();
   const { accountInfo } = useAccount();
   const baseCurrency = accountInfo?.currency || 'USD';
   const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
@@ -46,7 +61,8 @@ const InvoiceList = () => {
     getInvoiceStats,
     filterInvoices,
     exportInvoices,
-    exportInvoicesAsCSV
+    exportInvoicesAsCSV,
+    getAvailableTemplates
   } = useInvoice();
   
   const navigate = useNavigate();
@@ -60,6 +76,13 @@ const InvoiceList = () => {
   const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(null); // Track which invoice's actions are open
+  const [invoiceToDownload, setInvoiceToDownload] = useState(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const availableTemplates = useMemo(
+    () => dedupeTemplates(typeof getAvailableTemplates === 'function' ? getAvailableTemplates() : []),
+    [getAvailableTemplates]
+  );
 
   // Update filtered invoices when filters change
   useEffect(() => {
@@ -147,6 +170,9 @@ const InvoiceList = () => {
   };
 
   const canMarkAsPaid = (status) => ['sent', 'partial', 'overdue', 'viewed'].includes(status);
+  const canSendOrResend = (status) => !['cancelled', 'void'].includes(String(status || '').toLowerCase());
+  const isResendStatus = (status) => ['sent', 'viewed', 'partial', 'paid', 'overdue', 'pending'].includes(String(status || '').toLowerCase());
+  const getSendActionLabel = (status) => (isResendStatus(status) ? 'Resend' : 'Send');
 
   const handleExport = () => {
     if (selectedInvoices.length > 0) {
@@ -179,6 +205,36 @@ const InvoiceList = () => {
     navigate(`/invoices/view/${invoiceId}`);
   };
 
+  const handleOpenDownloadModal = (invoice) => {
+    setInvoiceToDownload(invoice);
+    setShowMobileActions(null);
+  };
+
+  const handleCloseDownloadModal = () => {
+    if (isDownloadingPdf) return;
+    setInvoiceToDownload(null);
+  };
+
+  const handleConfirmTemplateDownload = async (templateId) => {
+    if (!invoiceToDownload) return;
+    setIsDownloadingPdf(true);
+    try {
+      const { fileName } = await downloadInvoicePdfWithTemplate({
+        invoice: invoiceToDownload,
+        templateId,
+        companyData: accountInfo || {}
+      });
+      const selectedTemplate = availableTemplates.find((template) => template.id === templateId);
+      const templateLabel = selectedTemplate?.name || templateId || 'selected';
+      addToast(`Downloaded ${fileName} using ${templateLabel} template`, 'success');
+      setInvoiceToDownload(null);
+    } catch (error) {
+      addToast(`Error generating PDF: ${error?.message || 'Unknown error'}`, 'error');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   const handleApplyFilters = () => {
     setShowMobileFilters(false);
   };
@@ -199,7 +255,7 @@ const InvoiceList = () => {
         day: 'numeric',
         year: 'numeric'
       });
-    } catch (error) {
+    } catch {
       return 'Invalid date';
     }
   };
@@ -274,6 +330,18 @@ const InvoiceList = () => {
           >
             <Eye className="w-3 h-3 inline mr-1 align-text-bottom" /> View
           </button>
+
+          <button
+            onClick={() => handleOpenDownloadModal(invoice)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium mr-2 ${
+              isDarkMode
+                ? 'text-gray-300 hover:bg-gray-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+            title="Download PDF with template"
+          >
+            <Download className="w-3 h-3 inline mr-1 align-text-bottom" /> PDF
+          </button>
           
           {!isClient && (
             <div className="relative">
@@ -297,7 +365,7 @@ const InvoiceList = () => {
                   <div className={`absolute right-0 mt-1 w-48 rounded-lg shadow-lg py-1 z-20 ${
                     isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
                   }`}>
-                    {invoice.status !== 'sent' && invoice.status !== 'paid' && invoice.status !== 'draft' && (
+                    {canSendOrResend(invoice.status) && (
                       <button 
                         onClick={() => {
                           handleSendInvoice(invoice.id);
@@ -309,7 +377,7 @@ const InvoiceList = () => {
                             : 'hover:bg-gray-100 text-gray-700'
                         }`}
                       >
-                        <Mail className="w-4 h-4 mr-2" /> Send
+                        <Mail className="w-4 h-4 mr-2" /> {getSendActionLabel(invoice.status)}
                       </button>
                     )}
                     {canMarkAsPaid(invoice.status) && canRecordPayment && (
@@ -587,7 +655,7 @@ const InvoiceList = () => {
         </div>
 
         {/* Stats Grid - SINGLE STATS SECTION */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3 md:gap-4">
           {stats.map((stat, index) => (
             <div 
               key={index} 
@@ -614,7 +682,7 @@ const InvoiceList = () => {
                   <div className={`text-base md:text-lg font-semibold mt-1 stat-value-safe ${
                     isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    {stat.value}
+                    <CountUpNumber value={stat.value} />
                   </div>
                 </div>
               </div>
@@ -808,9 +876,20 @@ const InvoiceList = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
+                          <button
+                            onClick={() => handleOpenDownloadModal(invoice)}
+                            className={`p-1 rounded ${
+                              isDarkMode
+                                ? 'hover:bg-gray-700 text-gray-400'
+                                : 'hover:bg-gray-100 text-gray-600'
+                            }`}
+                            title="Download PDF with template"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
                           {!isClient && (
                             <>
-                              {invoice.status !== 'sent' && invoice.status !== 'paid' && invoice.status !== 'draft' && (
+                              {canSendOrResend(invoice.status) && (
                                 <button 
                                   onClick={() => handleSendInvoice(invoice.id)}
                                   className={`p-1 rounded ${
@@ -818,7 +897,7 @@ const InvoiceList = () => {
                                       ? 'hover:bg-gray-700 text-gray-400' 
                                       : 'hover:bg-gray-100 text-gray-600'
                                   }`} 
-                                  title="Send"
+                                  title={`${getSendActionLabel(invoice.status)} invoice`}
                                 >
                                   <Mail className="w-4 h-4" />
                                 </button>
@@ -893,6 +972,16 @@ const InvoiceList = () => {
             className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700"
           />
         )}
+
+        <InvoiceTemplateDownloadModal
+          isOpen={Boolean(invoiceToDownload)}
+          onClose={handleCloseDownloadModal}
+          onDownload={handleConfirmTemplateDownload}
+          invoice={invoiceToDownload}
+          templates={availableTemplates}
+          isDarkMode={isDarkMode}
+          isDownloading={isDownloadingPdf}
+        />
       </div>
     </DashboardLayout>
   );

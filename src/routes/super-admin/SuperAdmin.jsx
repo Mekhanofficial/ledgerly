@@ -4,6 +4,7 @@ import { ShieldCheck, RefreshCw, KeyRound, RotateCcw, Copy } from 'lucide-react'
 import api from '../../services/api';
 import { getUserRoleLabel } from '../../utils/userDisplay';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
+import CountUpNumber from '../../components/ui/CountUpNumber';
 
 const roleOptions = [
   { value: 'super_admin', label: 'Super Admin' },
@@ -671,7 +672,9 @@ const SuperAdmin = () => {
               className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4"
             >
               <p className="text-sm uppercase text-gray-500">{stat.label}</p>
-              <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white stat-value-safe">{stat.value}</p>
+              <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white stat-value-safe">
+                <CountUpNumber value={stat.value} />
+              </p>
             </div>
           ))}
         </div>

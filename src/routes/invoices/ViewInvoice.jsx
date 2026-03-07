@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Printer } from 'lucide-react';
+import { ArrowLeft, Download, Mail, Printer } from 'lucide-react';
+import { useSelector } from 'react-redux';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAccount } from '../../context/AccountContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useToast } from '../../context/ToastContext';
 
 const formatCurrency = (value = 0, currency = 'USD') => {
   if (Number.isNaN(value)) value = 0;
@@ -18,9 +20,14 @@ const formatCurrency = (value = 0, currency = 'USD') => {
 const ViewInvoice = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { invoices, customers } = useInvoice();
+  const { invoices, customers, sendInvoice } = useInvoice();
   const { accountInfo } = useAccount();
   const { isDarkMode } = useTheme();
+  const { addToast } = useToast();
+  const authUser = useSelector((state) => state.auth?.user);
+  const [isSending, setIsSending] = useState(false);
+  const normalizedRole = String(authUser?.role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const isClient = normalizedRole === 'client';
 
   const invoice = invoices.find(inv => inv.id === id || inv.invoiceNumber === id);
   const lineItems = invoice?.lineItems || invoice?.items || [];
@@ -69,6 +76,8 @@ const ViewInvoice = () => {
   };
   const statusType = invoice?.status || 'sent';
   const statusClass = statusColors[statusType] || statusColors.sent;
+  const canSendOrResend = !['cancelled', 'void'].includes(String(statusType || '').toLowerCase());
+  const sendButtonLabel = String(statusType || '').toLowerCase() === 'draft' ? 'Send Invoice' : 'Resend Invoice';
 
   const companyLines = [
     accountInfo?.address,
@@ -83,6 +92,17 @@ const ViewInvoice = () => {
   ].filter(Boolean);
 
   const handlePrint = () => window.print();
+  const handleSendOrResend = async () => {
+    if (!invoice?.id) return;
+    setIsSending(true);
+    try {
+      await sendInvoice(invoice.id);
+    } catch {
+      addToast('Unable to send invoice right now', 'error');
+    } finally {
+      setIsSending(false);
+    }
+  };
   if (!invoice) {
     return (
       <DashboardLayout>
@@ -135,6 +155,16 @@ const ViewInvoice = () => {
               <Printer className="w-4 h-4" />
               Print / Download
             </button>
+            {!isClient && canSendOrResend && (
+              <button
+                onClick={handleSendOrResend}
+                disabled={isSending}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <Mail className="w-4 h-4" />
+                {isSending ? 'Sending...' : sendButtonLabel}
+              </button>
+            )}
           </div>
         </div>
 

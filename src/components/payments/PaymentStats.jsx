@@ -4,6 +4,7 @@ import { DollarSign, CreditCard, Clock, CheckCircle, AlertTriangle } from 'lucid
 import { useTheme } from '../../context/ThemeContext';
 import { useAccount } from '../../context/AccountContext';
 import { formatCurrency } from '../../utils/currency';
+import CountUpNumber from '../ui/CountUpNumber';
 
 const PaymentStats = ({ stats }) => {
   const { isDarkMode } = useTheme();
@@ -60,7 +61,7 @@ const PaymentStats = ({ stats }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
       {statsData.map((stat, index) => {
         const Icon = stat.icon;
         return (
@@ -78,7 +79,7 @@ const PaymentStats = ({ stats }) => {
                 <p className={`text-2xl font-bold mt-1 stat-value-safe ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  {stat.value}
+                  <CountUpNumber value={stat.value} />
                 </p>
                 <p className={`text-sm mt-2 ${
                   isDarkMode ? 'text-gray-500' : 'text-gray-500'

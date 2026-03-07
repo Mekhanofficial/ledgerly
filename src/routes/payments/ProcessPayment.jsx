@@ -535,12 +535,20 @@ const ProcessPayment = () => {
                         <div className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                           No payment methods configured
                         </div>
-                        <button
-                          onClick={() => navigate('/payments/settings')}
-                          className="mt-2 text-sm text-primary-600 hover:text-primary-700"
-                        >
-                          Add Payment Methods
-                        </button>
+                        <div className="mt-3 flex items-center justify-center gap-3">
+                          <button
+                            onClick={() => navigate('/settings?section=billing')}
+                            className="text-sm text-primary-600 hover:text-primary-700"
+                          >
+                            Add Payment Methods
+                          </button>
+                          <button
+                            onClick={() => navigate('/settings?section=integrations')}
+                            className="text-sm text-primary-600 hover:text-primary-700"
+                          >
+                            Gateway Setup
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-3">

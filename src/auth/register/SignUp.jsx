@@ -292,9 +292,11 @@ const SignUpPage = () => {
   // If registration was successful, show success message
   if (registrationSuccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-primary-50 dark:from-gray-900 dark:to-primary-950/20 flex items-center justify-center p-4">
-        <div className="w-full max-w-lg">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-2xl dark:shadow-gray-900/50 border border-gray-200 dark:border-gray-700 p-8">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-cyan-50 to-blue-100 p-4 dark:from-slate-950 dark:via-slate-900 dark:to-cyan-950/50">
+        <div className="pointer-events-none absolute -left-16 -top-20 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl dark:bg-cyan-500/20" />
+        <div className="pointer-events-none absolute -bottom-24 right-0 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl dark:bg-blue-600/20" />
+        <div className="relative w-full max-w-lg">
+          <div className="rounded-3xl border border-cyan-100/80 bg-white/85 p-8 shadow-[0_28px_64px_-32px_rgba(2,132,199,0.58)] backdrop-blur-sm dark:border-cyan-900/40 dark:bg-slate-900/85 dark:shadow-[0_30px_70px_-34px_rgba(6,182,212,0.6)]">
             <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/40 dark:to-primary-800/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <Mail className="w-8 h-8 text-primary-600 dark:text-primary-400" />
             </div>
@@ -395,96 +397,106 @@ const SignUpPage = () => {
 
   // Step indicators
   const StepIndicator = () => (
-    <div className="flex items-center justify-center mb-8">
-      {[1, 2].map((step) => (
-        <div key={step} className="flex items-center">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            step === currentStep 
-              ? 'bg-primary-600 text-white' 
-              : step < currentStep 
-                ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400' 
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-          }`}>
-            {step}
-          </div>
-          {step < 2 && (
-            <div className={`w-16 h-1 mx-2 ${
-              step < currentStep ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-700'
-            }`} />
-          )}
+    <div className="mb-8 rounded-2xl border border-cyan-100/80 bg-white/70 px-4 py-3 shadow-sm backdrop-blur-sm dark:border-cyan-900/40 dark:bg-slate-900/60">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center">
+          {[1, 2].map((step) => (
+            <div key={step} className="flex items-center">
+              <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${
+                step === currentStep
+                  ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white'
+                  : step < currentStep
+                    ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-200'
+                    : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+              }`}>
+                {step}
+              </div>
+              {step < 2 && (
+                <div className={`mx-2 h-1 w-16 rounded-full ${
+                  step < currentStep
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600'
+                    : 'bg-slate-300 dark:bg-slate-700'
+                }`} />
+              )}
+            </div>
+          ))}
         </div>
-      ))}
-      <span className="ml-4 text-sm text-gray-600 dark:text-gray-400">
-        Step {currentStep} of 2
-      </span>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          Step {currentStep} of 2
+        </span>
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-primary-50 dark:from-gray-900 dark:to-primary-950/20 flex items-center justify-center p-4">
-      <div className="w-full max-w-6xl flex bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-cyan-50 to-blue-100 p-4 dark:from-slate-950 dark:via-slate-900 dark:to-cyan-950/50 md:p-6">
+      <div className="pointer-events-none absolute -left-16 -top-20 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl dark:bg-cyan-500/20" />
+      <div className="pointer-events-none absolute -bottom-24 right-0 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl dark:bg-blue-600/20" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(56,189,248,0.16),transparent_42%),radial-gradient(circle_at_80%_80%,rgba(59,130,246,0.14),transparent_40%)]" />
+      <div className="relative flex w-full max-w-6xl overflow-hidden rounded-3xl border border-cyan-100/70 bg-white/85 shadow-[0_32px_80px_-30px_rgba(2,132,199,0.55)] backdrop-blur-xl dark:border-cyan-900/40 dark:bg-slate-900/80 dark:shadow-[0_34px_84px_-34px_rgba(14,116,144,0.7)]">
         {/* Left Side - Visual */}
-        <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-primary-600 to-primary-800 p-8 text-white">
-          <div>
+        <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-gradient-to-br from-cyan-600 via-sky-600 to-blue-700 p-10 text-white lg:flex">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.24),transparent_42%),radial-gradient(circle_at_85%_70%,rgba(255,255,255,0.12),transparent_45%)]" />
+          <div className="relative">
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm">
               <img src={logo} alt="Ledgerly logo" className="h-9 w-9 object-contain" />
             </div>
-            <h1 className="text-4xl font-bold mb-2">Invoicing & Inventory</h1>
-            <p className="text-primary-100 text-lg">
-              Professional tools for billing, payments, and stock
+            <h1 className="mb-2 text-4xl font-bold">Invoicing & Inventory</h1>
+            <p className="text-lg text-cyan-50/90">
+              Professional tools for billing, payments, and stock control
             </p>
           </div>
 
-          <div className="space-y-6">
-            <div className="flex items-center">
-              <div className="bg-primary-500 rounded-full p-2 mr-4">
+          <div className="relative space-y-4">
+            <div className="flex items-center rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+              <div className="mr-4 rounded-full bg-white/20 p-2">
                 <FileText className="h-6 w-6" />
               </div>
               <div>
                 <h3 className="font-semibold">Create Professional Invoices</h3>
-                <p className="text-primary-200 text-sm">Generate invoices in seconds with customizable templates</p>
+                <p className="text-sm text-cyan-50/85">Generate invoices in seconds with customizable templates</p>
               </div>
             </div>
 
-            <div className="flex items-center">
-              <div className="bg-primary-500 rounded-full p-2 mr-4">
+            <div className="flex items-center rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+              <div className="mr-4 rounded-full bg-white/20 p-2">
                 <TrendingUp className="h-6 w-6" />
               </div>
               <div>
                 <h3 className="font-semibold">Track Business Analytics</h3>
-                <p className="text-primary-200 text-sm">Monitor sales, expenses, and cash flow in real-time</p>
+                <p className="text-sm text-cyan-50/85">Monitor sales, expenses, and cash flow in real-time</p>
               </div>
             </div>
 
-            <div className="flex items-center">
-              <div className="bg-primary-500 rounded-full p-2 mr-4">
+            <div className="flex items-center rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+              <div className="mr-4 rounded-full bg-white/20 p-2">
                 <Shield className="h-6 w-6" />
               </div>
               <div>
                 <h3 className="font-semibold">Secure & Reliable</h3>
-                <p className="text-primary-200 text-sm">Bank-level security with automatic backups</p>
+                <p className="text-sm text-cyan-50/85">Bank-level security with automatic backups</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-8 border-t border-primary-400 pt-6">
-            <p className="text-sm text-primary-200 mb-3">Join thousands of businesses using Ledgerly</p>
+          <div className="relative mt-8 border-t border-white/25 pt-6">
+            <p className="mb-3 text-sm text-cyan-50/90">Join thousands of businesses using Ledgerly</p>
             <div className="flex items-center space-x-4">
               <div className="flex -space-x-2">
                 {[1, 2, 3, 4].map((i) => (
                   <div 
                     key={i}
-                    className="w-8 h-8 rounded-full bg-primary-400 border-2 border-primary-600"
+                    className="h-8 w-8 rounded-full border-2 border-cyan-700 bg-cyan-300/80"
                   />
                 ))}
               </div>
-              <p className="text-sm text-primary-200">5000+ businesses trust us</p>
+              <p className="text-sm text-cyan-50/90">5000+ businesses trust us</p>
             </div>
           </div>
         </div>
 
         {/* Right Side - Form */}
-        <div className="w-full lg:w-1/2 p-8">
+        <div className="w-full bg-white/60 p-8 dark:bg-slate-950/30 lg:w-1/2">
           <StepIndicator />
           
           {/* API Error Message */}
@@ -517,10 +529,10 @@ const SignUpPage = () => {
           )}
 
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
               {currentStep === 1 ? "Create Your Account" : "Setup Your Business"}
             </h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-300">
+            <p className="mt-2 text-slate-600 dark:text-slate-300">
               {currentStep === 1 
                 ? "Start your 30-day free trial. No credit card required." 
                 : "Tell us about your business to get started"}

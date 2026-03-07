@@ -9,6 +9,7 @@ import { getAdjustmentDate, formatAdjustmentDate } from '../../utils/adjustmentD
 import { fetchProducts, fetchStockAdjustments } from '../../store/slices/productSlide';
 import TablePagination from '../../components/ui/TablePagination';
 import { useTablePagination } from '../../hooks/usePagination';
+import CountUpNumber from '../../components/ui/CountUpNumber';
 
 const StockAdjustments = () => {
   const { isDarkMode } = useTheme();
@@ -239,7 +240,7 @@ const StockAdjustments = () => {
                     <p className={`text-lg md:text-xl lg:text-2xl font-bold mt-1 stat-value-safe ${
                       isDarkMode ? 'text-white' : 'text-gray-900'
                     }`}>
-                      {stat.value}
+                      <CountUpNumber value={stat.value} />
                     </p>
                   </div>
                   <div className={`${stat.color} w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 rounded-lg md:rounded-xl flex items-center justify-center ml-2 flex-shrink-0`}>

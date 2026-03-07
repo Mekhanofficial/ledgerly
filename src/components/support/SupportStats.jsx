@@ -1,6 +1,7 @@
 import React from 'react';
 import { HelpCircle, MessageSquare, Clock, CheckCircle } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import CountUpNumber from '../ui/CountUpNumber';
 
 const SupportStats = () => {
   const { isDarkMode } = useTheme();
@@ -61,7 +62,7 @@ const SupportStats = () => {
                 <p className={`text-2xl font-bold mt-1 stat-value-safe ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  {stat.value}
+                  <CountUpNumber value={stat.value} />
                 </p>
                 <p className={`text-sm mt-2 ${
                   isDarkMode ? 'text-gray-500' : 'text-gray-500'

@@ -4,6 +4,7 @@ import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useInventory } from '../../context/InventoryContext';
+import CountUpNumber from '../../components/ui/CountUpNumber';
 
 const Suppliers = () => {
   const { isDarkMode } = useTheme();
@@ -147,7 +148,7 @@ const Suppliers = () => {
                     <p className={`text-2xl font-bold mt-1 stat-value-safe ${
                       isDarkMode ? 'text-white' : 'text-gray-900'
                     }`}>
-                      {stat.value}
+                      <CountUpNumber value={stat.value} />
                     </p>
                   </div>
                   <div className={`${stat.color} w-12 h-12 rounded-xl flex items-center justify-center`}>

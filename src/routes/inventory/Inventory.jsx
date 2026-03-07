@@ -11,6 +11,7 @@ import { useAccount } from '../../context/AccountContext';
 import { fetchProducts } from '../../store/slices/productSlide';
 import { mapProductFromApi } from '../../utils/productAdapter';
 import { getAdjustmentDate, getAdjustmentTimestamp } from '../../utils/adjustmentDate';
+import CountUpNumber from '../../components/ui/CountUpNumber';
 
 const Inventory = () => {
   const { isDarkMode } = useTheme();
@@ -235,7 +236,7 @@ const Inventory = () => {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
           {quickStats.map((stat, index) => {
             const Icon = stat.icon;
             return (
@@ -258,7 +259,7 @@ const Inventory = () => {
                     <p className={`text-2xl font-bold mt-1 stat-value-safe ${
                       isDarkMode ? 'text-white' : 'text-gray-900'
                     }`}>
-                      {stat.value}
+                      <CountUpNumber value={stat.value} />
                     </p>
                     <p className={`text-sm mt-2 ${
                       stat.change.includes('+') || stat.change === 'All good'

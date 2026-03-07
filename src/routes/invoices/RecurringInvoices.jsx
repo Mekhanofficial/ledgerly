@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Calendar, 
   Plus, 
@@ -14,24 +14,20 @@ import {
   ChevronDown,
   Check
 } from 'lucide-react';
-import { useSelector } from 'react-redux';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
-import { recurringStorage } from '../../utils/recurringStorage';
-import { generateInvoicePDF } from '../../utils/pdfGenerator';
-import { saveInvoice } from '../../utils/invoiceStorage';
+import api from '../../services/api';
 import TablePagination from '../../components/ui/TablePagination';
 import { useTablePagination } from '../../hooks/usePagination';
+import CountUpNumber from '../../components/ui/CountUpNumber';
 
 const RecurringInvoices = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
   const { accountInfo } = useAccount();
   const baseCurrency = accountInfo?.currency || 'USD';
-  const authUser = useSelector((state) => state.auth?.user);
-  const recurringUserId = authUser?.id || authUser?._id || null;
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [recurringInvoices, setRecurringInvoices] = useState([]);
@@ -40,41 +36,61 @@ const RecurringInvoices = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(null);
 
-  useEffect(() => {
-    loadRecurringInvoices();
-  }, [recurringUserId]);
+  const mapRecurringInvoice = useCallback((invoice = {}) => {
+    const recurring = invoice?.recurring || {};
+    const customer = typeof invoice.customer === 'object' && invoice.customer
+      ? invoice.customer
+      : { name: String(invoice.customer || '') };
 
-  const loadRecurringInvoices = () => {
+    return {
+      id: invoice._id || invoice.id,
+      name: invoice.invoiceNumber || invoice.number || 'Recurring Invoice',
+      invoiceNumber: invoice.invoiceNumber || invoice.number || '',
+      customer,
+      amount: Number(invoice.total ?? invoice.totalAmount ?? invoice.amount ?? 0),
+      frequency: recurring.frequency || 'monthly',
+      nextRun: recurring.nextInvoiceDate || recurring.startDate || invoice.date || '',
+      cyclesCompleted: Number(recurring.completedCycles || 0),
+      totalCycles: recurring.totalCycles,
+      status: recurring.status || 'active',
+      currency: invoice.currency || baseCurrency
+    };
+  }, [baseCurrency]);
+
+  const loadRecurringInvoices = useCallback(async () => {
     setLoading(true);
     try {
-      const invoices = recurringStorage.getRecurringInvoices(recurringUserId);
-      setRecurringInvoices(invoices);
+      const response = await api.get('/invoices/recurring', {
+        params: { status: 'all', page: 1, limit: 200 }
+      });
+      const records = Array.isArray(response?.data?.data) ? response.data.data : [];
+      setRecurringInvoices(records.map(mapRecurringInvoice));
     } catch (error) {
       console.error('Error loading recurring invoices:', error);
-      addToast('Error loading recurring invoices', 'error');
+      addToast(error?.response?.data?.error || 'Error loading recurring invoices', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast, mapRecurringInvoice]);
 
-  const handlePauseResume = (invoiceId) => {
+  useEffect(() => {
+    loadRecurringInvoices();
+  }, [loadRecurringInvoices]);
+
+  const handlePauseResume = async (invoiceId) => {
     try {
       const invoice = recurringInvoices.find(inv => inv.id === invoiceId);
       if (!invoice) return;
 
       const newStatus = invoice.status === 'active' ? 'paused' : 'active';
+      const action = newStatus === 'paused' ? 'pause' : 'resume';
       
-      if (newStatus === 'paused') {
-        recurringStorage.pauseRecurring(invoiceId, recurringUserId);
-        addToast('Recurring invoice paused', 'success');
-      } else {
-        recurringStorage.resumeRecurring(invoiceId, recurringUserId);
-        addToast('Recurring invoice resumed', 'success');
-      }
+      await api.put(`/invoices/recurring/${invoiceId}/${action}`);
+      addToast(newStatus === 'paused' ? 'Recurring invoice paused' : 'Recurring invoice resumed', 'success');
       
-      loadRecurringInvoices();
+      await loadRecurringInvoices();
     } catch (error) {
-      addToast('Error updating recurring invoice', 'error');
+      addToast(error?.response?.data?.error || 'Error updating recurring invoice', 'error');
     }
   };
 
@@ -84,21 +100,21 @@ const RecurringInvoices = () => {
     addToast('Edit feature coming soon', 'info');
   };
 
-  const handleDelete = (invoiceId) => {
+  const handleDelete = async (invoiceId) => {
     if (window.confirm('Are you sure you want to delete this recurring invoice profile?')) {
       try {
-        recurringStorage.deleteRecurring(invoiceId, recurringUserId);
-        addToast('Recurring invoice deleted', 'success');
+        await api.put(`/invoices/recurring/${invoiceId}/cancel`);
+        addToast('Recurring profile cancelled', 'success');
         // Remove from selected if it was selected
         setSelectedInvoices(prev => prev.filter(id => id !== invoiceId));
-        loadRecurringInvoices();
+        await loadRecurringInvoices();
       } catch (error) {
-        addToast('Error deleting recurring invoice', 'error');
+        addToast(error?.response?.data?.error || 'Error deleting recurring invoice', 'error');
       }
     }
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedInvoices.length === 0) {
       addToast('No invoices selected', 'warning');
       return;
@@ -106,105 +122,37 @@ const RecurringInvoices = () => {
 
     if (window.confirm(`Are you sure you want to delete ${selectedInvoices.length} selected recurring invoice(s)?`)) {
       try {
-        selectedInvoices.forEach(id => recurringStorage.deleteRecurring(id, recurringUserId));
-        addToast('Selected recurring invoices deleted', 'success');
+        await Promise.all(selectedInvoices.map((id) => api.put(`/invoices/recurring/${id}/cancel`)));
+        addToast('Selected recurring profiles cancelled', 'success');
         setSelectedInvoices([]);
-        loadRecurringInvoices();
+        await loadRecurringInvoices();
       } catch (error) {
-        addToast('Error deleting recurring invoices', 'error');
+        addToast(error?.response?.data?.error || 'Error deleting recurring invoices', 'error');
       }
     }
   };
 
-  const handleGenerateNow = (invoiceId) => {
+  const handleGenerateNow = async (invoiceId) => {
     try {
-      const invoice = recurringInvoices.find(inv => inv.id === invoiceId);
-      if (!invoice) return;
-      const invoiceCurrency = invoice.currency || baseCurrency;
-
-      // Generate invoice from recurring profile
-      const newInvoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const invoiceData = {
-        id: `inv_${Date.now()}`,
-        invoiceNumber: newInvoiceNumber,
-        issueDate: new Date().toISOString().split('T')[0],
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        paymentTerms: 'net-30',
-        customer: invoice.customer,
-        lineItems: invoice.lineItems || [
-          { description: invoice.name, quantity: 1, rate: invoice.amount, tax: 0, amount: invoice.amount }
-        ],
-        subtotal: invoice.amount,
-        totalTax: 0,
-        totalAmount: invoice.amount,
-        notes: 'Generated from recurring invoice profile',
-        terms: '',
-        currency: invoiceCurrency,
-        status: 'sent',
-        sentAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-      };
-
-      // Save to invoices
-      saveInvoice(invoiceData);
-
-      // Generate PDF
-      const pdfDoc = generateInvoicePDF(
-        invoiceData,
-        invoice.templateStyle || 'standard',
-        accountInfo
+      const response = await api.post(`/invoices/recurring/${invoiceId}/generate`);
+      const generatedInvoice = response?.data?.data?.generatedInvoice;
+      const generatedNumber = generatedInvoice?.invoiceNumber || generatedInvoice?.number;
+      addToast(
+        generatedNumber
+          ? `Invoice generated: ${generatedNumber}`
+          : (response?.data?.message || 'Recurring invoice generated'),
+        'success'
       );
-      pdfDoc.save(`${newInvoiceNumber}.pdf`);
-      
-      // Update cycles completed
-      const updatedCycles = (invoice.cyclesCompleted || 0) + 1;
-      recurringStorage.updateRecurring(invoiceId, { 
-        cyclesCompleted: updatedCycles,
-        nextRun: calculateNextRun(invoice.frequency, invoice.startDate, updatedCycles)
-      }, recurringUserId);
-
-      addToast(`Invoice generated: ${newInvoiceNumber}`, 'success');
-      loadRecurringInvoices();
+      await loadRecurringInvoices();
     } catch (error) {
-      addToast('Error generating invoice', 'error');
+      addToast(error?.response?.data?.error || 'Error generating invoice', 'error');
     }
-  };
-
-  const calculateNextRun = (frequency, startDate, cyclesCompleted) => {
-    const start = new Date(startDate);
-    let nextRun = new Date(start);
-    
-    switch(frequency) {
-      case 'daily':
-        nextRun.setDate(start.getDate() + cyclesCompleted);
-        break;
-      case 'weekly':
-        nextRun.setDate(start.getDate() + (cyclesCompleted * 7));
-        break;
-      case 'biweekly':
-        nextRun.setDate(start.getDate() + (cyclesCompleted * 14));
-        break;
-      case 'monthly':
-        nextRun.setMonth(start.getMonth() + cyclesCompleted);
-        break;
-      case 'quarterly':
-        nextRun.setMonth(start.getMonth() + (cyclesCompleted * 3));
-        break;
-      case 'yearly':
-        nextRun.setFullYear(start.getFullYear() + cyclesCompleted);
-        break;
-      default:
-        return startDate;
-    }
-    
-    return nextRun.toISOString().split('T')[0];
   };
 
   const getFrequencyLabel = (frequency) => {
     const labels = {
       daily: 'Daily',
       weekly: 'Weekly',
-      biweekly: 'Bi-weekly',
       monthly: 'Monthly',
       quarterly: 'Quarterly',
       yearly: 'Yearly'
@@ -608,7 +556,7 @@ const RecurringInvoices = () => {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 md:gap-4">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             const displayValue = index === 1
@@ -631,7 +579,7 @@ const RecurringInvoices = () => {
                     <p className={`text-lg md:text-xl font-bold mt-1 stat-value-safe ${
                       isDarkMode ? 'text-white' : 'text-gray-900'
                     }`}>
-                      {displayValue}
+                      <CountUpNumber value={displayValue} />
                     </p>
                   </div>
                   <div className={`${stat.color} w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center ml-2 flex-shrink-0`}>

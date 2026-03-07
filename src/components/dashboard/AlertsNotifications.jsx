@@ -619,13 +619,13 @@ const AlertsNotifications = () => {
   }, [alerts]);
 
   return (
-    <div className="card h-full flex flex-col">
+    <div className="card flex h-full min-h-[560px] flex-col">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Alerts & Notifications</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {sortedAlerts.length} active alert{sortedAlerts.length !== 1 ? 's' : ''}
-            {alertSummary.urgent > 0 && ` • ${alertSummary.urgent} urgent`}
+            {alertSummary.urgent > 0 && ` - ${alertSummary.urgent} urgent`}
           </p>
         </div>
         {sortedAlerts.length > 0 && (
@@ -684,7 +684,7 @@ const AlertsNotifications = () => {
           </div>
         </div>
       ) : (
-        <div className="space-y-4 flex-1 overflow-y-auto pr-2 max-h-[500px] custom-scrollbar">
+        <div className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
           {sortedAlerts.map((alert, index) => {
             const Icon = alert.icon;
             return (
@@ -730,7 +730,7 @@ const AlertsNotifications = () => {
       )}
       
       {/* Quick Stats Footer */}
-      <div className={`mt-4 pt-4 border-t ${sortedAlerts.length > 0 ? 'border-gray-200 dark:border-gray-700' : ''}`}>
+      <div className={`mt-auto pt-4 border-t ${sortedAlerts.length > 0 ? 'border-gray-200 dark:border-gray-700' : ''}`}>
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
             <div className="text-sm text-gray-500 dark:text-gray-400">Invoices</div>
@@ -777,3 +777,4 @@ const AlertsNotifications = () => {
 };
 
 export default AlertsNotifications;
+

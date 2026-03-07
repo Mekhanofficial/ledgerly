@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Search, Filter, Mail, Phone, MoreVertical, Send, Eye, Edit, ChevronDown, Trash2 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAccount } from '../../context/AccountContext';
 import TablePagination from '../ui/TablePagination';
 import { useTablePagination } from '../../hooks/usePagination';
 
-const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete, isSendingStatement = false }) => {
+const CustomerTable = ({
+  customers,
+  overdueCustomerIds = [],
+  onSendStatement,
+  onView,
+  onEdit,
+  onDelete,
+  isSendingStatement = false
+}) => {
   const { isDarkMode } = useTheme();
   const { accountInfo } = useAccount();
   const currencyCode = accountInfo?.currency || 'USD';
@@ -13,6 +21,27 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete, i
   const [selectAll, setSelectAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  const overdueCustomerIdSet = useMemo(
+    () => new Set((overdueCustomerIds || []).map((id) => String(id).trim()).filter(Boolean)),
+    [overdueCustomerIds]
+  );
+
+  const isCustomerOverdue = (customer) => {
+    const customerId = String(customer?.id || customer?._id || '').trim();
+    if (customerId && overdueCustomerIdSet.has(customerId)) return true;
+
+    const rawOverdueInvoices = Number(customer?.overdueInvoices ?? customer?.raw?.overdueInvoices ?? 0);
+    if (Number.isFinite(rawOverdueInvoices) && rawOverdueInvoices > 0) return true;
+
+    const rawOverdueAmount = Number(
+      customer?.overdueAmount
+      ?? customer?.raw?.overdueAmount
+      ?? customer?.raw?.overdueBalance
+      ?? 0
+    );
+    return Number.isFinite(rawOverdueAmount) && rawOverdueAmount > 0;
+  };
 
   // Filter customers based on search and status
   const filteredCustomers = customers.filter(customer => {
@@ -32,10 +61,10 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete, i
         matchesStatus = customer.outstanding === 0;
         break;
       case 'has-balance':
-        matchesStatus = customer.outstanding > 0 && customer.outstanding <= 2000;
+        matchesStatus = customer.outstanding > 0 && !isCustomerOverdue(customer);
         break;
       case 'overdue':
-        matchesStatus = customer.outstanding > 2000;
+        matchesStatus = isCustomerOverdue(customer);
         break;
       default:
         matchesStatus = true;
@@ -93,8 +122,8 @@ const CustomerTable = ({ customers, onSendStatement, onView, onEdit, onDelete, i
     return {
       all: customers.length,
       'no-balance': customers.filter(c => c.outstanding === 0).length,
-      'has-balance': customers.filter(c => c.outstanding > 0 && c.outstanding <= 2000).length,
-      overdue: customers.filter(c => c.outstanding > 2000).length
+      'has-balance': customers.filter(c => c.outstanding > 0 && !isCustomerOverdue(c)).length,
+      overdue: customers.filter(c => isCustomerOverdue(c)).length
     };
   };
 

@@ -67,6 +67,23 @@ const ADD_ON_PRICING = {
   analytics: { monthly: 3000, yearly: 36000 }
 };
 
+const PAYMENT_METHOD_TYPE_OPTIONS = [
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'online', label: 'Online Gateway' },
+  { value: 'manual', label: 'Manual Transfer' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'paypal', label: 'PayPal' }
+];
+
+const createEmptyPaymentMethodForm = () => ({
+  type: 'bank_transfer',
+  name: '',
+  accountDetails: '',
+  bankName: '',
+  accountName: '',
+  accountNumber: ''
+});
+
 const BillingSettings = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
@@ -77,7 +94,7 @@ const BillingSettings = () => {
       .toLowerCase()
       .replace(/[\s-]+/g, '_');
   }, [authUser]);
-  const canManagePayments = normalizedRole === 'super_admin';
+  const canManagePayments = ['admin', 'super_admin'].includes(normalizedRole);
 
   const [loading, setLoading] = useState(true);
   const [billing, setBilling] = useState(null);
@@ -92,10 +109,7 @@ const BillingSettings = () => {
   const [savingPlan, setSavingPlan] = useState(false);
   const [savingAddOns, setSavingAddOns] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
-  const [newPaymentMethod, setNewPaymentMethod] = useState({
-    name: '',
-    accountDetails: ''
-  });
+  const [newPaymentMethod, setNewPaymentMethod] = useState(() => createEmptyPaymentMethodForm());
 
   const loadSummary = async () => {
     setLoading(true);
@@ -232,23 +246,43 @@ const BillingSettings = () => {
   };
 
   const handleAddPaymentMethod = async () => {
-    if (!newPaymentMethod.name.trim()) {
+    if (!canManagePayments) {
+      addToast('Only admins can manage payment methods', 'error');
+      return;
+    }
+
+    const isBankTransfer = newPaymentMethod.type === 'bank_transfer';
+    const bankName = newPaymentMethod.bankName.trim();
+    const accountName = newPaymentMethod.accountName.trim();
+    const accountNumber = newPaymentMethod.accountNumber.trim();
+    const methodName = newPaymentMethod.name.trim()
+      || (isBankTransfer && bankName ? `${bankName} Bank Transfer` : '');
+    const accountDetails = isBankTransfer
+      ? `Bank: ${bankName} | Account Name: ${accountName} | Account Number: ${accountNumber}`
+      : newPaymentMethod.accountDetails.trim();
+
+    if (!methodName) {
       addToast('Payment method name is required', 'error');
       return;
     }
-    if (!canManagePayments) {
-      addToast('Only super admins can manage payment methods', 'error');
+    if (isBankTransfer && (!bankName || !accountName || !accountNumber)) {
+      addToast('Bank name, account name, and account number are required', 'error');
       return;
     }
+    if (!isBankTransfer && !accountDetails) {
+      addToast('Account details are required for this payment method', 'error');
+      return;
+    }
+
     setPaymentBusy(true);
     try {
       const response = await api.post('/business/payment-methods', {
-        name: newPaymentMethod.name.trim(),
-        accountDetails: newPaymentMethod.accountDetails.trim()
+        name: methodName,
+        accountDetails
       });
       const method = response?.data?.data;
       setPaymentMethods((prev) => [...prev, method]);
-      setNewPaymentMethod({ name: '', accountDetails: '' });
+      setNewPaymentMethod(createEmptyPaymentMethodForm());
       addToast('Payment method added', 'success');
     } catch (error) {
       addToast(error?.response?.data?.error || 'Failed to add payment method', 'error');
@@ -750,40 +784,99 @@ const BillingSettings = () => {
             </div>
 
             {canManagePayments ? (
-              <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
-                <input
-                  type="text"
-                  placeholder="Payment method name"
-                  value={newPaymentMethod.name}
-                  onChange={(event) => handlePaymentMethodChange('name', event.target.value)}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'border-gray-200 text-gray-900'
-                  }`}
-                />
-                <input
-                  type="text"
-                  placeholder="Account details"
-                  value={newPaymentMethod.accountDetails}
-                  onChange={(event) => handlePaymentMethodChange('accountDetails', event.target.value)}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm ${
-                    isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'border-gray-200 text-gray-900'
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddPaymentMethod}
-                  disabled={paymentBusy}
-                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Method
-                </button>
+              <div className="mt-5 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <select
+                    value={newPaymentMethod.type}
+                    onChange={(event) => handlePaymentMethodChange('type', event.target.value)}
+                    className={`w-full px-3 py-2 rounded-lg border text-sm ${
+                      isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'border-gray-200 text-gray-900'
+                    }`}
+                  >
+                    {PAYMENT_METHOD_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Display name (optional for bank transfer)"
+                    value={newPaymentMethod.name}
+                    onChange={(event) => handlePaymentMethodChange('name', event.target.value)}
+                    className={`w-full px-3 py-2 rounded-lg border text-sm ${
+                      isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'border-gray-200 text-gray-900'
+                    }`}
+                  />
+                  {newPaymentMethod.type !== 'bank_transfer' && (
+                    <input
+                      type="text"
+                      placeholder="Account details"
+                      value={newPaymentMethod.accountDetails}
+                      onChange={(event) => handlePaymentMethodChange('accountDetails', event.target.value)}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm ${
+                        isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'border-gray-200 text-gray-900'
+                      }`}
+                    />
+                  )}
+                </div>
+
+                {newPaymentMethod.type === 'bank_transfer' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Bank name"
+                      value={newPaymentMethod.bankName}
+                      onChange={(event) => handlePaymentMethodChange('bankName', event.target.value)}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm ${
+                        isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'border-gray-200 text-gray-900'
+                      }`}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Account name"
+                      value={newPaymentMethod.accountName}
+                      onChange={(event) => handlePaymentMethodChange('accountName', event.target.value)}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm ${
+                        isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'border-gray-200 text-gray-900'
+                      }`}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Account number"
+                      value={newPaymentMethod.accountNumber}
+                      onChange={(event) => handlePaymentMethodChange('accountNumber', event.target.value)}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm ${
+                        isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'border-gray-200 text-gray-900'
+                      }`}
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <p className={`text-xs ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    {newPaymentMethod.type === 'bank_transfer'
+                      ? 'Bank details are saved for customers who pay by transfer instead of Stripe/Paystack.'
+                      : 'Use this method for offline or manual payment instructions.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleAddPaymentMethod}
+                    disabled={paymentBusy}
+                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Method
+                  </button>
+                </div>
               </div>
             ) : (
               <div className={`mt-4 text-xs ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Only super admins can manage payment methods.
+                Only admins can manage payment methods.
               </div>
             )}
           </div>

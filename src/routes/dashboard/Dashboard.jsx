@@ -97,12 +97,49 @@ const Dashboard = () => {
     return parsed.getTime();
   }, [parseInvoiceDateValue]);
 
+  const isInvoiceOverdue = useCallback((invoice, referenceDate = new Date()) => {
+    const status = String(invoice?.status || '').trim().toLowerCase();
+    if (!status) return false;
+
+    if (status === 'overdue') return true;
+    if (['paid', 'draft', 'cancelled', 'void'].includes(status)) return false;
+    if (!['sent', 'viewed', 'partial', 'pending'].includes(status)) return false;
+
+    const dueDate = parseInvoiceDateValue(invoice?.dueDate || invoice?.due);
+    if (!dueDate) return false;
+    return dueDate.getTime() < referenceDate.getTime();
+  }, [parseInvoiceDateValue]);
+
   const dateRange = useMemo(() => {
     const now = new Date();
     let start = new Date(now.getFullYear(), now.getMonth(), 1);
     let end = new Date(now);
 
-    if (activeFilter === 'today') {
+    if (activeFilter === 'all') {
+      let earliestTimestamp = null;
+      invoices.forEach((invoice) => {
+        const timestamp = resolveInvoiceTimestamp(invoice);
+        if (timestamp == null) return;
+        if (earliestTimestamp == null || timestamp < earliestTimestamp) {
+          earliestTimestamp = timestamp;
+        }
+      });
+      (receipts || []).forEach((receipt) => {
+        const timestamp = resolveReceiptTimestamp(receipt);
+        if (timestamp == null) return;
+        if (earliestTimestamp == null || timestamp < earliestTimestamp) {
+          earliestTimestamp = timestamp;
+        }
+      });
+
+      if (earliestTimestamp != null) {
+        const earliestDate = new Date(earliestTimestamp);
+        start = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), earliestDate.getDate());
+      } else {
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+      end = new Date(now);
+    } else if (activeFilter === 'today') {
       start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       end = new Date(now);
     } else if (activeFilter === 'this-week') {
@@ -146,9 +183,10 @@ const Dashboard = () => {
       previousStart,
       previousEnd
     };
-  }, [activeFilter, customRange, parseDateInput]);
+  }, [activeFilter, customRange, parseDateInput, invoices, receipts, resolveInvoiceTimestamp, resolveReceiptTimestamp]);
 
   const periodLabel = useMemo(() => {
+    if (activeFilter === 'all') return 'All time';
     if (activeFilter === 'today') return 'Today';
     if (activeFilter === 'this-week') return 'This week';
     if (activeFilter === 'this-month') return 'This month';
@@ -225,6 +263,7 @@ const Dashboard = () => {
 
   // Calculate real-time stats
   const statsData = useMemo(() => {
+    const isAllTimeView = activeFilter === 'all';
     const totalInvoices = filteredInvoices.length;
     const paidInvoicesInRange = filteredInvoices.filter(inv => inv.status === 'paid');
     const paidInvoiceRevenue = paidInvoicesInRange.reduce(
@@ -238,7 +277,8 @@ const Dashboard = () => {
     const totalRevenue = hasReceiptData ? receiptRevenue : paidInvoiceRevenue;
     const paidInvoices = paidInvoicesInRange.length;
     const pendingInvoices = filteredInvoices.filter(inv => ['sent', 'viewed', 'partial', 'overdue'].includes(inv.status)).length;
-    const overdueInvoices = filteredInvoices.filter(inv => inv.status === 'overdue').length;
+    const overdueReferenceDate = new Date();
+    const overdueInvoices = invoices.filter((inv) => isInvoiceOverdue(inv, overdueReferenceDate)).length;
     const draftInvoices = filteredInvoices.filter(inv => inv.status === 'draft').length;
     const activeCustomers = new Set(filteredInvoices.map(resolveCustomerId).filter(Boolean)).size;
     const previousActiveCustomers = new Set(previousInvoices.map(resolveCustomerId).filter(Boolean)).size;
@@ -250,22 +290,31 @@ const Dashboard = () => {
       .filter((receipt) => receipt.status === 'completed')
       .reduce((sum, receipt) => sum + (receipt.total || receipt.amount || 0), 0);
     const previousRevenue = hasReceiptData ? previousReceiptRevenue : previousPaidRevenue;
-    const revenueChange = previousRevenue > 0
-      ? ((totalRevenue - previousRevenue) / previousRevenue * 100).toFixed(1)
-      : totalRevenue > 0 ? '100.0' : '0.0';
+    const revenueChange = isAllTimeView
+      ? '0.0'
+      : previousRevenue > 0
+        ? ((totalRevenue - previousRevenue) / previousRevenue * 100).toFixed(1)
+        : totalRevenue > 0 ? '100.0' : '0.0';
 
-    const invoiceChange = previousInvoices.length > 0
-      ? ((totalInvoices - previousInvoices.length) / previousInvoices.length * 100).toFixed(1)
-      : totalInvoices > 0 ? '100.0' : '0.0';
+    const invoiceChange = isAllTimeView
+      ? '0.0'
+      : previousInvoices.length > 0
+        ? ((totalInvoices - previousInvoices.length) / previousInvoices.length * 100).toFixed(1)
+        : totalInvoices > 0 ? '100.0' : '0.0';
 
-    const activeCustomersChange = previousActiveCustomers > 0
-      ? ((activeCustomers - previousActiveCustomers) / previousActiveCustomers * 100).toFixed(1)
-      : activeCustomers > 0 ? '100.0' : '0.0';
+    const activeCustomersChange = isAllTimeView
+      ? '0.0'
+      : previousActiveCustomers > 0
+        ? ((activeCustomers - previousActiveCustomers) / previousActiveCustomers * 100).toFixed(1)
+        : activeCustomers > 0 ? '100.0' : '0.0';
 
-    const previousOverdue = previousInvoices.filter(inv => inv.status === 'overdue').length;
-    const overdueChange = previousOverdue > 0
-      ? ((overdueInvoices - previousOverdue) / previousOverdue * 100).toFixed(1)
-      : overdueInvoices > 0 ? '100.0' : '0.0';
+    const previousOverdueReferenceDate = new Date(dateRange.previousEnd);
+    const previousOverdue = invoices.filter((inv) => isInvoiceOverdue(inv, previousOverdueReferenceDate)).length;
+    const overdueChange = isAllTimeView
+      ? '0.0'
+      : previousOverdue > 0
+        ? ((overdueInvoices - previousOverdue) / previousOverdue * 100).toFixed(1)
+        : overdueInvoices > 0 ? '100.0' : '0.0';
 
     return {
       totalRevenue: formatMoney(totalRevenue, baseCurrency),
@@ -287,7 +336,11 @@ const Dashboard = () => {
     filteredReceipts,
     previousReceipts,
     receipts,
+    invoices,
     resolveCustomerId,
+    isInvoiceOverdue,
+    dateRange,
+    activeFilter,
     periodLabel,
     formatMoney
   ]);
@@ -314,7 +367,7 @@ const Dashboard = () => {
         
         {/* Right Column - Alerts & Notifications */}
         {!isClient && (
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 lg:sticky lg:top-24 lg:h-[calc(100dvh-6rem)] lg:min-h-[560px]">
             <AlertsNotifications />
           </div>
         )}

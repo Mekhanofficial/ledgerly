@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import api from '../services/api';
 import { setUser } from '../store/slices/authSlice';
@@ -7,7 +7,21 @@ import { isAccessDeniedError } from '../utils/accessControl';
 import { resolveBrandingProfile } from '../utils/brandingPlan';
 
 const STORAGE_KEY = 'ledgerly_account_info';
-const EMPTY_ACCOUNT_INFO = {
+const normalizeCurrencyCode = (value) => {
+  if (typeof value !== 'string') return '';
+  const normalized = value.trim().toUpperCase();
+  return normalized.length >= 3 ? normalized : '';
+};
+
+const resolvePreferredCurrency = (...candidates) => {
+  for (const candidate of candidates) {
+    const normalized = normalizeCurrencyCode(candidate);
+    if (normalized) return normalized;
+  }
+  return 'USD';
+};
+
+const buildEmptyAccountInfo = (preferredCurrency = 'USD') => ({
   companyName: '',
   contactName: '',
   email: '',
@@ -19,7 +33,7 @@ const EMPTY_ACCOUNT_INFO = {
   country: '',
   website: '',
   timezone: '',
-  currency: 'USD',
+  currency: resolvePreferredCurrency(preferredCurrency),
   plan: 'starter',
   billingCycle: 'monthly',
   subscriptionStatus: 'active',
@@ -41,7 +55,7 @@ const EMPTY_ACCOUNT_INFO = {
   isWhiteLabelClient: false,
   profileImage: '',
   avatarUrl: ''
-};
+});
 
 const mapBusinessToAccount = (business = {}, user = {}) => {
   const resolvedProfile = user.profileImage || business.owner?.profileImage || '';
@@ -59,7 +73,11 @@ const mapBusinessToAccount = (business = {}, user = {}) => {
     country: business.address?.country || '',
     website: business.website || '',
     timezone: business.timezone || '',
-    currency: business.currency || 'USD',
+    currency: resolvePreferredCurrency(
+      business.currency,
+      user.currency,
+      user.currencyCode
+    ),
     plan: business.subscription?.plan || 'starter',
     billingCycle: business.subscription?.billingCycle || 'monthly',
     subscriptionStatus: business.subscription?.status || 'active',
@@ -98,38 +116,82 @@ export const useAccount = () => {
 
 export const AccountProvider = ({ children }) => {
   const authUser = useSelector((state) => state.auth.user);
-  const resolvedUser = resolveAuthUser(authUser);
+  const resolvedUser = useMemo(() => resolveAuthUser(authUser), [authUser]);
+  const activeUser = authUser || resolvedUser;
   const dispatch = useDispatch();
-  const [accountInfo, setAccountInfo] = useState(EMPTY_ACCOUNT_INFO);
+  const userId = resolvedUser?.id || resolvedUser?._id || authUser?.id || authUser?._id || null;
+  const preferredCurrency = useMemo(
+    () => resolvePreferredCurrency(
+      resolvedUser?.currency,
+      resolvedUser?.currencyCode
+    ),
+    [resolvedUser?.currency, resolvedUser?.currencyCode]
+  );
+  const defaultAccountInfo = useMemo(
+    () => buildEmptyAccountInfo(preferredCurrency),
+    [preferredCurrency]
+  );
+  const storageKey = userId ? `${STORAGE_KEY}_${userId}` : null;
+
+  const [accountInfo, setAccountInfo] = useState(() => {
+    if (typeof window === 'undefined') {
+      return defaultAccountInfo;
+    }
+
+    try {
+      const stored = (storageKey && localStorage.getItem(storageKey))
+        || localStorage.getItem(STORAGE_KEY);
+      if (!stored) {
+        return defaultAccountInfo;
+      }
+
+      const parsed = JSON.parse(stored);
+      return resolveBrandingProfile({
+        ...defaultAccountInfo,
+        ...parsed,
+        currency: resolvePreferredCurrency(parsed?.currency, preferredCurrency)
+      });
+    } catch {
+      return defaultAccountInfo;
+    }
+  });
   const [loading, setLoading] = useState(false);
-  const normalizedRole = String(resolvedUser?.role || '')
+  const normalizedRole = String(activeUser?.role || '')
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
   const canUpdateBusiness = normalizedRole === 'super_admin';
-  const storageKey = authUser?.id || authUser?._id
-    ? `${STORAGE_KEY}_${authUser.id || authUser._id}`
-    : null;
 
   // Hydrate from storage on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!storageKey) {
-      setAccountInfo(EMPTY_ACCOUNT_INFO);
-      return;
-    }
+
     try {
-      const stored = localStorage.getItem(storageKey);
+      const scopedStored = storageKey ? localStorage.getItem(storageKey) : null;
+      const legacyStored = localStorage.getItem(STORAGE_KEY);
+      const stored = scopedStored || legacyStored;
+
       if (stored) {
         const parsed = JSON.parse(stored);
-        setAccountInfo(parsed);
+        const normalized = resolveBrandingProfile({
+          ...defaultAccountInfo,
+          ...parsed,
+          currency: resolvePreferredCurrency(parsed?.currency, preferredCurrency)
+        });
+        setAccountInfo(normalized);
+
+        // Migrate legacy storage into scoped storage when possible.
+        if (!scopedStored && storageKey) {
+          localStorage.setItem(storageKey, JSON.stringify(normalized));
+        }
       } else {
-        setAccountInfo(EMPTY_ACCOUNT_INFO);
+        setAccountInfo(defaultAccountInfo);
       }
     } catch (error) {
       console.error('Failed to load account settings:', error);
+      setAccountInfo(defaultAccountInfo);
     }
-  }, [storageKey]);
+  }, [storageKey, defaultAccountInfo, preferredCurrency]);
 
   // Persist updates
   useEffect(() => {
@@ -143,10 +205,10 @@ export const AccountProvider = ({ children }) => {
   }, [accountInfo, storageKey]);
 
   const refreshAccountInfo = useCallback(async ({ silent = false } = {}) => {
-    if (!authUser) {
-      setAccountInfo(EMPTY_ACCOUNT_INFO);
+    if (!activeUser) {
+      setAccountInfo(defaultAccountInfo);
       if (!silent) setLoading(false);
-      return EMPTY_ACCOUNT_INFO;
+      return defaultAccountInfo;
     }
 
     if (!silent) {
@@ -155,7 +217,7 @@ export const AccountProvider = ({ children }) => {
 
     try {
       const response = await api.get('/business');
-      const normalized = mapBusinessToAccount(response.data.data, authUser);
+      const normalized = mapBusinessToAccount(response.data.data, activeUser);
       setAccountInfo(normalized);
       return normalized;
     } catch (error) {
@@ -166,14 +228,14 @@ export const AccountProvider = ({ children }) => {
         setLoading(false);
       }
     }
-  }, [authUser]);
+  }, [activeUser, defaultAccountInfo]);
 
   useEffect(() => {
     let isActive = true;
 
     const syncBusiness = async () => {
-      if (!authUser) {
-        setAccountInfo(EMPTY_ACCOUNT_INFO);
+      if (!activeUser) {
+        setAccountInfo(defaultAccountInfo);
         setLoading(false);
         return;
       }
@@ -182,7 +244,7 @@ export const AccountProvider = ({ children }) => {
       try {
         const response = await api.get('/business');
         if (!isActive) return;
-        const normalized = mapBusinessToAccount(response.data.data, authUser);
+        const normalized = mapBusinessToAccount(response.data.data, activeUser);
         setAccountInfo(normalized);
       } catch (error) {
         console.error('Failed to load business profile:', error);
@@ -196,10 +258,10 @@ export const AccountProvider = ({ children }) => {
     return () => {
       isActive = false;
     };
-  }, [authUser]);
+  }, [activeUser, defaultAccountInfo]);
 
   const updateAccountInfo = useCallback(async (updates, profileImageFile) => {
-    if (!resolvedUser) {
+    if (!activeUser) {
       throw new Error('Not authenticated');
     }
 
@@ -295,7 +357,7 @@ export const AccountProvider = ({ children }) => {
     }
 
     if (businessData) {
-      const normalized = mapBusinessToAccount(businessData, updatedUser || resolvedUser);
+      const normalized = mapBusinessToAccount(businessData, updatedUser || activeUser);
       setAccountInfo(normalized);
       return normalized;
     }
@@ -314,7 +376,7 @@ export const AccountProvider = ({ children }) => {
     }
     setAccountInfo(fallback);
     return fallback;
-  }, [resolvedUser, accountInfo, dispatch, canUpdateBusiness]);
+  }, [activeUser, accountInfo, dispatch, canUpdateBusiness]);
 
   return (
     <AccountContext.Provider value={{ accountInfo, updateAccountInfo, refreshAccountInfo, loading }}>

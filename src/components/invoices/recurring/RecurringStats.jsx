@@ -4,6 +4,7 @@ import { Play, DollarSign, Users, Calendar, Clock } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAccount } from '../../../context/AccountContext';
 import { formatCurrency } from '../../../utils/currency';
+import CountUpNumber from '../../ui/CountUpNumber';
 
 const RecurringStats = ({ invoices = [] }) => {
   const { isDarkMode } = useTheme();
@@ -68,7 +69,7 @@ const RecurringStats = ({ invoices = [] }) => {
                 <p className={`text-2xl font-bold mt-1 stat-value-safe ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  {stat.value}
+                  <CountUpNumber value={stat.value} />
                 </p>
               </div>
               <div className={`${stat.color} w-12 h-12 rounded-xl flex items-center justify-center`}>

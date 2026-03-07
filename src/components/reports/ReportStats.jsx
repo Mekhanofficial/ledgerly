@@ -5,6 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAccount } from '../../context/AccountContext';
 import { formatCurrency } from '../../utils/currency';
+import CountUpNumber from '../ui/CountUpNumber';
 
 const DATE_RANGE_LABELS = {
   'last-7-days': 'Last 7 days',
@@ -250,7 +251,7 @@ const ReportStats = ({ dateRange = 'last-30-days' }) => {
   return (
     <div className="space-y-4">
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           const isPositive = stat.change.startsWith('+');
@@ -285,7 +286,7 @@ const ReportStats = ({ dateRange = 'last-30-days' }) => {
                   <p className={`text-2xl font-bold stat-value-safe ${
                     isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    {stat.value}
+                    <CountUpNumber value={stat.value} />
                   </p>
                   
                   <p className={`text-xs mt-2 ${
@@ -370,7 +371,7 @@ const ReportStats = ({ dateRange = 'last-30-days' }) => {
             <div className={`text-xl font-bold mt-1 stat-value-safe ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              {insights.collectionRate}%
+              <CountUpNumber value={`${insights.collectionRate}%`} />
             </div>
             <div className={`text-xs ${
               isDarkMode ? 'text-gray-400' : 'text-gray-500'
@@ -390,7 +391,7 @@ const ReportStats = ({ dateRange = 'last-30-days' }) => {
             <div className={`text-xl font-bold mt-1 stat-value-safe ${
               isDarkMode ? 'text-red-400' : 'text-red-600'
             }`}>
-              {insights.overdueInvoices}
+              <CountUpNumber value={insights.overdueInvoices} />
             </div>
             <div className={`text-xs ${
               isDarkMode ? 'text-gray-400' : 'text-gray-500'
@@ -413,7 +414,7 @@ const ReportStats = ({ dateRange = 'last-30-days' }) => {
             <div className={`text-xl font-bold mt-1 stat-value-safe ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              {insights.activeCustomers}
+              <CountUpNumber value={insights.activeCustomers} />
             </div>
             <div className={`text-xs ${
               isDarkMode ? 'text-gray-400' : 'text-gray-500'
@@ -433,7 +434,7 @@ const ReportStats = ({ dateRange = 'last-30-days' }) => {
             <div className={`text-xl font-bold mt-1 stat-value-safe ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              {statsData.totalSales.raw}
+              <CountUpNumber value={statsData.totalSales.raw} />
             </div>
             <div className={`text-xs ${
               isDarkMode ? 'text-gray-400' : 'text-gray-500'

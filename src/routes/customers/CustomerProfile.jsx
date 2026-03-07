@@ -15,6 +15,7 @@ import { fetchCustomerById, updateCustomer as updateCustomerThunk, deleteCustome
 import { fetchInvoices } from '../../store/slices/invoiceSlice';
 import { buildCustomerPayload, mapCustomerFromApi } from '../../utils/customerAdapter';
 import { formatCurrency } from '../../utils/currency';
+import CountUpNumber from '../../components/ui/CountUpNumber';
 
 const CustomerProfile = () => {
   const { id } = useParams();
@@ -360,13 +361,13 @@ const CustomerProfile = () => {
                     <div className="flex items-center justify-between">
                       <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Total Spent:</span>
                       <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {formatMoney(customer.totalSpent || 0, baseCurrency)}
+                        <CountUpNumber value={formatMoney(customer.totalSpent || 0, baseCurrency)} />
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Total Invoices:</span>
                       <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {stats.totalInvoices}
+                        <CountUpNumber value={stats.totalInvoices} />
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -523,7 +524,7 @@ const CustomerProfile = () => {
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Total Invoices</span>
                   </div>
                   <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {stats.totalInvoices}
+                    <CountUpNumber value={stats.totalInvoices} />
                   </span>
                 </div>
                 
@@ -533,7 +534,7 @@ const CustomerProfile = () => {
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Total Value</span>
                   </div>
                   <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {formatMoney(stats.totalAmount || 0, baseCurrency)}
+                    <CountUpNumber value={formatMoney(stats.totalAmount || 0, baseCurrency)} />
                   </span>
                 </div>
                 
@@ -543,7 +544,7 @@ const CustomerProfile = () => {
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Paid Amount</span>
                   </div>
                   <span className={`font-bold text-emerald-600 dark:text-emerald-400`}>
-                    {formatMoney(stats.paidAmount || 0, baseCurrency)}
+                    <CountUpNumber value={formatMoney(stats.paidAmount || 0, baseCurrency)} />
                   </span>
                 </div>
                 
@@ -553,7 +554,7 @@ const CustomerProfile = () => {
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Pending Amount</span>
                   </div>
                   <span className={`font-bold text-amber-600 dark:text-amber-400`}>
-                    {formatMoney(stats.pendingAmount || 0, baseCurrency)}
+                    <CountUpNumber value={formatMoney(stats.pendingAmount || 0, baseCurrency)} />
                   </span>
                 </div>
                 
@@ -563,7 +564,7 @@ const CustomerProfile = () => {
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Overdue Amount</span>
                   </div>
                   <span className={`font-bold text-red-600 dark:text-red-400`}>
-                    {formatMoney(stats.overdueAmount || 0, baseCurrency)}
+                    <CountUpNumber value={formatMoney(stats.overdueAmount || 0, baseCurrency)} />
                   </span>
                 </div>
                 
@@ -573,7 +574,7 @@ const CustomerProfile = () => {
                     <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Avg Invoice Value</span>
                   </div>
                   <span className={`font-bold text-primary-600 dark:text-primary-400`}>
-                    {formatMoney(stats.avgInvoiceValue || 0, baseCurrency)}
+                    <CountUpNumber value={formatMoney(stats.avgInvoiceValue || 0, baseCurrency)} />
                   </span>
                 </div>
               </div>

@@ -200,7 +200,7 @@ const ReportCards = ({
       </div>
 
       {/* Report Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-6">
         {filteredTemplates.map((template) => {
           const Icon = template.icon;
           const generatedReport = getGeneratedReport(template.id);

@@ -7,7 +7,7 @@ import countryData from '../../data/CountryData.json';
 
 const AccountSettings = () => {
   const { isDarkMode } = useTheme();
-  const { accountInfo, updateAccountInfo } = useAccount();
+  const { accountInfo, updateAccountInfo, refreshAccountInfo } = useAccount();
   const { addToast } = useToast();
   const EMPTY_FORM_STATE = {
     companyName: '',
@@ -140,6 +140,7 @@ const AccountSettings = () => {
     setIsSaving(true);
     try {
       await updateAccountInfo(formData, profileImageFile);
+      await refreshAccountInfo({ silent: true });
       addToast('Account settings saved', 'success');
       handleRemovePhoto();
     } catch (error) {

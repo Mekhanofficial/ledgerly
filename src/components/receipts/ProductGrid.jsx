@@ -7,6 +7,7 @@ import { useAccount } from '../../context/AccountContext';
 import { mapProductFromApi } from '../../utils/productAdapter';
 import { fetchProducts } from '../../store/slices/productSlide';
 import { formatCurrency } from '../../utils/currency';
+import CountUpNumber from '../ui/CountUpNumber';
 
 const normalizeCategory = (categoryValue) => {
   if (typeof categoryValue === 'string') {
@@ -170,7 +171,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                 <div className={`text-sm font-semibold stat-value-safe ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  {stat.value}
+                  <CountUpNumber value={stat.value} />
                 </div>
               </div>
             ))}
@@ -294,7 +295,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
             {filteredProducts.map((product) => {
               const stock = product.stock || product.quantity || 0;
               const cartQuantity = getCartQuantity(product.id);
@@ -378,7 +379,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                       </div>
                     </div>
 
-                    <div className={`mt-4 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between ${
+                    <div className={`mt-4 grid grid-cols-1 gap-3 border-t pt-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-4 ${
                       isDarkMode ? 'border-gray-700' : 'border-gray-100'
                     }`}>
                       <div className="min-w-0">
@@ -387,7 +388,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                         }`}>
                           Unit Price
                         </div>
-                        <div className={`text-base font-semibold ${
+                        <div className={`text-base font-semibold whitespace-nowrap ${
                           isDarkMode ? 'text-white' : 'text-gray-900'
                         }`}>
                           {formatMoney(product.price || 0, baseCurrency)}
@@ -397,7 +398,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                       <button
                         onClick={() => !isOutOfStock && onAddToCart(product)}
                         disabled={isOutOfStock}
-                        className={`inline-flex w-full items-center justify-center rounded-xl px-3 py-2 text-sm font-medium leading-tight transition sm:w-auto sm:shrink-0 ${
+                        className={`inline-flex w-full items-center justify-center rounded-xl px-3 py-2 text-sm font-medium leading-tight transition md:ml-2 md:w-auto md:shrink-0 ${
                           isOutOfStock
                             ? 'cursor-not-allowed bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                             : 'bg-primary-600 text-white hover:bg-primary-700'
@@ -432,19 +433,27 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div className={`rounded-xl p-3 ${isDarkMode ? 'bg-gray-900/60' : 'bg-gray-50'}`}>
               <div className={`text-[11px] uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Total Items</div>
-              <div className={`mt-1 text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{products.length}</div>
+              <div className={`mt-1 text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <CountUpNumber value={products.length} />
+              </div>
             </div>
             <div className={`rounded-xl p-3 ${isDarkMode ? 'bg-gray-900/60' : 'bg-gray-50'}`}>
               <div className={`text-[11px] uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Visible</div>
-              <div className={`mt-1 text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{filteredProducts.length}</div>
+              <div className={`mt-1 text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <CountUpNumber value={filteredProducts.length} />
+              </div>
             </div>
             <div className={`rounded-xl p-3 ${isDarkMode ? 'bg-gray-900/60' : 'bg-gray-50'}`}>
               <div className={`text-[11px] uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Low Stock</div>
-              <div className={`mt-1 text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{lowStockCount}</div>
+              <div className={`mt-1 text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <CountUpNumber value={lowStockCount} />
+              </div>
             </div>
             <div className={`rounded-xl p-3 ${isDarkMode ? 'bg-gray-900/60' : 'bg-gray-50'}`}>
               <div className={`text-[11px] uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Out of Stock</div>
-              <div className={`mt-1 text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{outOfStockCount}</div>
+              <div className={`mt-1 text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <CountUpNumber value={outOfStockCount} />
+              </div>
             </div>
           </div>
         </div>

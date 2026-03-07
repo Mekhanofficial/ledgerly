@@ -1,74 +1,87 @@
 import React from 'react';
+import { motion } from 'framer-motion';
+import { ArrowRight, CheckCircle, Rocket, Shield, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle, Shield, Zap, Rocket } from 'lucide-react';
 
 const CTA = () => {
   return (
-    <section className="py-16 md:py-20 bg-gradient-to-t from-white to-primary-50/20 dark:from-gray-900 dark:to-primary-950/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative">
-          {/* Inverted gradient */}
-          <div className="bg-gradient-to-tl from-white to-primary-50/40 dark:from-gray-800 dark:to-primary-900/20 rounded-2xl p-6 md:p-8 lg:p-10 overflow-hidden border border-primary-100/30 dark:border-primary-800/20 shadow-xl shadow-primary-500/5 dark:shadow-primary-400/5">
-            {/* Subtle full-width gradient overlay - also inverted */}
-            <div className="absolute inset-0 bg-gradient-to-l from-primary-500/2 via-transparent to-cyan-500/2"></div>
-            
-            <div className="relative z-10">
-              <div className="text-center max-w-3xl mx-auto">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-tr from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-xl mb-4">
-                  <Rocket className="w-6 h-6 text-primary-700 dark:text-primary-400" />
+    <motion.section
+      className="relative py-16 md:py-20 bg-gradient-to-b from-[#f5f7ff] to-[#eef2ff] dark:from-slate-950 dark:to-slate-900"
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      viewport={{ once: true, amount: 0.15 }}
+      transition={{ duration: 0.45 }}
+    >
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute left-10 -top-10 h-56 w-56 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute right-0 bottom-0 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
+      </div>
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          className="rounded-3xl border border-slate-200/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 lg:p-10 shadow-[0_30px_70px_-50px_rgba(15,23,42,0.95)] backdrop-blur-sm overflow-hidden"
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.45 }}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-blue-500/5" />
+
+          <div className="relative z-10 text-center max-w-3xl mx-auto">
+            <div className="inline-flex items-center rounded-full bg-cyan-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200 mb-4">
+              Ready to launch
+            </div>
+
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white">
+              Start sending invoices that
+              <span className="block mt-1 bg-gradient-to-r from-cyan-600 to-blue-600 dark:from-cyan-400 dark:to-blue-400 bg-clip-text text-transparent">
+                get paid faster
+              </span>
+            </h2>
+
+            <p className="mt-4 text-base md:text-lg text-slate-600 dark:text-slate-300">
+              Join teams using Ledgerly to automate billing, improve follow-ups, and track every payment in one dashboard.
+            </p>
+
+            <div className="mt-7 flex justify-center">
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-8 py-3.5 text-sm md:text-base font-semibold hover:from-cyan-500 hover:to-blue-500 transition-all duration-300 shadow-lg shadow-cyan-500/25"
+              >
+                Get Started Now
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-200/80 dark:border-slate-700/80 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="flex items-center justify-center gap-2.5">
+                <div className="h-8 w-8 rounded-full bg-cyan-50 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200 flex items-center justify-center">
+                  <Zap className="h-4 w-4" />
                 </div>
-                
-                <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                  Ready to Transform Your
-                  <span className="bg-gradient-to-l from-primary-600 to-cyan-500 dark:from-primary-400 dark:to-cyan-400 bg-clip-text text-transparent block mt-1"> Business?</span>
-                </h2>
-                
-                <p className="text-base md:text-lg text-gray-600 dark:text-gray-300 mb-6 max-w-2xl mx-auto">
-                  Join thousands of businesses that trust Ledgerly for their daily operations.
-                </p>
-                
-                <div className="flex justify-center mb-8">
-                  <Link 
-                    to="/dashboard" 
-                    className="relative overflow-hidden bg-gradient-to-l from-primary-600 to-primary-700 dark:from-primary-500 dark:to-primary-600 text-white px-8 py-4 rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 dark:hover:from-primary-600 dark:hover:to-primary-700 transition-all duration-300 inline-flex items-center justify-center group shadow-lg shadow-primary-500/20 dark:shadow-primary-400/20 hover:shadow-xl hover:shadow-primary-500/30"
-                  >
-                    <span className="relative z-10">Get Started Now</span>
-                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform relative z-10" />
-                  </Link>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Instant setup</span>
+              </div>
+              <div className="flex items-center justify-center gap-2.5">
+                <div className="h-8 w-8 rounded-full bg-cyan-50 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200 flex items-center justify-center">
+                  <Shield className="h-4 w-4" />
                 </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 pt-6 border-t border-primary-100/30 dark:border-primary-800/20">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 flex items-center justify-center flex-shrink-0">
-                      <Zap className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-700 dark:text-gray-300 font-medium">Instant setup</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 flex items-center justify-center flex-shrink-0">
-                      <Shield className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-700 dark:text-gray-300 font-medium">Bank security</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 flex items-center justify-center flex-shrink-0">
-                      <CheckCircle className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-700 dark:text-gray-300 font-medium">Cancel anytime</div>
-                    </div>
-                  </div>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Bank security</span>
+              </div>
+              <div className="flex items-center justify-center gap-2.5">
+                <div className="h-8 w-8 rounded-full bg-cyan-50 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200 flex items-center justify-center">
+                  <CheckCircle className="h-4 w-4" />
                 </div>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Cancel anytime</span>
               </div>
             </div>
+
+            <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300">
+              <Rocket className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-300" />
+              No credit card required
+            </div>
           </div>
-        </div>
+        </motion.div>
       </div>
-    </section>
+    </motion.section>
   );
 };
 

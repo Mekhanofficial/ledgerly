@@ -6,6 +6,7 @@ import { useSelector } from 'react-redux';
 import api from '../../services/api';
 import TablePagination from '../ui/TablePagination';
 import { useTablePagination } from '../../hooks/usePagination';
+import CountUpNumber from '../ui/CountUpNumber';
 
 const roleOptions = [
   { value: 'super_admin', label: 'Super Admin', description: 'Full system control, users & roles' },
@@ -282,7 +283,9 @@ const TeamManagementPanel = () => {
             }`}
           >
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{stat.label}</p>
-            <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white stat-value-safe">{stat.value}</p>
+            <p className="text-2xl font-semibold mt-2 text-gray-900 dark:text-white stat-value-safe">
+              <CountUpNumber value={stat.value} />
+            </p>
           </div>
         ))}
       </div>

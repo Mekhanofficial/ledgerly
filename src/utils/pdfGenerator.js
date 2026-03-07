@@ -250,6 +250,159 @@ const addLedgerlyFooterWatermark = (doc, companyData = {}) => {
   }
 };
 
+const formatPdfDate = (value) => {
+  if (!value) return new Date().toLocaleDateString();
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return new Date().toLocaleDateString();
+  return parsed.toLocaleDateString();
+};
+
+const resolveCustomerName = (invoiceData = {}) => {
+  if (typeof invoiceData.customer === 'string' && invoiceData.customer.trim()) {
+    return invoiceData.customer.trim();
+  }
+  if (invoiceData.customer?.name) return invoiceData.customer.name;
+  if (invoiceData.customerName) return invoiceData.customerName;
+  return 'Customer';
+};
+
+const drawBasicInvoice = (doc, template, invoiceData, companyData, pageWidth, pageHeight) => {
+  const margin = 18;
+  let y = 22;
+  const colors = template?.colors || {};
+  const fonts = template?.fonts || {};
+  const primary = colors.primary || [41, 128, 185];
+  const secondary = colors.secondary || [52, 152, 219];
+  const accent = colors.accent || [240, 244, 248];
+  const background = colors.background || [255, 255, 255];
+  const textColor = colors.text || [44, 62, 80];
+  const border = colors.border || [214, 223, 232];
+  const customerName = resolveCustomerName(invoiceData);
+  const customerEmail = invoiceData?.customer?.email || invoiceData?.customerEmail || '';
+  const invoiceNumber = invoiceData.invoiceNumber || invoiceData.number || invoiceData.id || 'INV-001';
+  const issueDate = formatPdfDate(invoiceData.issueDate || invoiceData.createdAt);
+  const dueDate = formatPdfDate(invoiceData.dueDate);
+
+  doc.setFillColor(...background);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  doc.setFillColor(...primary);
+  doc.rect(0, 0, pageWidth, 14, 'F');
+  doc.setFillColor(...secondary);
+  doc.rect(0, 14, pageWidth, 4, 'F');
+
+  doc.setFont(resolveFont(fonts.title), 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(255, 255, 255);
+  doc.text(companyData?.name || 'Ledgerly Business', margin, 10);
+
+  doc.setFont(resolveFont(fonts.body), 'normal');
+  doc.setFontSize(9);
+  doc.text(`Invoice #${invoiceNumber}`, pageWidth - margin, 10, { align: 'right' });
+
+  y = 30;
+  doc.setTextColor(...textColor);
+  doc.setFont(resolveFont(fonts.title), 'bold');
+  doc.setFontSize(18);
+  doc.text('INVOICE', margin, y);
+  y += 8;
+
+  doc.setFont(resolveFont(fonts.body), 'normal');
+  doc.setFontSize(10);
+  doc.text(`Issue Date: ${issueDate}`, margin, y);
+  doc.text(`Due Date: ${dueDate}`, pageWidth - margin, y, { align: 'right' });
+  y += 9;
+
+  doc.setDrawColor(...border);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 7;
+
+  doc.setFont(resolveFont(fonts.body), 'bold');
+  doc.text('Bill To', margin, y);
+  doc.setFont(resolveFont(fonts.body), 'normal');
+  doc.text(customerName, margin, y + 6);
+  if (customerEmail) {
+    doc.text(customerEmail, margin, y + 12);
+  }
+
+  doc.setFont(resolveFont(fonts.body), 'bold');
+  doc.text('From', pageWidth - margin - 80, y);
+  doc.setFont(resolveFont(fonts.body), 'normal');
+  doc.text(companyData?.name || 'Ledgerly Business', pageWidth - margin - 80, y + 6);
+  if (companyData?.email) {
+    doc.text(companyData.email, pageWidth - margin - 80, y + 12);
+  }
+  y += 24;
+
+  doc.setFillColor(...accent);
+  doc.rect(margin, y, pageWidth - margin * 2, 8, 'F');
+  doc.setTextColor(...textColor);
+  doc.setFont(resolveFont(fonts.body), 'bold');
+  doc.setFontSize(9);
+  doc.text('Description', margin + 2, y + 5.5);
+  doc.text('Qty', pageWidth - margin - 62, y + 5.5, { align: 'right' });
+  doc.text('Rate', pageWidth - margin - 35, y + 5.5, { align: 'right' });
+  doc.text('Amount', pageWidth - margin - 2, y + 5.5, { align: 'right' });
+  y += 13;
+
+  const items = normalizeInvoiceItems(invoiceData);
+  doc.setFont(resolveFont(fonts.body), 'normal');
+  doc.setFontSize(9);
+  items.forEach((item) => {
+    if (y > pageHeight - 54) {
+      doc.addPage();
+      y = 22;
+      doc.setFillColor(...accent);
+      doc.rect(margin, y, pageWidth - margin * 2, 8, 'F');
+      doc.setFont(resolveFont(fonts.body), 'bold');
+      doc.text('Description', margin + 2, y + 5.5);
+      doc.text('Qty', pageWidth - margin - 62, y + 5.5, { align: 'right' });
+      doc.text('Rate', pageWidth - margin - 35, y + 5.5, { align: 'right' });
+      doc.text('Amount', pageWidth - margin - 2, y + 5.5, { align: 'right' });
+      y += 13;
+      doc.setFont(resolveFont(fonts.body), 'normal');
+    }
+
+    const descriptionLines = doc.splitTextToSize(item.description || 'Item', pageWidth - margin * 2 - 95);
+    doc.text(descriptionLines[0], margin + 2, y);
+    doc.text(String(item.quantity ?? 1), pageWidth - margin - 62, y, { align: 'right' });
+    doc.text(formatCurrency(item.rate || 0), pageWidth - margin - 35, y, { align: 'right' });
+    doc.text(formatCurrency(item.amount || 0), pageWidth - margin - 2, y, { align: 'right' });
+    y += Math.max(7, descriptionLines.length * 5 + 2);
+  });
+
+  const subtotal = Number(invoiceData.subtotal ?? items.reduce((sum, item) => sum + (item.amount || 0), 0));
+  const tax = Number(invoiceData.totalTax ?? invoiceData.tax ?? 0);
+  const total = Number(invoiceData.totalAmount ?? invoiceData.amount ?? subtotal + tax);
+  const taxName = invoiceData.taxName || 'Tax';
+  const taxRateUsed = Number.isFinite(Number(invoiceData.taxRateUsed)) ? Number(invoiceData.taxRateUsed) : 0;
+
+  y += 4;
+  doc.setDrawColor(...border);
+  doc.line(pageWidth - margin - 78, y, pageWidth - margin, y);
+  y += 7;
+  doc.setFont(resolveFont(fonts.body), 'normal');
+  doc.text('Subtotal', pageWidth - margin - 50, y);
+  doc.text(formatCurrency(subtotal), pageWidth - margin - 2, y, { align: 'right' });
+  y += 6;
+  doc.text(`${taxName} ${taxRateUsed}%`, pageWidth - margin - 50, y);
+  doc.text(formatCurrency(tax), pageWidth - margin - 2, y, { align: 'right' });
+  y += 8;
+  doc.setFont(resolveFont(fonts.body), 'bold');
+  doc.setTextColor(...primary);
+  doc.text('Total', pageWidth - margin - 50, y);
+  doc.text(formatCurrency(total), pageWidth - margin - 2, y, { align: 'right' });
+
+  const notes = invoiceData.notes || invoiceData.message || '';
+  if (notes) {
+    const noteLines = doc.splitTextToSize(`Notes: ${notes}`, pageWidth - margin * 2);
+    const noteY = Math.min(pageHeight - 24, y + 12);
+    doc.setFont(resolveFont(fonts.body), 'normal');
+    doc.setTextColor(...textColor);
+    doc.text(noteLines, margin, noteY);
+  }
+};
+
 // ----------------------------------------------------------------------
 // DRAWING FUNCTIONS FOR NEW TEMPLATES
 
@@ -440,23 +593,23 @@ const drawModernCorporate = (doc, template, invoiceData, companyData, pageWidth,
 // For brevity, I'm showing the pattern – you would implement each one mirroring the preview components
 
 const drawCleanBilling = (doc, template, invoiceData, companyData, pageWidth, pageHeight) => {
-  // Implementation matches CleanBillingPreview component
+  drawBasicInvoice(doc, template, invoiceData, companyData, pageWidth, pageHeight);
 };
 
 const drawRetailReceipt = (doc, template, invoiceData, companyData, pageWidth, pageHeight) => {
-  // Implementation matches RetailReceiptPreview component
+  drawBasicInvoice(doc, template, invoiceData, companyData, pageWidth, pageHeight);
 };
 
 const drawSimpleElegant = (doc, template, invoiceData, companyData, pageWidth, pageHeight) => {
-  // Implementation matches SimpleElegantPreview component
+  drawBasicInvoice(doc, template, invoiceData, companyData, pageWidth, pageHeight);
 };
 
 const drawUrbanEdge = (doc, template, invoiceData, companyData, pageWidth, pageHeight) => {
-  // Implementation matches UrbanEdgePreview component
+  drawBasicInvoice(doc, template, invoiceData, companyData, pageWidth, pageHeight);
 };
 
 const drawCreativeFlow = (doc, template, invoiceData, companyData, pageWidth, pageHeight) => {
-  // Implementation matches CreativeFlowPreview component
+  drawBasicInvoice(doc, template, invoiceData, companyData, pageWidth, pageHeight);
 };
 
 // ----------------------------------------------------------------------
@@ -862,12 +1015,7 @@ export const generateInvoicePDF = (invoiceData, templateId = 'standard', company
       break;
     default:
       // Fallback to existing premium or basic drawing functions
-      if (template.isPremium) {
-        // Use your existing premium drawing logic
-        drawPremiumInvoice(doc, template, invoiceData, companyData, pageWidth, pageHeight);
-      } else {
-        drawBasicInvoice(doc, template, invoiceData, companyData, pageWidth, pageHeight);
-      }
+      drawBasicInvoice(doc, template, invoiceData, companyData, pageWidth, pageHeight);
   }
 
   addLedgerlyFooterWatermark(doc, companyData);

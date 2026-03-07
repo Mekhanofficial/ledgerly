@@ -194,7 +194,6 @@ const CreateInvoice = () => {
     refreshCustomers,
     saveDraft,
     customers,
-    saveRecurringInvoice,
     getAvailableTemplates 
   } = useInvoice();
   const { isDarkMode } = useTheme();
@@ -287,6 +286,31 @@ const CreateInvoice = () => {
     const number = Number(value);
     if (!Number.isFinite(number)) return 0;
     return Math.round((number + Number.EPSILON) * 100) / 100;
+  };
+
+  const buildRecurringPayload = () => {
+    if (!isRecurring) return undefined;
+
+    const issueDateIso = new Date(`${issueDate}T00:00:00`).toISOString();
+    const startDateIso = recurringSettings?.startDate
+      ? new Date(`${recurringSettings.startDate}T00:00:00`).toISOString()
+      : issueDateIso;
+    const endDateIso = recurringSettings?.endDate
+      ? new Date(`${recurringSettings.endDate}T00:00:00`).toISOString()
+      : undefined;
+
+    return {
+      isRecurring: true,
+      status: 'active',
+      frequency: recurringSettings?.frequency || 'monthly',
+      interval: 1,
+      startDate: startDateIso,
+      nextInvoiceDate: startDateIso,
+      ...(endDateIso ? { endDate: endDateIso } : {}),
+      ...(Number(recurringSettings?.totalCycles) > 0
+        ? { totalCycles: Number(recurringSettings.totalCycles) }
+        : {})
+    };
   };
 
   // Calculate totals
@@ -723,8 +747,7 @@ const CreateInvoice = () => {
         emailSubject,
         emailMessage,
         templateStyle: selectedTemplate,
-        isRecurring,
-        recurringSettings,
+        recurring: buildRecurringPayload(),
         attachments: attachments.map(att => ({
           name: att.name,
           type: att.type,
@@ -1158,7 +1181,8 @@ const CreateInvoice = () => {
         currency: resolvedCurrency,
         status: 'draft',
         createdAt: new Date().toISOString(),
-        templateStyle: selectedTemplate
+        templateStyle: selectedTemplate,
+        recurring: buildRecurringPayload()
       };
 
       // Add to invoices
@@ -1195,40 +1219,6 @@ const CreateInvoice = () => {
       }, { throwOnError: true });
       if (!sentInvoice) {
         throw new Error('Invoice created, but email delivery failed. Check SMTP settings and resend from invoice list.');
-      }
-
-      // If recurring, save recurring profile
-      if (isRecurring) {
-        const recurringData = {
-          id: `rec_${Date.now()}`,
-          invoiceNumber: sentInvoice.invoiceNumber,
-          invoiceId: sentInvoice.id,
-          customer,
-          amount: sanitizedTotalAmount,
-          frequency: recurringSettings.frequency,
-          startDate: recurringSettings.startDate,
-          endDate: recurringSettings.endDate,
-          nextRun: recurringSettings.startDate,
-          totalCycles: recurringSettings.totalCycles,
-          cyclesCompleted: 1,
-          status: 'active',
-          taxRateUsed: effectiveTaxRate,
-          taxAmount: sanitizedTotalTax,
-          taxName,
-          isTaxOverridden,
-          lineItems: lineItemsWithInventory.map(item => ({
-            description: item.description,
-            quantity: item.quantity,
-            rate: item.rate,
-            tax: item.tax,
-            amount: item.amount,
-            productId: item.productId,
-            sku: item.sku
-          })),
-          templateStyle: selectedTemplate
-        };
-        
-        saveRecurringInvoice(recurringData);
       }
 
       addToast(`Invoice sent to ${customer.email} successfully!`, 'success');

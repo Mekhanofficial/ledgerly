@@ -1,11 +1,13 @@
 // layouts/DashboardLayout.jsx
 import React, { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAccount } from '../../../context/AccountContext';
 import NavBar from '../../dashboard/layout/NavBar';
 import SideBar from '../../dashboard/layout/SideBar';
+import { StaggerEntrance } from '../../motion';
 import { resolveAuthUser } from '../../../utils/userDisplay';
 import GlowingBorderTrail from '../../ui/GlowingBorderTrail';
 
@@ -69,101 +71,142 @@ const DashboardLayout = ({ children }) => {
   };
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark' : ''}`}>
+    <div className={`dashboard-shell min-h-screen ${isDarkMode ? 'dark' : ''}`}>
       {/* Glowing Border Animation */}
-      <GlowingBorderTrail 
-        isActive={true} 
-        duration={24000} 
+      <GlowingBorderTrail
+        isActive={true}
+        duration={24000}
         pauseDuration={0}
         isDarkMode={isDarkMode}
       />
 
       {/* Mobile sidebar backdrop */}
-      {mobileSidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-gray-600 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-90 lg:hidden"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <motion.button
+            type="button"
+            aria-label="Close mobile sidebar"
+            className="fixed inset-0 z-40 bg-slate-900/45 dark:bg-slate-950/72 lg:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          />
+        )}
+      </AnimatePresence>
 
-      <SideBar 
-        isOpen={sidebarOpen} 
+      <SideBar
+        isOpen={sidebarOpen}
         mobileOpen={mobileSidebarOpen}
         onMobileToggle={() => setMobileSidebarOpen(!mobileSidebarOpen)}
       />
 
       {/* Main Content */}
-      <div className={`flex flex-col transition-all duration-300 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
-        <NavBar 
+      <motion.div
+        layout
+        className={`flex flex-col transition-all duration-300 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}
+      >
+        <NavBar
           onMenuClick={() => setMobileSidebarOpen(true)}
           sidebarOpen={sidebarOpen}
           onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
         />
-        
-        <main className="flex-1">
-          <div className="py-6 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900 min-h-screen space-y-4">
-            {subscriptionBanner && (
-              <div className={`rounded-xl border px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 ${
-                subscriptionBanner.tone === 'error'
-                  ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200'
-                  : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200'
-              }`}>
-                <div>
-                  <div className="font-semibold">{subscriptionBanner.title}</div>
-                  <div className="text-sm">{subscriptionBanner.message}</div>
-                </div>
+
+        <motion.main
+          className="flex-1"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="py-6 px-4 sm:px-6 lg:px-8 bg-transparent min-h-screen space-y-4">
+            <AnimatePresence initial={false}>
+              {subscriptionBanner && (
+                <motion.div
+                  className={`rounded-xl border px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 ${
+                    subscriptionBanner.tone === 'error'
+                      ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200'
+                      : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200'
+                  }`}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  <div>
+                    <div className="font-semibold">{subscriptionBanner.title}</div>
+                    <div className="text-sm">{subscriptionBanner.message}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/pricing')}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500"
+                  >
+                    Upgrade
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <StaggerEntrance className="space-y-4">
+              {children}
+            </StaggerEntrance>
+          </div>
+        </motion.main>
+      </motion.div>
+
+      <AnimatePresence>
+        {showUpgradeModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div className="absolute inset-0 bg-black/60" />
+            <motion.div
+              className={`relative w-full max-w-lg rounded-2xl border p-6 shadow-2xl ${
+                isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
+              }`}
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.98 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="text-sm font-semibold uppercase tracking-widest text-cyan-500">
+                Upgrade Required
+              </div>
+              <h2 className="mt-2 text-2xl font-bold">
+                Your subscription has expired
+              </h2>
+              <p className={`mt-3 text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                Upgrade to continue creating invoices, exporting PDFs, and using premium templates.
+              </p>
+              <div className="mt-6 flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"
                   onClick={() => navigate('/pricing')}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700"
+                  className="flex-1 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white hover:from-cyan-500 hover:to-blue-500"
                 >
-                  Upgrade
+                  Upgrade Now
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDismissUpgradeModal}
+                  className={`flex-1 rounded-lg border px-4 py-2 text-sm font-semibold ${
+                    isDarkMode
+                      ? 'border-slate-700 text-slate-200 hover:bg-slate-800'
+                      : 'border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  Not Now
                 </button>
               </div>
-            )}
-            {children}
-          </div>
-        </main>
-      </div>
-
-      {showUpgradeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/60" />
-          <div className={`relative w-full max-w-lg rounded-2xl border p-6 shadow-2xl ${
-            isDarkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'
-          }`}>
-            <div className="text-sm font-semibold uppercase tracking-widest text-primary-500">
-              Upgrade Required
-            </div>
-            <h2 className="mt-2 text-2xl font-bold">
-              Your subscription has expired
-            </h2>
-            <p className={`mt-3 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Upgrade to continue creating invoices, exporting PDFs, and using premium templates.
-            </p>
-            <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <button
-                type="button"
-                onClick={() => navigate('/pricing')}
-                className="flex-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
-              >
-                Upgrade Now
-              </button>
-              <button
-                type="button"
-                onClick={handleDismissUpgradeModal}
-                className={`flex-1 rounded-lg border px-4 py-2 text-sm font-semibold ${
-                  isDarkMode
-                    ? 'border-gray-700 text-gray-200 hover:bg-gray-800'
-                    : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                Not Now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

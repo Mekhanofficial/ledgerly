@@ -10,6 +10,85 @@ const normalizeObjectId = (value) => {
   return isValidObjectId(normalized) ? normalized : '';
 };
 
+const RECURRING_FREQUENCIES = new Set(['daily', 'weekly', 'monthly', 'quarterly', 'yearly']);
+const RECURRING_STATUSES = new Set(['active', 'paused', 'completed']);
+
+const normalizeRecurringFrequency = (value) => {
+  const normalized = String(value || 'monthly').toLowerCase();
+  return RECURRING_FREQUENCIES.has(normalized) ? normalized : 'monthly';
+};
+
+const normalizeRecurringStatus = (value) => {
+  const normalized = String(value || 'active').toLowerCase();
+  return RECURRING_STATUSES.has(normalized) ? normalized : 'active';
+};
+
+const normalizeRecurringDate = (value, fallback = undefined) => {
+  if (!value) return fallback;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+};
+
+const resolveRecurringPayload = (invoiceData = {}) => {
+  const explicitRecurring = invoiceData.recurring && typeof invoiceData.recurring === 'object'
+    ? invoiceData.recurring
+    : null;
+
+  if (explicitRecurring) {
+    const isRecurring = Boolean(explicitRecurring.isRecurring);
+    if (!isRecurring) return { isRecurring: false };
+
+    const interval = toNumber(explicitRecurring.interval, 1);
+    const startDate = normalizeRecurringDate(
+      explicitRecurring.startDate,
+      normalizeRecurringDate(invoiceData.issueDate, new Date().toISOString())
+    );
+    const nextInvoiceDate = normalizeRecurringDate(explicitRecurring.nextInvoiceDate, startDate);
+    const endDate = normalizeRecurringDate(explicitRecurring.endDate);
+    const totalCycles = toNumber(explicitRecurring.totalCycles, 0);
+    const completedCycles = toNumber(explicitRecurring.completedCycles, 0);
+
+    return {
+      isRecurring: true,
+      status: normalizeRecurringStatus(explicitRecurring.status),
+      frequency: normalizeRecurringFrequency(explicitRecurring.frequency),
+      interval: interval > 0 ? interval : 1,
+      startDate,
+      nextInvoiceDate,
+      ...(endDate ? { endDate } : {}),
+      ...(totalCycles > 0 ? { totalCycles } : {}),
+      ...(completedCycles > 0 ? { completedCycles } : {})
+    };
+  }
+
+  const recurringSettings = invoiceData.recurringSettings && typeof invoiceData.recurringSettings === 'object'
+    ? invoiceData.recurringSettings
+    : null;
+  const isRecurring = Boolean(invoiceData.isRecurring || recurringSettings);
+
+  if (!isRecurring) {
+    return { isRecurring: false };
+  }
+
+  const issueDate = normalizeRecurringDate(invoiceData.issueDate, new Date().toISOString());
+  const startDate = normalizeRecurringDate(recurringSettings?.startDate, issueDate);
+  const nextInvoiceDate = normalizeRecurringDate(recurringSettings?.nextInvoiceDate, startDate);
+  const endDate = normalizeRecurringDate(recurringSettings?.endDate);
+  const interval = toNumber(recurringSettings?.interval, 1);
+  const totalCycles = toNumber(recurringSettings?.totalCycles, 0);
+
+  return {
+    isRecurring: true,
+    status: normalizeRecurringStatus(recurringSettings?.status || 'active'),
+    frequency: normalizeRecurringFrequency(recurringSettings?.frequency),
+    interval: interval > 0 ? interval : 1,
+    startDate,
+    nextInvoiceDate,
+    ...(endDate ? { endDate } : {}),
+    ...(totalCycles > 0 ? { totalCycles } : {})
+  };
+};
+
 export const mapInvoiceFromApi = (invoice = {}) => {
   const customer = invoice.customer && typeof invoice.customer === 'object'
     ? invoice.customer
@@ -72,6 +151,20 @@ export const mapInvoiceFromApi = (invoice = {}) => {
     notes: invoice.notes || '',
     terms: invoice.terms || '',
     templateStyle: invoice.templateStyle || 'standard',
+    recurring: invoice.recurring
+      ? {
+          isRecurring: Boolean(invoice.recurring.isRecurring),
+          status: normalizeRecurringStatus(invoice.recurring.status),
+          frequency: normalizeRecurringFrequency(invoice.recurring.frequency),
+          interval: toNumber(invoice.recurring.interval, 1),
+          startDate: normalizeRecurringDate(invoice.recurring.startDate),
+          endDate: normalizeRecurringDate(invoice.recurring.endDate),
+          nextInvoiceDate: normalizeRecurringDate(invoice.recurring.nextInvoiceDate),
+          totalCycles: toNumber(invoice.recurring.totalCycles, 0) || undefined,
+          completedCycles: toNumber(invoice.recurring.completedCycles, 0) || 0,
+          parentInvoice: invoice.recurring.parentInvoice || undefined
+        }
+      : undefined,
     emailSubject: invoice.emailSubject || '',
     emailMessage: invoice.emailMessage || '',
     raw: invoice
@@ -158,6 +251,11 @@ export const buildInvoicePayload = (invoiceData = {}) => {
     items,
     status: invoiceData.status || 'draft'
   };
+
+  const recurring = resolveRecurringPayload(invoiceData);
+  if (recurring?.isRecurring) {
+    payload.recurring = recurring;
+  }
 
   const taxRateUsed = toNumber(invoiceData.taxRateUsed ?? invoiceData.taxRate, Number.NaN);
   if (Number.isFinite(taxRateUsed)) {

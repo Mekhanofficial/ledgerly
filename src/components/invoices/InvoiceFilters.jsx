@@ -5,6 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAccount } from '../../context/AccountContext';
 import { formatCurrency } from '../../utils/currency';
+import CountUpNumber from '../ui/CountUpNumber';
 
 const InvoiceFilters = ({ 
   statusFilter = 'all', 
@@ -126,7 +127,7 @@ const InvoiceFilters = ({
                       {stat.label}
                     </p>
                     <p className={`text-xl font-bold mt-1 stat-value-safe ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {stat.value}
+                      <CountUpNumber value={stat.value} />
                     </p>
                   </div>
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${iconBgColor}`}>

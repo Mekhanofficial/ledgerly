@@ -1,5 +1,5 @@
 // Update Customers.js
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Plus, Download, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'; // Added import
 import { useDispatch, useSelector } from 'react-redux';
@@ -14,12 +14,15 @@ import {
   deleteCustomer as deleteCustomerThunk,
   sendCustomerStatement as sendCustomerStatementThunk
 } from '../../store/slices/customerSlice';
+import { fetchInvoices } from '../../store/slices/invoiceSlice';
 import { buildCustomerPayload, mapCustomerFromApi } from '../../utils/customerAdapter';
+import { mapInvoiceFromApi } from '../../utils/invoiceAdapter';
 
 const Customers = () => {
   const { isDarkMode } = useTheme();
   const dispatch = useDispatch();
   const { customers: apiCustomers, error } = useSelector((state) => state.customers);
+  const apiInvoices = useSelector((state) => state.invoices?.invoices || []);
   const { addToast } = useToast();
   const navigate = useNavigate(); // Added hook
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,6 +41,47 @@ const Customers = () => {
     [apiCustomers]
   );
 
+  const invoices = useMemo(
+    () => (apiInvoices || []).map(mapInvoiceFromApi),
+    [apiInvoices]
+  );
+
+  const parseDateValue = useCallback((value) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, []);
+
+  const isInvoiceOverdue = useCallback((invoice, referenceDate = new Date()) => {
+    const status = String(invoice?.status || '').trim().toLowerCase();
+    if (!status) return false;
+    if (status === 'overdue') return true;
+    if (['paid', 'draft', 'cancelled', 'void'].includes(status)) return false;
+    if (!['sent', 'viewed', 'partial', 'pending'].includes(status)) return false;
+
+    const dueDate = parseDateValue(invoice?.dueDate || invoice?.due);
+    if (!dueDate) return false;
+    return dueDate.getTime() < referenceDate.getTime();
+  }, [parseDateValue]);
+
+  const overdueCustomerIds = useMemo(() => {
+    const now = new Date();
+    const ids = new Set();
+    invoices.forEach((invoice) => {
+      if (!isInvoiceOverdue(invoice, now)) return;
+      const resolvedCustomerId = String(
+        invoice?.customerId
+        || invoice?.customer?._id
+        || invoice?.customer?.id
+        || ''
+      ).trim();
+      if (resolvedCustomerId) {
+        ids.add(resolvedCustomerId);
+      }
+    });
+    return Array.from(ids);
+  }, [invoices, isInvoiceOverdue]);
+
   useEffect(() => {
     if (showAddCustomerModal && addCustomerNameRef.current) {
       addCustomerNameRef.current.focus();
@@ -46,6 +90,7 @@ const Customers = () => {
 
   useEffect(() => {
     dispatch(fetchCustomers());
+    dispatch(fetchInvoices());
   }, [dispatch]);
 
   useEffect(() => {
@@ -78,7 +123,7 @@ const Customers = () => {
       } else {
         addToast(result.payload || 'Error adding customer', 'error');
       }
-    } catch (error) {
+    } catch {
       addToast('Error adding customer', 'error');
     }
   };
@@ -173,7 +218,7 @@ const Customers = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       addToast(`Exported ${customers.length} customers successfully!`, 'success');
-    } catch (error) {
+    } catch {
       addToast('Error exporting customers', 'error');
     }
   };
@@ -241,6 +286,7 @@ const Customers = () => {
         {/* Customer Table Component */}
         <CustomerTable
           customers={filteredCustomers}
+          overdueCustomerIds={overdueCustomerIds}
           onSendStatement={handleSendStatement}
           onView={handleViewCustomer}
           onEdit={handleEditCustomer}

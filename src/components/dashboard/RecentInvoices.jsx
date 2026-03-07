@@ -1,18 +1,32 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Eye, Download, Mail, MoreVertical, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAccount } from '../../context/AccountContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useToast } from '../../context/ToastContext';
 import { useSelector } from 'react-redux';
 import { formatCurrency } from '../../utils/currency';
+import { downloadInvoicePdfWithTemplate } from '../../utils/invoicePdfDownload';
 import TablePagination from '../ui/TablePagination';
 import { useTablePagination } from '../../hooks/usePagination';
+import InvoiceTemplateDownloadModal from '../invoices/InvoiceTemplateDownloadModal';
+
+const dedupeTemplates = (templates = []) => {
+  const map = new Map();
+  templates.forEach((template) => {
+    if (template?.id && !map.has(template.id)) {
+      map.set(template.id, template);
+    }
+  });
+  return Array.from(map.values());
+};
 
 const RecentInvoices = () => {
-  const { invoices, sendInvoice, markAsPaid } = useInvoice();
+  const { invoices, sendInvoice, markAsPaid, getAvailableTemplates } = useInvoice();
   const { accountInfo } = useAccount();
   const { isDarkMode } = useTheme();
+  const { addToast } = useToast();
   const baseCurrency = accountInfo?.currency || 'USD';
   const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
   const authUser = useSelector((state) => state.auth?.user);
@@ -22,6 +36,13 @@ const RecentInvoices = () => {
     .replace(/[\s-]+/g, '_');
   const isClient = normalizedRole === 'client';
   const canRecordPayment = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const [invoiceToDownload, setInvoiceToDownload] = useState(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const availableTemplates = useMemo(
+    () => dedupeTemplates(typeof getAvailableTemplates === 'function' ? getAvailableTemplates() : []),
+    [getAvailableTemplates]
+  );
 
   const recentEligibleInvoices = invoices.filter((invoice) => invoice.status !== 'draft');
 
@@ -68,7 +89,7 @@ const RecentInvoices = () => {
         day: 'numeric',
         year: 'numeric'
       });
-    } catch (error) {
+    } catch {
       return 'Invalid date';
     }
   };
@@ -84,175 +105,213 @@ const RecentInvoices = () => {
   };
 
   const canMarkAsPaid = (status) => ['sent', 'partial', 'overdue', 'viewed'].includes(status);
+  const canSendOrResend = (status) => !['cancelled', 'void'].includes(String(status || '').toLowerCase());
+  const isResendStatus = (status) => ['sent', 'viewed', 'partial', 'paid', 'overdue', 'pending'].includes(String(status || '').toLowerCase());
+  const getSendActionLabel = (status) => (isResendStatus(status) ? 'Resend' : 'Send');
 
   const handleViewInvoice = (invoiceId) => {
-    // Navigate to invoice view page
     window.location.href = `/invoices/view/${invoiceId}`;
   };
 
   const handleDownloadPDF = (invoice, e) => {
     e?.stopPropagation();
-    // Generate and download PDF
-    alert(`Downloading PDF for ${invoice.number || invoice.invoiceNumber}`);
+    setInvoiceToDownload(invoice);
+  };
+
+  const handleCloseDownloadModal = () => {
+    if (isDownloadingPdf) return;
+    setInvoiceToDownload(null);
+  };
+
+  const handleConfirmTemplateDownload = async (templateId) => {
+    if (!invoiceToDownload) return;
+    setIsDownloadingPdf(true);
+    try {
+      const { fileName } = await downloadInvoicePdfWithTemplate({
+        invoice: invoiceToDownload,
+        templateId,
+        companyData: accountInfo || {}
+      });
+      const selectedTemplate = availableTemplates.find((template) => template.id === templateId);
+      const templateLabel = selectedTemplate?.name || templateId || 'selected';
+      addToast(`Downloaded ${fileName} using ${templateLabel} template`, 'success');
+      setInvoiceToDownload(null);
+    } catch (error) {
+      addToast(`Error generating PDF: ${error?.message || 'Unknown error'}`, 'error');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   return (
-    <div className="card mb-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Invoices</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Showing {recentInvoices.length} of {recentEligibleInvoices.length} non-draft invoices
-          </p>
+    <>
+      <div className="card mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Invoices</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Showing {recentInvoices.length} of {recentEligibleInvoices.length} non-draft invoices
+            </p>
+          </div>
+          <Link to="/invoices" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium">
+            View all invoices
+          </Link>
         </div>
-        <Link to="/invoices" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium">
-          View all invoices →
-        </Link>
+
+        {recentEligibleInvoices.length === 0 ? (
+          <div className="text-center py-8">
+            <FileText className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              No recent invoices yet
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              {isClient ? 'Your sent invoices will appear here once issued.' : 'Create and send an invoice to see it here'}
+            </p>
+            {!isClient && (
+              <Link
+                to="/invoices/create"
+                className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                Create Invoice
+              </Link>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Customer
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Date Issued
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {recentInvoices.map((invoice) => (
+                    <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {invoice.number || invoice.invoiceNumber}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {invoice.lineItems?.length || 0} items
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {invoice.customer?.name || (typeof invoice.customer === 'string' ? invoice.customer : 'No customer')}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Due {formatDate(invoice.dueDate)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {formatMoney(invoice.totalAmount || invoice.amount || 0, invoice.currency || baseCurrency)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(invoice.status)}`}>
+                          {getStatusText(invoice.status)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {formatDate(invoice.issueDate || invoice.createdAt)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleViewInvoice(invoice.id)}
+                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                            title="View"
+                          >
+                            <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                          </button>
+                          <button
+                            onClick={(e) => handleDownloadPDF(invoice, e)}
+                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                            title="Download PDF with template"
+                          >
+                            <Download className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                          </button>
+                          {!isClient && (
+                            <>
+                              {canSendOrResend(invoice.status) && (
+                                <button
+                                  onClick={(e) => handleSendInvoice(invoice.id, e)}
+                                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                  title={`${getSendActionLabel(invoice.status)} invoice`}
+                                >
+                                  <Mail className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                </button>
+                              )}
+                              {canMarkAsPaid(invoice.status) && canRecordPayment ? (
+                                <button
+                                  onClick={(e) => handleMarkAsPaid(invoice.id, e)}
+                                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                  title="Mark as Paid"
+                                >
+                                  <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                </button>
+                              ) : null}
+                              <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                                <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-6">
+              <TablePagination
+                page={page}
+                totalItems={recentEligibleInvoices.length}
+                rowsPerPage={rowsPerPage}
+                onPageChange={setPage}
+                onRowsPerPageChange={setRowsPerPage}
+                isDarkMode={isDarkMode}
+                className="rounded-xl border border-gray-200 dark:border-gray-700"
+                itemLabel="invoices"
+              />
+            </div>
+          </>
+        )}
       </div>
 
-      {recentEligibleInvoices.length === 0 ? (
-        <div className="text-center py-8">
-          <FileText className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            No recent invoices yet
-          </h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
-            {isClient ? 'Your sent invoices will appear here once issued.' : 'Create and send an invoice to see it here'}
-          </p>
-          {!isClient && (
-            <Link
-              to="/invoices/create"
-              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-            >
-              Create Invoice
-            </Link>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Invoice #
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Date Issued
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {recentInvoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {invoice.number || invoice.invoiceNumber}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {invoice.lineItems?.length || 0} items
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {invoice.customer?.name || (typeof invoice.customer === 'string' ? invoice.customer : 'No customer')}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Due {formatDate(invoice.dueDate)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {formatMoney(invoice.totalAmount || invoice.amount || 0, invoice.currency || baseCurrency)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(invoice.status)}`}>
-                        {getStatusText(invoice.status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(invoice.issueDate || invoice.createdAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
-                        <button 
-                          onClick={() => handleViewInvoice(invoice.id)}
-                          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" 
-                          title="View"
-                        >
-                          <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                        </button>
-                        <button 
-                          onClick={(e) => handleDownloadPDF(invoice, e)}
-                          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" 
-                          title="Download"
-                        >
-                          <Download className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                        </button>
-                        {!isClient && (
-                          <>
-                            {invoice.status === 'draft' || invoice.status === 'pending' ? (
-                              <button 
-                                onClick={(e) => handleSendInvoice(invoice.id, e)}
-                                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" 
-                                title="Send"
-                              >
-                                <Mail className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                              </button>
-                            ) : canMarkAsPaid(invoice.status) && canRecordPayment ? (
-                              <button 
-                                onClick={(e) => handleMarkAsPaid(invoice.id, e)}
-                                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" 
-                                title="Mark as Paid"
-                              >
-                                <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                              </button>
-                            ) : null}
-                            <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                              <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-6">
-            <TablePagination
-              page={page}
-              totalItems={recentEligibleInvoices.length}
-              rowsPerPage={rowsPerPage}
-              onPageChange={setPage}
-              onRowsPerPageChange={setRowsPerPage}
-              isDarkMode={isDarkMode}
-              className="rounded-xl border border-gray-200 dark:border-gray-700"
-              itemLabel="invoices"
-            />
-          </div>
-        </>
-      )}
-    </div>
+      <InvoiceTemplateDownloadModal
+        isOpen={Boolean(invoiceToDownload)}
+        onClose={handleCloseDownloadModal}
+        onDownload={handleConfirmTemplateDownload}
+        invoice={invoiceToDownload}
+        templates={availableTemplates}
+        isDarkMode={isDarkMode}
+        isDownloading={isDownloadingPdf}
+      />
+    </>
   );
 };
 
-// Add missing import
 const FileText = ({ className }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

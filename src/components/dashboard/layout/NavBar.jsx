@@ -38,6 +38,7 @@ import { useNotifications } from '../../../context/NotificationContext';
 import { useAccount } from '../../../context/AccountContext';
 import { getAvatarSeed, getAvatarUrl, getUserDisplayName, getUserEmail, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
 import { formatCurrency, getCurrencySymbol } from '../../../utils/currency';
+import CountUpNumber from '../../ui/CountUpNumber';
 
 const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -361,7 +362,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   return (
     <header
       data-dashboard-navbar="true"
-      className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800"
+      className="sticky top-0 z-20 bg-white/92 dark:bg-slate-950/88 border-b border-slate-200/80 dark:border-slate-800/80 backdrop-blur-md"
     >
       <div className="px-4 sm:px-6 lg:px-8">
         {/* Mobile Search Bar - Full Width when active */}
@@ -376,7 +377,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearch}
                 placeholder="Search invoices, customers..."
-                className="pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:focus:ring-primary-400 dark:bg-gray-800 dark:text-white w-full"
+                className="pl-10 pr-10 py-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent dark:focus:ring-cyan-400 dark:bg-slate-800 dark:text-white w-full"
                 aria-label="Search"
               />
               <button
@@ -417,7 +418,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearch}
                 placeholder={isClient ? 'Search invoices...' : 'Search invoices, customers, products, reports...'}
-                className="pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:focus:ring-primary-400 dark:bg-gray-800 dark:text-white w-full"
+                className="pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent dark:focus:ring-cyan-400 dark:bg-slate-800 dark:text-white w-full"
                 aria-label="Search"
               />
             </div>
@@ -454,7 +455,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
               <div className="relative hidden sm:block" ref={createMenuRef}>
                 <button
                   onClick={() => setCreateMenuOpen(!createMenuOpen)}
-                  className="flex items-center px-3 sm:px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
+                  className="flex items-center px-3 sm:px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
                   aria-label="Create new"
                   aria-expanded={createMenuOpen}
                 >
@@ -464,7 +465,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                 </button>
 
                 {createMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-[320px] sm:w-[640px] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50 overflow-hidden">
+                  <div className="absolute right-0 mt-2 w-[320px] sm:w-[640px] bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-xl border border-slate-200/80 dark:border-slate-700/80 py-2 z-50 overflow-hidden backdrop-blur-sm">
                     {/* Header */}
                     <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create New</h3>
@@ -532,14 +533,14 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
               <div className="relative sm:hidden" ref={createMenuRef}>
                 <button
                   onClick={() => setCreateMenuOpen(!createMenuOpen)}
-                  className="p-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-sm"
+                  className="p-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg transition-colors shadow-sm"
                   aria-label="Create new"
                 >
                   <Plus className="w-5 h-5" />
                 </button>
 
                 {createMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
+                  <div className="absolute right-0 mt-2 w-64 bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-xl border border-slate-200/80 dark:border-slate-700/80 py-2 z-50 backdrop-blur-sm">
                     <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                       <h3 className="font-semibold text-gray-900 dark:text-white">Create New</h3>
                     </div>
@@ -580,7 +581,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-screen max-w-xs sm:max-w-sm md:w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-screen max-w-xs sm:max-w-sm md:w-96 bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-xl border border-slate-200/80 dark:border-slate-700/80 z-50 overflow-hidden backdrop-blur-sm">
                   {/* Header */}
                   <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center justify-between">
@@ -677,7 +678,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                 aria-label="User menu"
                 aria-expanded={userMenuOpen}
               >
-                <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-primary-600 to-primary-800 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-gray-800">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-slate-800">
                   {showAvatarImage ? (
                     <img 
                       src={computedAvatarUrl}
@@ -686,7 +687,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                       onError={() => setAvatarLoadError(true)}
                     />
                   ) : (
-                    <div className="w-full h-full rounded-full bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center text-white font-bold">
+                    <div className="w-full h-full rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center text-white font-bold">
                       <User className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                   )}
@@ -695,11 +696,11 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-64 sm:w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-64 sm:w-80 bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-xl border border-slate-200/80 dark:border-slate-700/80 py-2 z-50 overflow-hidden backdrop-blur-sm">
                   {/* User Info Section */}
                   <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center space-x-3 sm:space-x-4">
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-primary-600 to-primary-800 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-gray-800">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-slate-800">
                           {showAvatarImage ? (
                             <img 
                               src={computedAvatarUrl}
@@ -708,7 +709,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                               onError={() => setAvatarLoadError(true)}
                             />
                           ) : (
-                            <div className="w-full h-full rounded-full bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center text-white font-bold">
+                            <div className="w-full h-full rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center text-white font-bold">
                               <User className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
                           )}
@@ -745,7 +746,9 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                         <div key={index} className="text-center">
                           <div className="flex items-center justify-center space-x-1">
                             <stat.icon className="w-3 h-3 text-gray-400 dark:text-gray-500" />
-                            <span className="text-sm font-semibold text-gray-900 dark:text-white stat-value-safe">{stat.value}</span>
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white stat-value-safe">
+                              <CountUpNumber value={stat.value} />
+                            </span>
                           </div>
                           <span className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</span>
                         </div>

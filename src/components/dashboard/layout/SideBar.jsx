@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -141,9 +142,9 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         <div>
           <button
             onClick={() => toggleSubmenu(item.label)}
-            className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:text-primary-700 dark:hover:text-primary-300 mb-1 ${
+            className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors hover:bg-cyan-50 dark:hover:bg-cyan-500/10 hover:text-cyan-700 dark:hover:text-cyan-300 mb-1 ${
               activeSubmenu === item.label 
-                ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300' 
+                ? 'bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-300' 
                 : 'text-gray-700 dark:text-gray-300'
             }`}
           >
@@ -156,25 +157,33 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
             )}
           </button>
           
-          {isOpen && activeSubmenu === item.label && (
-            <div className="ml-4 pl-3 border-l-2 border-primary-100 dark:border-primary-800 space-y-1 mb-2">
-              {item.submenu.map((subItem) => (
-                <NavLink
-                  key={subItem.label}
-                  to={subItem.path}
-                  className={({ isActive }) =>
-                    `block px-3 py-2 rounded text-sm transition-colors ${
-                      isActive
-                        ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 font-medium'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/30'
-                    }`
-                  }
-                >
-                  {subItem.label}
-                </NavLink>
-              ))}
-            </div>
-          )}
+          <AnimatePresence initial={false}>
+            {isOpen && activeSubmenu === item.label && (
+              <motion.div
+                className="ml-4 pl-3 border-l-2 border-cyan-100 dark:border-cyan-500/30 space-y-1 mb-2 overflow-hidden"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {item.submenu.map((subItem) => (
+                  <NavLink
+                    key={subItem.label}
+                    to={subItem.path}
+                    className={({ isActive }) =>
+                      `block px-3 py-2 rounded text-sm transition-colors ${
+                        isActive
+                          ? 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-medium'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-cyan-700 dark:hover:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-500/10'
+                      }`
+                    }
+                  >
+                    {subItem.label}
+                  </NavLink>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       );
     }
@@ -186,8 +195,8 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         className={({ isActive }) =>
           `flex items-center px-3 py-3 rounded-lg transition-colors mb-1 ${
             isActive
-              ? 'bg-primary-600 dark:bg-primary-700 text-white'
-              : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:text-primary-700 dark:hover:text-primary-300'
+              ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white'
+              : 'text-gray-700 dark:text-gray-300 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 hover:text-cyan-700 dark:hover:text-cyan-300'
           }`
         }
       >
@@ -216,13 +225,16 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside
+      <motion.aside
         data-dashboard-sidebar="true"
-        className={`hidden lg:flex flex-col fixed inset-y-0 left-0 z-30 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 ${isOpen ? 'w-64' : 'w-20'}`}
+        className="hidden lg:flex flex-col fixed inset-y-0 left-0 z-30 bg-white/92 dark:bg-slate-950/88 border-r border-slate-200/80 dark:border-slate-800/80 overflow-hidden"
+        initial={false}
+        animate={{ width: isOpen ? 256 : 80 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
       >
         {/* Logo */}
         <div className="flex items-center h-16 px-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
             <img src={logo} alt="Ledgerly" className="w-6 h-6 object-contain" />
           </div>
         </div>
@@ -237,7 +249,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         </div>
 
         {/* Bottom Menu */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+        <div className="p-4 border-t border-slate-200/80 dark:border-slate-800/80">
           <nav className="space-y-1">
             {bottomMenuItems.map((item) => (
               <SidebarItem key={item.label} item={item} />
@@ -245,9 +257,9 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
           </nav>
           
           {/* User Profile */}
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
+          <div className="mt-6 pt-6 border-t border-slate-200/80 dark:border-slate-800/80">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold">
+              <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold">
                 {getUserInitials(user)}
               </div>
               {isOpen && (
@@ -258,29 +270,32 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
               )}
             </div>
             {isOpen && (
-              <button className="mt-4 w-full flex items-center justify-center p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <button className="mt-4 w-full flex items-center justify-center p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                 <LogOut className="w-4 h-4 mr-2" />
                 Sign Out
               </button>
             )}
           </div>
         </div>
-      </aside>
+      </motion.aside>
 
       {/* Mobile Sidebar */}
-      <aside
+      <motion.aside
         data-dashboard-sidebar="true"
-        className={`lg:hidden fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-900 transform transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className="lg:hidden fixed inset-y-0 left-0 z-40 w-64 bg-white/95 dark:bg-slate-950/95 border-r border-slate-200/80 dark:border-slate-800/80"
+        initial={false}
+        animate={{ x: mobileOpen ? 0 : -280 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between h-16 px-4 border-b border-slate-200/80 dark:border-slate-800/80">
           <div className="flex items-center">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl flex items-center justify-center">
               <img src={logo} alt="Ledgerly" className="w-6 h-6 object-contain" />
             </div>
           </div>
           <button
             onClick={onMobileToggle}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <ChevronLeft className="w-5 h-5 text-gray-700 dark:text-gray-300" />
           </button>
@@ -294,9 +309,9 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
           </nav>
           
           {/* User Profile */}
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
+          <div className="mt-6 pt-6 border-t border-slate-200/80 dark:border-slate-800/80">
             <div className="flex items-center">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold">
+              <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold">
                 {getUserInitials(user)}
               </div>
               <div className="ml-3">
@@ -304,13 +319,13 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
                 <p className="text-xs text-gray-500 dark:text-gray-400">{getUserRoleLabel(user)}</p>
               </div>
             </div>
-            <button className="mt-4 w-full flex items-center justify-center p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            <button className="mt-4 w-full flex items-center justify-center p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
             </button>
           </div>
         </div>
-      </aside>
+      </motion.aside>
     </>
   );
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileText, Layout, Star, Palette } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
+import CountUpNumber from '../../ui/CountUpNumber';
 
 const TemplateStats = ({ templates = [] }) => {
   const { isDarkMode } = useTheme();
@@ -63,7 +64,7 @@ const TemplateStats = ({ templates = [] }) => {
                 <p className={`text-base md:text-lg lg:text-xl font-bold mt-1 stat-value-safe ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  {stat.value}
+                  <CountUpNumber value={stat.value} />
                 </p>
                 <p className={`text-xs mt-1 truncate ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-500'

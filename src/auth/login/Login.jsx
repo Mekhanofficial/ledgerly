@@ -59,76 +59,81 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-primary-50 dark:from-gray-900 dark:to-primary-950/20 flex items-center justify-center p-4">
-      <div className="w-full max-w-6xl flex bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-cyan-50 to-blue-100 p-4 dark:from-slate-950 dark:via-slate-900 dark:to-cyan-950/50 md:p-6">
+      <div className="pointer-events-none absolute -left-16 -top-20 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl dark:bg-cyan-500/20" />
+      <div className="pointer-events-none absolute -bottom-24 right-0 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl dark:bg-blue-600/20" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(56,189,248,0.16),transparent_42%),radial-gradient(circle_at_80%_80%,rgba(59,130,246,0.14),transparent_40%)]" />
+
+      <div className="relative flex w-full max-w-6xl overflow-hidden rounded-3xl border border-cyan-100/70 bg-white/85 shadow-[0_32px_80px_-30px_rgba(2,132,199,0.55)] backdrop-blur-xl dark:border-cyan-900/40 dark:bg-slate-900/80 dark:shadow-[0_34px_84px_-34px_rgba(14,116,144,0.7)]">
         {/* Left Side - Visual */}
-        <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-primary-600 to-primary-800 p-8 text-white">
-          <div>
+        <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-gradient-to-br from-cyan-600 via-sky-600 to-blue-700 p-10 text-white lg:flex">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.24),transparent_42%),radial-gradient(circle_at_85%_70%,rgba(255,255,255,0.12),transparent_45%)]" />
+          <div className="relative">
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm">
               <img src={logo} alt="Ledgerly logo" className="h-9 w-9 object-contain" />
             </div>
-            <h1 className="text-4xl font-bold mb-2">Invoicing & Inventory</h1>
-            <p className="text-primary-100 text-lg">
-              Professional tools for billing, payments, and stock
+            <h1 className="mb-2 text-4xl font-bold">Invoicing & Inventory</h1>
+            <p className="text-lg text-cyan-50/90">
+              Professional tools for billing, payments, and stock control
             </p>
           </div>
 
-          <div className="space-y-6">
-            <div className="flex items-center">
-              <div className="bg-primary-500 rounded-full p-2 mr-4">
+          <div className="relative space-y-4">
+            <div className="flex items-center rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+              <div className="mr-4 rounded-full bg-white/20 p-2">
                 <Building className="h-6 w-6" />
               </div>
               <div>
                 <h3 className="font-semibold">Create Professional Invoices</h3>
-                <p className="text-primary-200 text-sm">Generate invoices in seconds with customizable templates</p>
+                <p className="text-sm text-cyan-50/85">Generate invoices in seconds with customizable templates</p>
               </div>
             </div>
 
-            <div className="flex items-center">
-              <div className="bg-primary-500 rounded-full p-2 mr-4">
+            <div className="flex items-center rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+              <div className="mr-4 rounded-full bg-white/20 p-2">
                 <BarChart3 className="h-6 w-6" />
               </div>
               <div>
                 <h3 className="font-semibold">Track Business Analytics</h3>
-                <p className="text-primary-200 text-sm">Monitor sales, expenses, and cash flow in real-time</p>
+                <p className="text-sm text-cyan-50/85">Monitor sales, expenses, and cash flow in real-time</p>
               </div>
             </div>
 
-            <div className="flex items-center">
-              <div className="bg-primary-500 rounded-full p-2 mr-4">
+            <div className="flex items-center rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+              <div className="mr-4 rounded-full bg-white/20 p-2">
                 <Users className="h-6 w-6" />
               </div>
               <div>
                 <h3 className="font-semibold">Manage Customers & Products</h3>
-                <p className="text-primary-200 text-sm">Organize customer data and inventory efficiently</p>
+                <p className="text-sm text-cyan-50/85">Organize customer data and inventory efficiently</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-8 border-t border-primary-400 pt-6">
-            <p className="text-sm text-primary-200">Join thousands of businesses using Ledgerly</p>
+          <div className="relative mt-8 border-t border-white/25 pt-6">
+            <p className="text-sm text-cyan-50/90">Join thousands of businesses using Ledgerly</p>
             <div className="flex items-center mt-3 space-x-4">
               <div className="flex -space-x-2">
                 {[1, 2, 3, 4].map((i) => (
                   <div 
                     key={i}
-                    className="w-8 h-8 rounded-full bg-primary-400 border-2 border-primary-600"
+                    className="h-8 w-8 rounded-full border-2 border-cyan-700 bg-cyan-300/80"
                   />
                 ))}
               </div>
-              <p className="text-sm text-primary-200">5000+ businesses trust us</p>
+              <p className="text-sm text-cyan-50/90">5000+ businesses trust us</p>
             </div>
           </div>
         </div>
 
         {/* Right Side - Login Form */}
-        <div className="w-full lg:w-1/2 p-8 md:p-12">
+        <div className="w-full bg-white/60 p-8 dark:bg-slate-950/30 lg:w-1/2 md:p-12">
           <div className="text-center mb-8">
-            <div className="lg:hidden w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-800 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary-500/20">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-600 to-blue-700 shadow-lg shadow-cyan-500/30 lg:hidden">
               <img src={logo} alt="Ledgerly logo" className="w-8 h-8 object-contain" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome Back</h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-2">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Welcome Back</h1>
+            <p className="mt-2 text-slate-600 dark:text-slate-300">
               Sign in to your Ledgerly account
             </p>
           </div>
@@ -181,7 +186,7 @@ const Login = () => {
           )}
 
           {/* Login Form */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+          <div className="rounded-3xl border border-cyan-100/80 bg-white/80 p-6 shadow-[0_24px_50px_-34px_rgba(2,132,199,0.5)] backdrop-blur-sm dark:border-cyan-900/40 dark:bg-slate-900/75 dark:shadow-[0_24px_50px_-34px_rgba(6,182,212,0.45)]">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -196,7 +201,7 @@ const Login = () => {
                       setEmail(e.target.value);
                       clearErrors();
                     }}
-                    className="w-full px-4 py-3 pl-12 rounded-xl border border-gray-300 dark:border-gray-700 focus:border-primary-500 dark:focus:border-primary-400 focus:ring-4 focus:ring-primary-500/20 dark:focus:ring-primary-400/20 focus:outline-none transition-all duration-200 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    className="w-full rounded-xl border border-slate-300 bg-white/90 px-4 py-3 pl-12 text-slate-900 placeholder-slate-500 transition-all duration-200 focus:border-cyan-500 focus:outline-none focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-800/85 dark:text-white dark:placeholder-slate-400 dark:focus:border-cyan-400 dark:focus:ring-cyan-400/20"
                     placeholder="you@company.com"
                     required
                     disabled={loading}
@@ -217,7 +222,7 @@ const Login = () => {
                       setPassword(e.target.value);
                       clearErrors();
                     }}
-                    className="w-full px-4 py-3 pl-12 pr-12 rounded-xl border border-gray-300 dark:border-gray-700 focus:border-primary-500 dark:focus:border-primary-400 focus:ring-4 focus:ring-primary-500/20 dark:focus:ring-primary-400/20 focus:outline-none transition-all duration-200 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    className="w-full rounded-xl border border-slate-300 bg-white/90 px-4 py-3 pl-12 pr-12 text-slate-900 placeholder-slate-500 transition-all duration-200 focus:border-cyan-500 focus:outline-none focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-800/85 dark:text-white dark:placeholder-slate-400 dark:focus:border-cyan-400 dark:focus:ring-cyan-400/20"
                     placeholder="••••••••"
                     required
                     disabled={loading}
@@ -257,7 +262,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-500 dark:to-primary-600 text-white px-8 py-4 rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 dark:hover:from-primary-600 dark:hover:to-primary-700 transition-all duration-300 shadow-lg shadow-primary-500/20 dark:shadow-primary-400/20 hover:shadow-xl hover:shadow-primary-500/30 inline-flex items-center justify-center ${
+                className={`inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-cyan-600 via-sky-600 to-blue-700 px-8 py-4 font-semibold text-white shadow-lg shadow-cyan-500/30 transition-all duration-300 hover:from-cyan-500 hover:via-sky-500 hover:to-blue-600 hover:shadow-xl hover:shadow-cyan-500/40 dark:from-cyan-500 dark:via-sky-500 dark:to-blue-600 ${
                   loading ? 'opacity-75 cursor-not-allowed' : ''
                 }`}
               >
@@ -278,14 +283,14 @@ const Login = () => {
               </button>
             </form>
 
-            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700">
+            <div className="mt-8 border-t border-slate-200 pt-6 dark:border-slate-700">
               <div className="text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Don't have an account?
                 </p>
                 <Link 
                   to="/signup" 
-                  className="inline-block w-full py-3 border border-primary-600 dark:border-primary-500 text-primary-600 dark:text-primary-400 rounded-xl font-medium hover:bg-primary-50 dark:hover:bg-primary-900/20 transition text-center"
+                  className="inline-block w-full rounded-xl border border-cyan-600 py-3 text-center font-medium text-cyan-700 transition hover:bg-cyan-50 dark:border-cyan-500 dark:text-cyan-300 dark:hover:bg-cyan-900/20"
                   onClick={clearErrors}
                 >
                   Create Ledgerly Account
@@ -297,10 +302,10 @@ const Login = () => {
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+                  <div className="w-full border-t border-slate-300 dark:border-slate-700"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                  <span className="bg-white/80 px-4 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
                     Or continue with
                   </span>
                 </div>
@@ -309,7 +314,7 @@ const Login = () => {
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                  className="inline-flex w-full justify-center rounded-xl border border-slate-300 bg-white/90 px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   disabled={loading}
                 >
                   <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
@@ -323,7 +328,7 @@ const Login = () => {
                 
                 <button
                   type="button"
-                  className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                  className="inline-flex w-full justify-center rounded-xl border border-slate-300 bg-white/90 px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   disabled={loading}
                 >
                   <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">

@@ -32,6 +32,11 @@ const Payments = () => {
   const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);
   const authUser = useSelector((state) => state.auth?.user);
   const isClient = authUser?.role === 'client';
+  const normalizedRole = String(authUser?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const canManagePaymentConfiguration = normalizedRole === 'admin';
   
   const [filter, setFilter] = useState('all');
   const [dateRange, setDateRange] = useState('today');
@@ -703,13 +708,26 @@ const Payments = () => {
                 <h3 className={`font-semibold ${isMobile ? 'text-sm' : ''} ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   Payment Methods
                 </h3>
-                <button className={`text-xs md:text-sm px-3 py-1 rounded-lg ${
-                  isDarkMode 
-                    ? 'text-primary-400 hover:bg-gray-700' 
-                    : 'text-primary-600 hover:bg-gray-50'
-                }`}>
-                  Manage
-                </button>
+                {canManagePaymentConfiguration ? (
+                  <Link
+                    to="/settings?section=billing"
+                    className={`text-xs md:text-sm px-3 py-1 rounded-lg ${
+                      isDarkMode
+                        ? 'text-primary-400 hover:bg-gray-700'
+                        : 'text-primary-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Manage
+                  </Link>
+                ) : (
+                  <span className={`text-xs md:text-sm px-3 py-1 rounded-lg ${
+                    isDarkMode
+                      ? 'text-gray-500'
+                      : 'text-gray-500'
+                  }`}>
+                    Admin only
+                  </span>
+                )}
               </div>
               <div className="space-y-3">
                 {paymentMethodStats.map((item) => (
@@ -741,6 +759,22 @@ const Payments = () => {
                   </div>
                 )}
               </div>
+              {canManagePaymentConfiguration && (
+                <div className={`mt-4 pt-3 border-t ${
+                  isDarkMode ? 'border-gray-700' : 'border-gray-100'
+                }`}>
+                  <Link
+                    to="/settings?section=integrations"
+                    className={`text-xs md:text-sm font-medium ${
+                      isDarkMode
+                        ? 'text-primary-400 hover:text-primary-300'
+                        : 'text-primary-600 hover:text-primary-700'
+                    }`}
+                  >
+                    Configure Stripe / Paystack
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* Quick Actions Card */}
