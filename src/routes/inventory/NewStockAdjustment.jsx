@@ -120,7 +120,12 @@ const NewStockAdjustment = () => {
       
     } catch (error) {
       console.error('Error recording stock adjustment:', error);
-      addToast('Failed to record stock adjustment', 'error');
+      const errorMessage = typeof error === 'string' ? error : error?.message;
+      if (typeof errorMessage === 'string' && /upgrade required/i.test(errorMessage)) {
+        addToast('Upgrade to Professional or Enterprise to adjust stock.', 'warning');
+      } else {
+        addToast(errorMessage || 'Failed to record stock adjustment', 'error');
+      }
     } finally {
       setIsSubmitting(false);
     }

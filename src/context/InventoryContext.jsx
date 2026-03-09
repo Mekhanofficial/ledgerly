@@ -49,8 +49,17 @@ export const InventoryProvider = ({ children }) => {
     .replace(/[\s-]+/g, '_');
   const normalizedPlan = normalizePlanId(accountInfo?.plan);
   const hasInventoryFeature = ['professional', 'enterprise'].includes(normalizedPlan);
-  const canAccessInventory = hasInventoryFeature && ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
+  const canAccessInventory = ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
   const canAccessStockAdjustments = hasInventoryFeature && ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const getErrorMessage = useCallback((error, fallback) => {
+    if (typeof error === 'string' && error.trim()) return error;
+    if (typeof error?.message === 'string' && error.message.trim()) return error.message;
+    return fallback;
+  }, []);
+  const isUpgradeRequiredError = useCallback(
+    (error) => /upgrade required/i.test(getErrorMessage(error, '')),
+    [getErrorMessage]
+  );
   const baseCurrency = accountInfo?.currency || 'USD';
   const formatMoney = useCallback(
     (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency),
@@ -319,7 +328,8 @@ export const InventoryProvider = ({ children }) => {
       return newProduct;
     } catch (error) {
       console.error('Error adding product:', error);
-      addToast(error?.message || 'Error adding product', 'error');
+      const message = getErrorMessage(error, 'Error adding product');
+      addToast(message, isUpgradeRequiredError(error) ? 'warning' : 'error');
       throw error;
     }
   };
@@ -357,7 +367,8 @@ export const InventoryProvider = ({ children }) => {
       return mapped;
     } catch (error) {
       console.error('Error updating product:', error);
-      addToast(error?.message || 'Error updating product', 'error');
+      const message = getErrorMessage(error, 'Error updating product');
+      addToast(message, isUpgradeRequiredError(error) ? 'warning' : 'error');
       throw error;
     }
   };
@@ -371,7 +382,8 @@ export const InventoryProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error('Error deleting product:', error);
-      addToast(error?.message || 'Error deleting product', 'error');
+      const message = getErrorMessage(error, 'Error deleting product');
+      addToast(message, isUpgradeRequiredError(error) ? 'warning' : 'error');
       return false;
     }
   };
@@ -436,7 +448,8 @@ export const InventoryProvider = ({ children }) => {
       return newCategory;
     } catch (error) {
       console.error('Error creating category:', error);
-      addToast(error?.message || 'Error creating category', 'error');
+      const message = getErrorMessage(error, 'Error creating category');
+      addToast(message, isUpgradeRequiredError(error) ? 'warning' : 'error');
       throw error;
     }
   };
@@ -456,7 +469,8 @@ export const InventoryProvider = ({ children }) => {
       return updatedCategory;
     } catch (error) {
       console.error('Error updating category:', error);
-      addToast(error?.message || 'Error updating category', 'error');
+      const message = getErrorMessage(error, 'Error updating category');
+      addToast(message, isUpgradeRequiredError(error) ? 'warning' : 'error');
       throw error;
     }
   };
@@ -477,7 +491,8 @@ export const InventoryProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error('Error deleting category:', error);
-      addToast(error?.message || 'Error deleting category', 'error');
+      const message = getErrorMessage(error, 'Error deleting category');
+      addToast(message, isUpgradeRequiredError(error) ? 'warning' : 'error');
       return false;
     }
   };
@@ -486,6 +501,9 @@ export const InventoryProvider = ({ children }) => {
   const addStockAdjustment = async (adjustmentData) => {
     try {
       if (!canAccessStockAdjustments) {
+        if (!hasInventoryFeature) {
+          addToast('Upgrade to Professional or Enterprise to adjust stock.', 'warning');
+        }
         return null;
       }
       const payload = {
@@ -526,7 +544,8 @@ export const InventoryProvider = ({ children }) => {
       return result;
     } catch (error) {
       console.error('Error recording stock adjustment:', error);
-      addToast(error?.message || 'Error recording stock adjustment', 'error');
+      const message = getErrorMessage(error, 'Error recording stock adjustment');
+      addToast(message, isUpgradeRequiredError(error) ? 'warning' : 'error');
       throw error;
     }
   };
@@ -697,7 +716,8 @@ export const InventoryProvider = ({ children }) => {
       addToast(`${productIds.length} products updated`, 'success');
     } catch (error) {
       console.error('Error updating products in bulk:', error);
-      addToast(error?.message || 'Error updating products', 'error');
+      const message = getErrorMessage(error, 'Error updating products');
+      addToast(message, isUpgradeRequiredError(error) ? 'warning' : 'error');
       throw error;
     }
   };
@@ -754,7 +774,8 @@ export const InventoryProvider = ({ children }) => {
       return newSupplier;
     } catch (error) {
       console.error('Error creating supplier:', error);
-      addToast(error?.message || 'Error creating supplier', 'error');
+      const message = getErrorMessage(error, 'Error creating supplier');
+      addToast(message, isUpgradeRequiredError(error) ? 'warning' : 'error');
       throw error;
     }
   };

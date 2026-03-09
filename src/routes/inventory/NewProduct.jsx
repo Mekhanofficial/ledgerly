@@ -106,7 +106,12 @@ const NewProduct = () => {
       
     } catch (error) {
       console.error('Error creating product:', error);
-      addToast('Failed to create product', 'error');
+      const errorMessage = typeof error === 'string' ? error : error?.message;
+      if (typeof errorMessage === 'string' && /upgrade required/i.test(errorMessage)) {
+        addToast('Upgrade to Professional or Enterprise to create products.', 'warning');
+      } else {
+        addToast(errorMessage || 'Failed to create product', 'error');
+      }
     } finally {
       setIsSubmitting(false);
     }

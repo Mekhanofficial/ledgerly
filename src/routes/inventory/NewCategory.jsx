@@ -93,7 +93,12 @@ const NewCategory = () => {
       
     } catch (error) {
       console.error('Error creating category:', error);
-      addToast('Failed to create category', 'error');
+      const errorMessage = typeof error === 'string' ? error : error?.message;
+      if (typeof errorMessage === 'string' && /upgrade required/i.test(errorMessage)) {
+        addToast('Upgrade to Professional or Enterprise to create categories.', 'warning');
+      } else {
+        addToast(errorMessage || 'Failed to create category', 'error');
+      }
     } finally {
       setIsSubmitting(false);
     }

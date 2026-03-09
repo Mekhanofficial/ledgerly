@@ -72,7 +72,12 @@ const NewSupplier = () => {
       
     } catch (error) {
       console.error('Error creating supplier:', error);
-      addToast('Failed to create supplier', 'error');
+      const errorMessage = typeof error === 'string' ? error : error?.message;
+      if (typeof errorMessage === 'string' && /upgrade required/i.test(errorMessage)) {
+        addToast('Upgrade to Professional or Enterprise to create suppliers.', 'warning');
+      } else {
+        addToast(errorMessage || 'Failed to create supplier', 'error');
+      }
     } finally {
       setIsSubmitting(false);
     }
