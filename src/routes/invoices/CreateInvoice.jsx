@@ -2015,6 +2015,8 @@ const CreateInvoice = () => {
           }}
           onClose={() => setShowPreview(false)}
           onSend={handleSendInvoice}
+          onDownloadPDF={handleDownloadPDF}
+          onPrint={handlePrint}
         />
       )}
       

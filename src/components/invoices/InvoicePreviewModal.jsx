@@ -3,8 +3,16 @@ import React from 'react';
 import { X, Mail, Download, Printer } from 'lucide-react';
 import { useAccount } from '../../context/AccountContext';
 
-const InvoicePreviewModal = ({ invoiceData, onClose, onSend }) => {
+const InvoicePreviewModal = ({
+  invoiceData,
+  onClose,
+  onSend,
+  onDownloadPDF,
+  onPrint
+}) => {
   const { accountInfo } = useAccount();
+  const canPrint = typeof onPrint === 'function';
+  const canDownloadPDF = typeof onDownloadPDF === 'function';
   const locationParts = [
     accountInfo?.city,
     accountInfo?.state,
@@ -164,11 +172,29 @@ const InvoicePreviewModal = ({ invoiceData, onClose, onSend }) => {
         {/* Footer Actions */}
         <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex space-x-3">
-            <button className="flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <button
+              type="button"
+              onClick={onPrint}
+              disabled={!canPrint}
+              className={`flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 ${
+                canPrint
+                  ? 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                  : 'opacity-50 cursor-not-allowed'
+              }`}
+            >
               <Printer className="w-4 h-4 mr-2" />
               Print
             </button>
-            <button className="flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <button
+              type="button"
+              onClick={onDownloadPDF}
+              disabled={!canDownloadPDF}
+              className={`flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 ${
+                canDownloadPDF
+                  ? 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                  : 'opacity-50 cursor-not-allowed'
+              }`}
+            >
               <Download className="w-4 h-4 mr-2" />
               Download PDF
             </button>
