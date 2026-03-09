@@ -50,6 +50,23 @@ const dedupeTemplates = (templates = []) => {
   return Array.from(map.values());
 };
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES = parsePositiveInt(
+  import.meta.env.VITE_MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES,
+  15 * 1024 * 1024
+);
+
+const getBase64ByteSize = (value) => {
+  const normalized = String(value || '').replace(/\s/g, '');
+  if (!normalized) return 0;
+  const padding = normalized.endsWith('==') ? 2 : normalized.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((normalized.length * 3) / 4) - padding);
+};
+
 export const InvoiceContext = createContext();
 
 export const useInvoice = () => {
@@ -611,23 +628,38 @@ export const InvoiceProvider = ({ children }) => {
               fallbackInvoiceId: id
             });
 
-            if (pdfAttachment) {
-              normalizedEmailOptions = {
-                ...(normalizedEmailOptions || {}),
-                templateStyle: normalizedEmailOptions?.templateStyle || resolvedTemplateStyle,
-                pdfAttachment
-              };
+            if (!pdfAttachment) {
+              throw new Error('Unable to generate frontend invoice PDF attachment.');
             }
+
+            const attachmentByteSize = getBase64ByteSize(pdfAttachment.data);
+            if (attachmentByteSize > MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES) {
+              const maxMb = Math.round(MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES / (1024 * 1024));
+              throw new Error(
+                `Invoice PDF is too large to email with this template. Max allowed is ${maxMb}MB.`
+              );
+            }
+
+            normalizedEmailOptions = {
+              ...(normalizedEmailOptions || {}),
+              templateStyle: normalizedEmailOptions?.templateStyle || resolvedTemplateStyle,
+              pdfAttachment
+            };
           } catch (pdfError) {
-            console.warn('Unable to generate frontend PDF attachment for invoice email:', pdfError);
+            throw pdfError;
           }
+        } else {
+          throw new Error('Unable to load invoice data for frontend email PDF.');
         }
       }
 
-      const payload = normalizedEmailOptions && Object.keys(normalizedEmailOptions).length > 0
-        ? { id, data: normalizedEmailOptions }
-        : id;
-      const updated = await dispatch(sendInvoiceThunk(payload)).unwrap();
+      const buildPayload = (optionsPayload) =>
+        optionsPayload && Object.keys(optionsPayload).length > 0
+          ? { id, data: optionsPayload }
+          : id;
+
+      const updated = await dispatch(sendInvoiceThunk(buildPayload(normalizedEmailOptions))).unwrap();
+
       const mapped = mapInvoiceFromApi(updated);
       addToast('Invoice sent successfully', 'success');
       return mapped;

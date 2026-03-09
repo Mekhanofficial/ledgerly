@@ -69,6 +69,16 @@ const dedupeTemplates = (templates = []) => {
   return Array.from(map.values());
 };
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES = parsePositiveInt(
+  import.meta.env.VITE_MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES,
+  15 * 1024 * 1024
+);
+
 const pdfArrayBufferToBase64 = (arrayBuffer) => {
   if (!(arrayBuffer instanceof ArrayBuffer)) return '';
   const bytes = new Uint8Array(arrayBuffer);
@@ -81,6 +91,11 @@ const pdfArrayBufferToBase64 = (arrayBuffer) => {
 };
 
 const buildPdfAttachmentPayload = (arrayBuffer, fileName = 'invoice.pdf') => {
+  if (!(arrayBuffer instanceof ArrayBuffer)) return null;
+  if (arrayBuffer.byteLength > MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES) {
+    const maxMb = Math.round(MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES / (1024 * 1024));
+    throw new Error(`Invoice PDF is too large to email with this template. Max allowed is ${maxMb}MB.`);
+  }
   const base64 = pdfArrayBufferToBase64(arrayBuffer);
   if (!base64) return null;
   return {
@@ -1191,32 +1206,34 @@ const CreateInvoice = () => {
         throw new Error('Failed to create invoice');
       }
 
-      let emailPdfAttachment = null;
-      try {
-        const emailPdfDoc = await generatePDF(false, lineItemsWithInventory);
-        const emailPdfArrayBuffer = emailPdfDoc?.output?.('arraybuffer');
-        emailPdfAttachment = buildPdfAttachmentPayload(
-          emailPdfArrayBuffer,
-          `invoice-${invoiceNumber}.pdf`
-        );
-      } catch (pdfError) {
-        console.warn('Unable to prepare frontend PDF attachment for email send:', pdfError);
+      const emailPdfDoc = await generatePDF(false, lineItemsWithInventory);
+      const emailPdfArrayBuffer = emailPdfDoc?.output?.('arraybuffer');
+      const emailPdfAttachment = buildPdfAttachmentPayload(
+        emailPdfArrayBuffer,
+        `invoice-${invoiceNumber}.pdf`
+      );
+      if (!emailPdfAttachment) {
+        throw new Error('Unable to generate frontend invoice PDF attachment.');
       }
 
-      const sentInvoice = await sendInvoice(createdInvoice.id, {
+      const sendPayloadBase = {
         templateStyle: selectedTemplate,
         invoiceData,
-        ...(emailPdfAttachment ? {
-          includeFrontendPdf: false,
-          pdfAttachment: emailPdfAttachment
-        } : {}),
+        includeFrontendPdf: false,
         emailSubject,
         emailMessage: brandedEmailMessage,
         emailFrom: emailSenderConfig.fromAddress,
         emailFooterText: emailSenderConfig.footerText,
         hideLedgerlyBrandingEverywhere,
         invoiceBaseUrl
-      }, { throwOnError: true });
+      };
+
+      const sentInvoice = await sendInvoice(
+        createdInvoice.id,
+        { ...sendPayloadBase, pdfAttachment: emailPdfAttachment },
+        { throwOnError: true }
+      );
+
       if (!sentInvoice) {
         throw new Error('Invoice created, but email delivery failed. Check SMTP settings and resend from invoice list.');
       }

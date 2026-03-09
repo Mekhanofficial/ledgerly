@@ -75,6 +75,12 @@ const AppRoutes = ({
   const [showRouteSpinner, setShowRouteSpinner] = useState(false)
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+  }, [routeKey])
+
+  useEffect(() => {
     if (!hasMountedRef.current) {
       hasMountedRef.current = true
       return
