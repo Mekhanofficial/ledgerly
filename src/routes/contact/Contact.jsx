@@ -8,13 +8,16 @@ import {
   Mail,
   MapPin,
   MessageSquare,
+  Moon,
   Phone,
   Send,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  SunMedium
 } from 'lucide-react';
 import Navbar from '../../components/home/layout/NavBar';
 import Footer from '../../components/home/layout/Footer';
+import { useTheme } from '../../context/ThemeContext';
 
 const SUPPORT_CHANNELS = [
   {
@@ -57,6 +60,7 @@ const TOPICS = [
 const MotionDiv = motion.div;
 
 const ContactPage = () => {
+  const { isDarkMode, toggleTheme } = useTheme();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -99,6 +103,27 @@ const ContactPage = () => {
     });
   };
 
+  const renderChannelAction = (channel) => {
+    const classes =
+      'mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200';
+
+    if (channel.ctaHref.startsWith('/')) {
+      return (
+        <Link to={channel.ctaHref} className={classes}>
+          {channel.ctaLabel}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      );
+    }
+
+    return (
+      <a href={channel.ctaHref} className={classes}>
+        {channel.ctaLabel}
+        <ArrowRight className="h-4 w-4" />
+      </a>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#f5f7ff] to-[#eef2ff] dark:from-slate-950 dark:to-slate-900">
       <Navbar />
@@ -107,6 +132,7 @@ const ContactPage = () => {
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -left-20 top-6 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
           <div className="absolute -right-20 top-40 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(56,189,248,0.14),transparent_40%),radial-gradient(circle_at_82%_82%,rgba(59,130,246,0.12),transparent_38%)]" />
         </div>
 
         <section className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -118,10 +144,20 @@ const ContactPage = () => {
           >
             <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
               <div className="lg:col-span-8">
-                <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200/80 bg-cyan-50/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-cyan-200">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Contact Ledgerly
-                </p>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200/80 bg-cyan-50/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-cyan-200">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Contact Ledgerly
+                  </p>
+                  <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/90 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700/80 dark:bg-slate-900/75 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    {isDarkMode ? <SunMedium className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+                    {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+                  </button>
+                </div>
                 <h1 className="mt-4 text-3xl font-bold text-slate-900 dark:text-white md:text-5xl">
                   Real support for serious billing workflows
                 </h1>
@@ -228,7 +264,7 @@ const ContactPage = () => {
                       name="company"
                       value={formData.company}
                       onChange={handleChange}
-                      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition-all focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-cyan-400 dark:focus:ring-cyan-400/20"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition-all placeholder-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500 dark:focus:border-cyan-400 dark:focus:ring-cyan-400/20"
                       placeholder="Company name"
                     />
                   </div>
@@ -305,13 +341,7 @@ const ContactPage = () => {
                         <p className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-200">
                           {channel.detail}
                         </p>
-                        <a
-                          href={channel.ctaHref}
-                          className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200"
-                        >
-                          {channel.ctaLabel}
-                          <ArrowRight className="h-4 w-4" />
-                        </a>
+                        {renderChannelAction(channel)}
                       </div>
                     </div>
                   </div>
