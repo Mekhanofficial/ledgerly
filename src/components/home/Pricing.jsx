@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Building, Check, Sparkles, Users, Zap } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { initializePublicSubscriptionPayment } from '../../services/billingService';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -91,8 +90,8 @@ const PLANS = [
       'SLA guarantee',
       'All templates (Standard + Premium + Elite)'
     ],
-    ctaText: 'Contact Sales',
-    ctaLink: '/contact',
+    ctaText: 'Pay for Enterprise',
+    ctaLink: '/dashboard',
     accent: {
       icon: 'from-slate-700 to-slate-900 dark:from-slate-500 dark:to-slate-700',
       border: 'border-slate-200/85 dark:border-slate-700/85 hover:border-slate-400 dark:hover:border-slate-500/70',
@@ -108,7 +107,6 @@ const PLANS = [
 const Pricing = () => {
   const [billingCycle, setBillingCycle] = useState('yearly');
   const [checkoutLoadingPlan, setCheckoutLoadingPlan] = useState('');
-  const navigate = useNavigate();
   const { addToast } = useToast();
 
   const formatNgn = (value) =>
@@ -162,11 +160,6 @@ const Pricing = () => {
   };
 
   const handlePlanAction = async (plan) => {
-    if (plan.id === 'enterprise') {
-      navigate(plan.ctaLink);
-      return;
-    }
-
     savePendingCheckout({ plan: plan.id, billingCycle, source: 'landing' });
     const email = resolveCheckoutEmail();
     if (!email) {
