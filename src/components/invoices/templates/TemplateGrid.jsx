@@ -17,6 +17,10 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
     PREMIUM: 10000,
     ELITE: 25000
   };
+  const TEMPLATE_SINGLE_PRICING = {
+    PREMIUM: 3500,
+    ELITE: 8500
+  };
 
   const resolveAccess = (template) => {
     if (typeof template?.isUnlocked === 'boolean') return template.isUnlocked;
@@ -111,6 +115,15 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
     const tier = resolveTier(template);
     if (tier === 'ELITE') return TEMPLATE_BUNDLE_PRICING.ELITE;
     return TEMPLATE_BUNDLE_PRICING.PREMIUM;
+  };
+
+  const getSinglePrice = (template) => {
+    const explicit = Number(template?.price);
+    if (Number.isFinite(explicit) && explicit > 0) {
+      return explicit;
+    }
+    const tier = resolveTier(template);
+    return TEMPLATE_SINGLE_PRICING[tier] || 0;
   };
 
   const getBundleCtaLabel = (template) => {
@@ -397,7 +410,7 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                       <Lock className="w-12 h-12 text-white mb-3" />
                       <h3 className="text-white font-semibold text-lg mb-2">{categoryLabel} Template</h3>
                       <div className="text-gray-200 text-center text-sm mb-4 space-y-1">
-                        <p>{`Unlock for ${formatNgn(template.price)}`}</p>
+                        <p>{`Unlock for ${formatNgn(getSinglePrice(template))}`}</p>
                         <p className="text-gray-300">{getIncludedPlanLabel(template)}</p>
                       </div>
                       <div className="w-full max-w-[260px] grid grid-cols-1 gap-2">
@@ -418,7 +431,7 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                             onClick={() => setSelectedPremiumTemplate(template)}
                             className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 text-sm text-center leading-tight whitespace-normal break-words"
                           >
-                            Unlock for {formatNgn(template.price)}
+                            Unlock for {formatNgn(getSinglePrice(template))}
                           </button>
                         )}
                       </div>
@@ -482,7 +495,7 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                           </span>
                           {isLocked && (
                             <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-                              {formatNgn(template.price)}
+                              {formatNgn(getSinglePrice(template))}
                             </span>
                           )}
                         </div>
@@ -568,7 +581,7 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                   </div>
                   <div className="text-right">
                     <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {formatNgn(selectedPremiumTemplate.price)}
+                      {formatNgn(getSinglePrice(selectedPremiumTemplate))}
                     </div>
                     <div className="text-sm text-gray-500">One-time purchase</div>
                     <div className="text-xs text-gray-400">
@@ -687,12 +700,12 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
                       className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-medium hover:opacity-90 flex items-center justify-center gap-2"
                     >
                       <Lock className="w-4 h-4" />
-                      Unlock for {formatNgn(selectedPremiumTemplate.price)}
+                      Unlock for {formatNgn(getSinglePrice(selectedPremiumTemplate))}
                     </button>
                   )}
                 </div>
                 <p className={`text-xs text-center mt-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
-                  {`Single unlock ${formatNgn(selectedPremiumTemplate.price)} • Bundle ${formatNgn(getBundlePrice(selectedPremiumTemplate))} • Lifetime access`}
+                  {`Single unlock ${formatNgn(getSinglePrice(selectedPremiumTemplate))} • Bundle ${formatNgn(getBundlePrice(selectedPremiumTemplate))} • Lifetime access`}
                 </p>
               </div>
             </div>

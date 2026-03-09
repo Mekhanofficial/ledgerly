@@ -120,12 +120,7 @@ const DashboardLayout = ({ children }) => {
           onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
         />
 
-        <motion.main
-          className="flex-1"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-        >
+        <main className="flex-1">
           <div className="py-6 px-4 sm:px-6 lg:px-8 bg-transparent min-h-screen space-y-4">
             <AnimatePresence initial={false}>
               {subscriptionBanner && (
@@ -159,7 +154,7 @@ const DashboardLayout = ({ children }) => {
               {children}
             </StaggerEntrance>
           </div>
-        </motion.main>
+        </main>
       </motion.div>
 
       <AnimatePresence>

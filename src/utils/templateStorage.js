@@ -1095,6 +1095,24 @@ const normalizeBundleTier = (tier) => {
   return 'PREMIUM';
 };
 
+const parseStoredBundleTier = (tier) => {
+  const value = String(tier || '').trim().toUpperCase();
+  if (value === 'PREMIUM' || value === 'ELITE' || value === 'ALL') {
+    return value;
+  }
+  return null;
+};
+
+const parseBooleanFlag = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+  }
+  return false;
+};
+
 const getBundleTemplateId = (bundleTier) => {
   const normalizedTier = normalizeBundleTier(bundleTier);
   if (normalizedTier === 'ELITE') return TEMPLATE_BUNDLE_IDS.ELITE;
@@ -1265,7 +1283,7 @@ const resolveAccessContext = () => {
         purchasedTemplateIds.add(purchase.templateId);
       }
 
-      if (purchase?.unlockAllTemplates || templateId === TEMPLATE_BUNDLE_ID) {
+      if (parseBooleanFlag(purchase?.unlockAllTemplates) || templateId === TEMPLATE_BUNDLE_ID) {
         bundleTiers.add('PREMIUM');
         bundleTiers.add('ELITE');
         return;
@@ -1279,9 +1297,7 @@ const resolveAccessContext = () => {
         bundleTiers.add('ELITE');
       }
 
-      const purchaseBundleTier = purchase?.bundleTier
-        ? normalizeBundleTier(purchase.bundleTier)
-        : null;
+      const purchaseBundleTier = parseStoredBundleTier(purchase?.bundleTier);
       if (purchaseBundleTier === 'ALL') {
         bundleTiers.add('PREMIUM');
         bundleTiers.add('ELITE');
@@ -1299,7 +1315,8 @@ const resolveAccessContext = () => {
       ? premiumAccess.bundleTiers
       : (premiumAccess?.bundleTier ? [premiumAccess.bundleTier] : []);
     premiumAccessBundleTiers.forEach((tier) => {
-      const normalized = normalizeBundleTier(tier);
+      const normalized = parseStoredBundleTier(tier);
+      if (!normalized) return;
       if (normalized === 'ALL') {
         bundleTiers.add('PREMIUM');
         bundleTiers.add('ELITE');
@@ -1308,7 +1325,7 @@ const resolveAccessContext = () => {
       }
     });
 
-    if (premiumAccess?.type === 'lifetime') {
+    if (String(premiumAccess?.type || '').trim().toLowerCase() === 'lifetime') {
       bundleTiers.add('PREMIUM');
       bundleTiers.add('ELITE');
     }
@@ -1598,19 +1615,20 @@ export const purchaseTemplateBundle = async (bundleTier = 'premium', paymentMeth
     const alreadyPurchased = purchases.some((purchase) => {
       const purchaseId = String(purchase?.templateId || '');
       const purchaseTier = purchase?.bundleTier ? normalizeBundleTier(purchase.bundleTier) : null;
+      const unlockAllTemplates = parseBooleanFlag(purchase?.unlockAllTemplates);
       if (normalizedTier === 'ALL') {
-        return purchaseId === TEMPLATE_BUNDLE_ID || purchase?.unlockAllTemplates || purchaseTier === 'ALL';
+        return purchaseId === TEMPLATE_BUNDLE_ID || unlockAllTemplates || purchaseTier === 'ALL';
       }
       if (normalizedTier === 'PREMIUM') {
         return purchaseId === TEMPLATE_BUNDLE_IDS.PREMIUM
           || purchaseId === TEMPLATE_BUNDLE_ID
-          || purchase?.unlockAllTemplates
+          || unlockAllTemplates
           || purchaseTier === 'PREMIUM'
           || purchaseTier === 'ALL';
       }
       return purchaseId === TEMPLATE_BUNDLE_IDS.ELITE
         || purchaseId === TEMPLATE_BUNDLE_ID
-        || purchase?.unlockAllTemplates
+        || unlockAllTemplates
         || purchaseTier === 'ELITE'
         || purchaseTier === 'ALL';
     });

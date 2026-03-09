@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { AnimatePresence } from 'framer-motion'
 
 // Import components
 import HomePage from './routes/home'
@@ -58,7 +57,7 @@ import PricingPage from './routes/payments/Pricing'
 import PublicInvoicePay from './routes/public/PublicInvoicePay'
 import PublicInvoicePaymentResult from './routes/public/PublicInvoicePaymentResult'
 import { resolveAuthUser } from './utils/userDisplay'
-import { PageTransition } from './components/motion'
+import RouteLoadingSpinner from './components/ui/RouteLoadingSpinner'
 
 const AppRoutes = ({
   appRoles,
@@ -72,23 +71,27 @@ const AppRoutes = ({
 }) => {
   const location = useLocation()
   const routeKey = `${location.pathname}${location.search}`
+  const hasMountedRef = useRef(false)
+  const [showRouteSpinner, setShowRouteSpinner] = useState(false)
 
   useEffect(() => {
-    const resetScroll = () => {
-      window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
-      document.documentElement.scrollTop = 0
-      document.body.scrollTop = 0
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true
+      return
     }
 
-    resetScroll()
-    const rafId = window.requestAnimationFrame(resetScroll)
-    return () => window.cancelAnimationFrame(rafId)
-  }, [location.pathname, location.search])
+    setShowRouteSpinner(true)
+    const timeoutId = window.setTimeout(() => {
+      setShowRouteSpinner(false)
+    }, 420)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [routeKey])
 
   return (
-    <AnimatePresence mode="wait">
-      <PageTransition key={routeKey}>
-        <Routes location={location}>
+    <>
+      <RouteLoadingSpinner show={showRouteSpinner} />
+      <Routes location={location}>
           {/* Public Routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -388,9 +391,8 @@ const AppRoutes = ({
 
           {/* 404 Page (optional) */}
           {/* <Route path="*" element={<NotFound />} /> */}
-        </Routes>
-      </PageTransition>
-    </AnimatePresence>
+      </Routes>
+    </>
   )
 }
 

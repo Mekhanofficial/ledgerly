@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
@@ -19,7 +19,7 @@ import {
   Calendar,
   Mail
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNotifications } from '../../../context/NotificationContext'; // Add this import
@@ -28,6 +28,9 @@ import logo from '../../../assets/icons/ledgerly-logo.png';
 
 const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
+  const desktopScrollRef = useRef(null);
+  const mobileScrollRef = useRef(null);
+  const location = useLocation();
   const { unreadCount } = useNotifications(); // Get unread notification count
   const authUser = useSelector((state) => state.auth?.user);
   const user = resolveAuthUser(authUser);
@@ -131,6 +134,36 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
 
   const toggleSubmenu = (label) => {
     setActiveSubmenu(activeSubmenu === label ? null : label);
+  };
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/invoices')) {
+      setActiveSubmenu('Invoices');
+      return;
+    }
+
+    if (location.pathname.startsWith('/inventory')) {
+      setActiveSubmenu('Inventory');
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const desktopSaved = Number(window.sessionStorage.getItem('ledgerly_sidebar_scroll_desktop'));
+    if (desktopScrollRef.current && Number.isFinite(desktopSaved)) {
+      desktopScrollRef.current.scrollTop = desktopSaved;
+    }
+
+    const mobileSaved = Number(window.sessionStorage.getItem('ledgerly_sidebar_scroll_mobile'));
+    if (mobileScrollRef.current && Number.isFinite(mobileSaved)) {
+      mobileScrollRef.current.scrollTop = mobileSaved;
+    }
+  }, []);
+
+  const persistSidebarScroll = (storageKey, element) => {
+    if (!element || typeof window === 'undefined') return;
+    window.sessionStorage.setItem(storageKey, String(element.scrollTop));
   };
 
   const SidebarItem = ({ item }) => {
@@ -240,7 +273,11 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         </div>
 
         {/* Main Menu */}
-        <div className="flex-1 overflow-y-auto py-4 px-3">
+        <div
+          ref={desktopScrollRef}
+          onScroll={() => persistSidebarScroll('ledgerly_sidebar_scroll_desktop', desktopScrollRef.current)}
+          className="flex-1 overflow-y-auto py-4 px-3"
+        >
           <nav className="space-y-1">
             {menuItems.map((item) => (
               <SidebarItem key={item.label} item={item} />
@@ -301,7 +338,11 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
           </button>
         </div>
 
-        <div className="overflow-y-auto h-full py-4 px-3">
+        <div
+          ref={mobileScrollRef}
+          onScroll={() => persistSidebarScroll('ledgerly_sidebar_scroll_mobile', mobileScrollRef.current)}
+          className="overflow-y-auto h-full py-4 px-3"
+        >
           <nav className="space-y-1">
             {[...menuItems, ...bottomMenuItems].map((item) => (
               <SidebarItem key={item.label} item={item} />
