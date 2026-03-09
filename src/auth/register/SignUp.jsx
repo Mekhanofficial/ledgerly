@@ -66,6 +66,9 @@ const SignUpPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
+  const accessMessage = location.state?.registerRequired
+    ? (location.state?.accessMessage || 'Create your account to continue.')
+    : '';
   const signupParams = new URLSearchParams(location.search);
   const queryVerificationEmail = signupParams.get('verifyEmail');
   const isPaidFlow = signupParams.get('paid') === '1';
@@ -553,6 +556,12 @@ const SignUpPage = () => {
         {/* Right Side - Form */}
         <div className="w-full bg-white/60 p-8 dark:bg-slate-950/30 lg:w-1/2">
           <StepIndicator />
+
+          {accessMessage && (
+            <div className="mb-6 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 dark:border-cyan-800 dark:bg-cyan-950/35">
+              <p className="text-sm text-cyan-800 dark:text-cyan-200">{accessMessage}</p>
+            </div>
+          )}
           
           {/* API Error Message */}
           {apiErrorMessage && (

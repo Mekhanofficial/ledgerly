@@ -17,7 +17,17 @@ const RequireAuth = ({ children, allowedRoles }) => {
   }
 
   if (!isAuthenticated || !authUser) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return (
+      <Navigate
+        to="/signup"
+        replace
+        state={{
+          from: location,
+          registerRequired: true,
+          accessMessage: 'Create your account to access the dashboard and business tools.'
+        }}
+      />
+    );
   }
 
   if (allowedRoles && !allowedRoles.includes(authUser.role)) {

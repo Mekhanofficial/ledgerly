@@ -6,6 +6,7 @@ import Features from '../../components/home/Features';
 import Testimonials from '../../components/home/Testimonials';
 import Pricing from '../../components/home/Pricing';
 import FAQSection from '../../components/home/FAQ'; 
+import MobileAppSection from '../../components/home/MobileAppSection';
 import CTA from '../../components/home/CTA';
 import Footer from '../../components/home/layout/Footer';
 import { FadeInSection } from '../../components/motion';
@@ -27,6 +28,9 @@ const HomePage = () => {
         </FadeInSection>
         <FadeInSection>
           <Pricing />
+        </FadeInSection>
+        <FadeInSection>
+          <MobileAppSection />
         </FadeInSection>
         <FadeInSection>
           <FAQSection />

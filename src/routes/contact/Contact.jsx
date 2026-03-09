@@ -1,23 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import {
+  ArrowLeft,
   ArrowRight,
   Clock3,
   Headphones,
   Mail,
   MapPin,
   MessageSquare,
-  Moon,
   Phone,
   Send,
   ShieldCheck,
-  Sparkles,
-  SunMedium
+  Sparkles
 } from 'lucide-react';
 import Navbar from '../../components/home/layout/NavBar';
 import Footer from '../../components/home/layout/Footer';
-import { useTheme } from '../../context/ThemeContext';
+import { resolveAuthUser } from '../../utils/userDisplay';
+import { getLiveChatEligibility } from '../../services/liveChatService';
 
 const SUPPORT_CHANNELS = [
   {
@@ -41,10 +42,10 @@ const SUPPORT_CHANNELS = [
   {
     id: 'chat',
     title: 'Live Chat',
-    description: 'For fast product questions while exploring Ledgerly.',
-    detail: 'Available Mon-Fri, 8:00 AM - 8:00 PM',
+    description: 'Elite Enterprise support chat for high-priority product workflows.',
+    detail: 'Available Mon-Fri, 8:00 AM - 8:00 PM (Elite Enterprise)',
     ctaLabel: 'Open Chat',
-    ctaHref: '/login',
+    ctaHref: '#',
     icon: MessageSquare
   }
 ];
@@ -60,7 +61,11 @@ const TOPICS = [
 const MotionDiv = motion.div;
 
 const ContactPage = () => {
-  const { isDarkMode, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+  const { user, isAuthenticated: reduxAuthenticated } = useSelector((state) => state.auth || {});
+  const authUser = resolveAuthUser(user);
+  const isAuthenticated = Boolean(reduxAuthenticated && authUser);
+  const authIdentity = authUser?._id || authUser?.id || authUser?.email || '';
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -70,6 +75,57 @@ const ContactPage = () => {
   });
   const [errors, setErrors] = useState({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [chatAccess, setChatAccess] = useState({
+    loading: false,
+    canAccess: false,
+    reason: 'Live chat is reserved for Elite Enterprise customers.'
+  });
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadChatEligibility = async () => {
+      if (!isAuthenticated) {
+        if (isActive) {
+          setChatAccess({
+            loading: false,
+            canAccess: false,
+            reason: 'Create your account to request Elite Enterprise live chat.'
+          });
+        }
+        return;
+      }
+
+      setChatAccess((prev) => ({ ...prev, loading: true }));
+      try {
+        const eligibility = await getLiveChatEligibility();
+        if (!isActive) return;
+
+        setChatAccess({
+          loading: false,
+          canAccess: Boolean(eligibility?.canAccess),
+          reason:
+            eligibility?.reason
+            || (eligibility?.canAccess
+              ? 'Live chat is available for your account.'
+              : 'Live chat is reserved for Elite Enterprise customers.')
+        });
+      } catch {
+        if (!isActive) return;
+        setChatAccess({
+          loading: false,
+          canAccess: false,
+          reason: 'We could not verify live chat access right now. Contact sales for Enterprise onboarding.'
+        });
+      }
+    };
+
+    loadChatEligibility();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isAuthenticated, authIdentity]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -103,9 +159,52 @@ const ContactPage = () => {
     });
   };
 
+  const handleGoBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/');
+  };
+
   const renderChannelAction = (channel) => {
     const classes =
       'mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200';
+
+    if (channel.id === 'chat') {
+      if (!isAuthenticated) {
+        return (
+          <Link to="/signup" className={classes}>
+            Register For Chat
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        );
+      }
+
+      if (chatAccess.loading) {
+        return <span className="mt-3 inline-flex text-sm font-semibold text-slate-500 dark:text-slate-300">Checking access...</span>;
+      }
+
+      if (chatAccess.canAccess) {
+        return (
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('ledgerly:open-livechat'))}
+            className={`${classes} bg-transparent`}
+          >
+            Open Live Chat
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        );
+      }
+
+      return (
+        <a href="mailto:sales@ledgerly.com?subject=Upgrade%20to%20Enterprise%20Live%20Chat" className={classes}>
+          Upgrade To Enterprise
+          <ArrowRight className="h-4 w-4" />
+        </a>
+      );
+    }
 
     if (channel.ctaHref.startsWith('/')) {
       return (
@@ -136,28 +235,29 @@ const ContactPage = () => {
         </div>
 
         <section className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-5">
+            <button
+              type="button"
+              onClick={handleGoBack}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/90 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700/80 dark:bg-slate-900/75 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </button>
+          </div>
+
           <MotionDiv
-            className="mb-10 rounded-3xl border border-slate-200/80 bg-white/85 p-6 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.9)] backdrop-blur-sm dark:border-slate-700/80 dark:bg-slate-900/72 md:p-8"
+            className="mb-10 rounded-3xl border border-cyan-100/80 bg-gradient-to-br from-white to-cyan-50/35 p-6 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.9)] backdrop-blur-sm dark:border-cyan-500/25 dark:from-slate-900 dark:to-cyan-500/10 md:p-8"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
           >
             <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
               <div className="lg:col-span-8">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200/80 bg-cyan-50/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-cyan-200">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Contact Ledgerly
-                  </p>
-                  <button
-                    type="button"
-                    onClick={toggleTheme}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/90 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700/80 dark:bg-slate-900/75 dark:text-slate-300 dark:hover:bg-slate-800"
-                  >
-                    {isDarkMode ? <SunMedium className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-                    {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-                  </button>
-                </div>
+                <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-200/80 bg-cyan-50/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-cyan-200">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Contact Ledgerly
+                </p>
                 <h1 className="mt-4 text-3xl font-bold text-slate-900 dark:text-white md:text-5xl">
                   Real support for serious billing workflows
                 </h1>
@@ -168,7 +268,7 @@ const ContactPage = () => {
               </div>
 
               <div className="lg:col-span-4">
-                <div className="h-full rounded-2xl border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-700/80 dark:bg-slate-800/70">
+                <div className="h-full rounded-2xl border border-cyan-100/80 bg-gradient-to-br from-white to-cyan-50/60 p-5 dark:border-cyan-500/25 dark:from-slate-900 dark:to-cyan-500/10">
                   <p className="text-sm font-semibold text-slate-900 dark:text-white">Support SLA</p>
                   <div className="mt-4 space-y-4 text-sm text-slate-600 dark:text-slate-300">
                     <div className="flex items-center gap-2">
@@ -195,7 +295,7 @@ const ContactPage = () => {
 
           <div className="grid gap-6 lg:grid-cols-12">
             <MotionDiv
-              className="lg:col-span-7 rounded-3xl border border-slate-200/80 bg-white/90 p-6 shadow-[0_20px_50px_-38px_rgba(15,23,42,0.95)] dark:border-slate-700/80 dark:bg-slate-900/78"
+              className="lg:col-span-7 rounded-3xl border border-cyan-100/80 bg-gradient-to-br from-white to-cyan-50/35 p-6 shadow-[0_20px_50px_-38px_rgba(15,23,42,0.95)] dark:border-cyan-500/25 dark:from-slate-900 dark:to-cyan-500/10"
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
@@ -329,7 +429,7 @@ const ContactPage = () => {
                 return (
                   <div
                     key={channel.id}
-                    className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-[0_16px_42px_-34px_rgba(15,23,42,0.95)] dark:border-slate-700/80 dark:bg-slate-900/78"
+                    className="rounded-2xl border border-cyan-100/80 bg-gradient-to-br from-white to-cyan-50/40 p-5 shadow-[0_16px_42px_-34px_rgba(15,23,42,0.95)] dark:border-cyan-500/25 dark:from-slate-900 dark:to-cyan-500/10"
                   >
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700 dark:bg-cyan-500/12 dark:text-cyan-200">
@@ -342,13 +442,16 @@ const ContactPage = () => {
                           {channel.detail}
                         </p>
                         {renderChannelAction(channel)}
+                        {channel.id === 'chat' && (
+                          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{chatAccess.reason}</p>
+                        )}
                       </div>
                     </div>
                   </div>
                 );
               })}
 
-              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/90 p-5 dark:border-slate-700/80 dark:bg-slate-800/70">
+              <div className="rounded-2xl border border-cyan-100/80 bg-gradient-to-br from-white to-cyan-50/40 p-5 dark:border-cyan-500/25 dark:from-slate-900 dark:to-cyan-500/10">
                 <p className="text-sm font-semibold text-slate-900 dark:text-white">Already a customer?</p>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                   Sign in to open a tracked support ticket from your account dashboard.

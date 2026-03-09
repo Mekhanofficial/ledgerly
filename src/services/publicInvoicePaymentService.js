@@ -19,3 +19,16 @@ export const verifyPublicInvoicePayment = async (reference) => {
   });
   return response.data?.data ?? response.data;
 };
+
+export const sendPublicInvoiceReceiptEmail = async ({
+  reference,
+  pdfAttachment,
+  templateStyle
+} = {}) => {
+  const response = await api.post('/payments/public-receipt/email', {
+    reference,
+    pdfAttachment,
+    templateStyle
+  });
+  return response.data?.data ?? response.data;
+};

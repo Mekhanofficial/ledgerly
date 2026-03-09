@@ -17,6 +17,11 @@ import { useUser } from '../../context/UserContext';
 import { useAccount } from '../../context/AccountContext';
 import { generateReportData } from '../../utils/reportGenerator';
 import { formatCurrency } from '../../utils/currency';
+import {
+  getLiveChatStatus,
+  sendLiveChatMessage,
+  getLiveChatErrorMessage
+} from '../../services/liveChatService';
 
 const LiveChat = () => {
   const navigate = useNavigate();
@@ -58,7 +63,7 @@ const LiveChat = () => {
   const [messages, setMessages] = useState([
     { 
       id: 1, 
-      text: 'Hello! Welcome to Ledgerly AI Assistant. I can help you with invoices, inventory, payments, reports, and more. How can I assist you today?', 
+      text: 'Welcome to Ledgerly Elite Enterprise Live Chat. I can help with invoices, inventory, payments, reports, and escalation support. How can I assist today?', 
       sender: 'bot', 
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       type: 'text'
@@ -71,6 +76,7 @@ const LiveChat = () => {
   const [activeAction, setActiveAction] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [assistantStatus, setAssistantStatus] = useState('Connecting to Elite Enterprise support...');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -82,6 +88,55 @@ const LiveChat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const initializeAssistant = async () => {
+      try {
+        const status = await getLiveChatStatus();
+        if (!isActive) return;
+
+        setAssistantStatus(`Elite Enterprise Support • ${status?.availability?.window || 'Online'}`);
+        setMessages((prev) => {
+          if (!Array.isArray(prev) || prev.length === 0) return prev;
+          const updated = [...prev];
+          updated[0] = {
+            ...updated[0],
+            text:
+              'Welcome to Ledgerly Elite Enterprise Live Chat. ' +
+              'I can assist with invoice operations, payment tracking, inventory risk, and support escalations.'
+          };
+          return updated;
+        });
+      } catch (error) {
+        if (!isActive) return;
+        const message = getLiveChatErrorMessage(error);
+        if (/enterprise|upgrade|required|403|forbidden/i.test(String(message))) {
+          setAssistantStatus('Elite Enterprise access required');
+        } else {
+          setAssistantStatus('Local assistant mode');
+        }
+      }
+    };
+
+    initializeAssistant();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const openFromSupportPage = () => {
+      setIsOpen(true);
+      setIsMinimized(false);
+      setIsFullscreen(false);
+    };
+
+    window.addEventListener('ledgerly:open-livechat', openFromSupportPage);
+    return () => window.removeEventListener('ledgerly:open-livechat', openFromSupportPage);
+  }, []);
 
   // Mobile detection
   const [isMobile, setIsMobile] = useState(false);
@@ -117,13 +172,31 @@ const LiveChat = () => {
     return inventoryProducts?.filter(p => p.quantity === 0) || [];
   };
 
-  // Handle sending messages with INSTANT responses
-  const handleSendMessage = () => {
-    if (inputText.trim() === '') return;
+  const normalizeServerAction = (action) => {
+    const value = String(action || '').trim().toLowerCase();
+    if (!value) return '';
+
+    if (value === 'open dashboard') return 'Open dashboard';
+    if (value === 'review invoices') return 'Review invoices';
+    if (value === 'review overdue invoices') return 'Review overdue invoices';
+    if (value === 'open invoices') return 'Open invoices';
+    if (value === 'view payments') return 'View payments';
+    if (value === 'check inventory') return 'Check inventory';
+    if (value === 'open products') return 'Open products';
+    if (value === 'generate report') return 'Generate report';
+    if (value === 'talk to specialist') return 'Talk to specialist';
+    if (value === 'open support center') return 'Open support center';
+    return action;
+  };
+
+  // Handle sending messages
+  const handleSendMessage = async () => {
+    const messageText = inputText.trim();
+    if (messageText === '') return;
 
     const userMessage = {
       id: messages.length + 1,
-      text: inputText,
+      text: messageText,
       sender: 'user',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       type: 'text'
@@ -132,16 +205,34 @@ const LiveChat = () => {
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setActiveAction(null);
-
-    // Analyze and respond instantly (no setTimeout for delays)
     setIsTyping(true);
-    
-    // Small delay for realistic typing effect (optional, can be removed)
-    setTimeout(() => {
-      const botResponse = analyzeMessageAndRespond(inputText);
-      setMessages(prev => [...prev, botResponse]);
+
+    try {
+      const serverResponse = await sendLiveChatMessage(messageText);
+      const normalizedActions = Array.isArray(serverResponse?.quickActions)
+        ? serverResponse.quickActions.map(normalizeServerAction).filter(Boolean).slice(0, 4)
+        : [];
+      const replyText = String(serverResponse?.reply || '').trim()
+        || 'I have logged your request. What would you like to do next?';
+
+      setMessages(prev => [...prev, createBotResponse(replyText, normalizedActions)]);
+    } catch (error) {
+      const errorMessage = getLiveChatErrorMessage(error);
+      if (/enterprise|upgrade|required|403|forbidden/i.test(String(errorMessage))) {
+        setMessages(prev => [
+          ...prev,
+          createBotResponse(
+            'Live chat is available only for Elite Enterprise accounts. Please upgrade to continue with specialist chat.',
+            ['Upgrade to enterprise', 'Talk to specialist']
+          )
+        ]);
+      } else {
+        const fallbackResponse = analyzeMessageAndRespond(messageText);
+        setMessages(prev => [...prev, fallbackResponse]);
+      }
+    } finally {
       setIsTyping(false);
-    }, 100);
+    }
   };
 
   // Enhanced message analysis with real context
@@ -154,7 +245,7 @@ const LiveChat = () => {
 
     // Greetings
     if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
-      return createBotResponse(`Hello ${user?.name || 'there'}! I'm your Ledgerly AI Assistant. I can help you manage invoices, inventory, payments, and more. What would you like to do?`, [
+      return createBotResponse(`Hello ${user?.name || 'there'}! I'm your Ledgerly live support assistant. I can help you manage invoices, inventory, payments, and more. What would you like to do?`, [
         'View dashboard',
         'Check invoices',
         'Manage inventory',
@@ -354,6 +445,15 @@ const LiveChat = () => {
   };
 
   const actionRoutes = {
+    'Open dashboard': '/dashboard',
+    'Open invoices': '/invoices',
+    'Review invoices': '/invoices',
+    'Review overdue invoices': '/invoices',
+    'View payments': '/payments',
+    'Open products': '/inventory/products',
+    'Talk to specialist': '/support',
+    'Open support center': '/support',
+    'Upgrade to enterprise': '/contact',
     'Show dashboard': '/dashboard',
     'Back to dashboard': '/dashboard',
     'View dashboard': '/dashboard',
@@ -829,17 +929,17 @@ const LiveChat = () => {
 
   // Quick replies for common tasks
   const quickReplies = [
-    'Dashboard summary',
+    'Business summary',
     'Overdue invoices',
-    'Low stock alert',
+    'Payment status',
+    'Inventory risk',
     'Process payment',
-    'Add customer',
     'Generate report',
-    'View notifications',
+    'Talk to specialist',
     'Help'
   ];
 
-  const handleQuickReply = (text) => {
+  const handleQuickReply = async (text) => {
     const userMessage = {
       id: messages.length + 1,
       text,
@@ -850,12 +950,21 @@ const LiveChat = () => {
 
     setMessages(prev => [...prev, userMessage]);
     setIsTyping(true);
-    
-    setTimeout(() => {
+
+    try {
+      const serverResponse = await sendLiveChatMessage(text);
+      const normalizedActions = Array.isArray(serverResponse?.quickActions)
+        ? serverResponse.quickActions.map(normalizeServerAction).filter(Boolean).slice(0, 4)
+        : [];
+      const replyText = String(serverResponse?.reply || '').trim()
+        || 'I have logged your request. What would you like to do next?';
+      setMessages(prev => [...prev, createBotResponse(replyText, normalizedActions)]);
+    } catch {
       const botResponse = analyzeMessageAndRespond(text);
       setMessages(prev => [...prev, botResponse]);
+    } finally {
       setIsTyping(false);
-    }, 100);
+    }
   };
 
   // Toggle functions
@@ -976,15 +1085,15 @@ const LiveChat = () => {
                   <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-primary-800 bg-emerald-400"></span>
                 </div>
                 <div className="ml-3">
-                  <h3 className="font-semibold">Ledgerly AI Assistant</h3>
+                  <h3 className="font-semibold">Ledgerly Elite Live Chat</h3>
                   <p className="text-xs opacity-90">
-                    {getOverdueInvoices().length > 0 
-                      ? `${getOverdueInvoices().length} overdue - ` 
-                      : ''}
-                    {getLowStockProducts().length > 0
-                      ? `${getLowStockProducts().length} low stock - `
-                      : ''}
-                    AI Online
+                    {assistantStatus}
+                    {(getOverdueInvoices().length > 0 || getLowStockProducts().length > 0) && (
+                      <span>
+                        {' '}
+                        | {getOverdueInvoices().length} overdue / {getLowStockProducts().length} low stock
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -1318,7 +1427,7 @@ const LiveChat = () => {
                     <div className={`text-center ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-500'
                     } text-xs`}>
-                      Tip: Try "dashboard", "overdue invoices", or "low stock"
+                      Tip: Try "business summary", "overdue invoices", or "inventory risk"
                     </div>
                   </div>
                 </div>

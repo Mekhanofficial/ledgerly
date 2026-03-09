@@ -3,6 +3,23 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { fetchPublicInvoice, initializePublicInvoicePayment, verifyPublicInvoicePayment } from '../../services/publicInvoicePaymentService';
 import { resolveServerBaseUrl } from '../../utils/apiConfig';
 
+const getPaymentStateStorageKey = (slugValue) => `ledgerly_public_invoice_payment_state_${String(slugValue || '').trim()}`;
+const savePendingPaymentState = (slugValue, payload = {}) => {
+  if (typeof window === 'undefined') return;
+  const key = getPaymentStateStorageKey(slugValue);
+  try {
+    sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        ...payload,
+        savedAt: Date.now()
+      })
+    );
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 const loadPaystackScript = () =>
   new Promise((resolve, reject) => {
     if (typeof window === 'undefined') {
@@ -131,6 +148,11 @@ export default function PublicInvoicePay() {
       }
 
       setInvoice(invoicePayload);
+      savePendingPaymentState(invoicePayload?.publicSlug || slug, {
+        reference: payment.reference,
+        invoiceNumber: invoicePayload?.invoiceNumber || '',
+        templateStyle: invoicePayload?.templateStyle || ''
+      });
 
       if (payment.authorizationUrl) {
         window.location.assign(payment.authorizationUrl);
@@ -151,7 +173,9 @@ export default function PublicInvoicePay() {
         callback: async (response) => {
           try {
             await verifyPublicInvoicePayment(response.reference);
-            navigate(`/invoice/success/${invoicePayload?.publicSlug || slug}`);
+            navigate(
+              `/invoice/success/${invoicePayload?.publicSlug || slug}?reference=${encodeURIComponent(response.reference)}`
+            );
           } catch (verifyError) {
             window.location.href = `${serverBaseUrl}/api/v1/payments/verify?reference=${encodeURIComponent(response.reference)}`;
           }
