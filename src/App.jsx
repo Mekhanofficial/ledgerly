@@ -56,6 +56,7 @@ import SearchPage from './routes/search/Search'
 import PricingPage from './routes/payments/Pricing'
 import PublicInvoicePay from './routes/public/PublicInvoicePay'
 import PublicInvoicePaymentResult from './routes/public/PublicInvoicePaymentResult'
+import ContactPage from './routes/contact/Contact'
 import { resolveAuthUser } from './utils/userDisplay'
 import RouteLoadingSpinner from './components/ui/RouteLoadingSpinner'
 
@@ -102,6 +103,7 @@ const AppRoutes = ({
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/team/accept-invite/:token" element={<AcceptInvite />} />
