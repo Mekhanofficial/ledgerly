@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Building, Check, Sparkles, Users, Zap } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { initializePublicSubscriptionPayment } from '../../services/billingService';
+import { useToast } from '../../context/ToastContext';
+import {
+  savePendingCheckout
+} from '../../utils/subscriptionCheckout';
 
 const PLANS = [
   {
@@ -23,7 +28,7 @@ const PLANS = [
       'No API',
       'No team'
     ],
-    ctaText: 'Start with Starter',
+    ctaText: 'Pay for Starter',
     ctaLink: '/dashboard',
     accent: {
       icon: 'from-cyan-500 to-blue-600',
@@ -55,7 +60,7 @@ const PLANS = [
       'Limited API',
       'All Standard + Premium templates'
     ],
-    ctaText: 'Upgrade to Professional',
+    ctaText: 'Pay for Professional',
     ctaLink: '/dashboard',
     accent: {
       icon: 'from-blue-600 to-cyan-500',
@@ -102,6 +107,9 @@ const PLANS = [
 
 const Pricing = () => {
   const [billingCycle, setBillingCycle] = useState('yearly');
+  const [checkoutLoadingPlan, setCheckoutLoadingPlan] = useState('');
+  const navigate = useNavigate();
+  const { addToast } = useToast();
 
   const formatNgn = (value) =>
     new Intl.NumberFormat('en-NG', {
@@ -110,6 +118,63 @@ const Pricing = () => {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value);
+
+  const startCheckout = async ({ planId, email }) => {
+    setCheckoutLoadingPlan(planId);
+    try {
+      const response = await initializePublicSubscriptionPayment({
+        email,
+        plan: planId,
+        billingCycle
+      });
+      const data = response?.data || response || {};
+      const authorizationUrl = data?.authorizationUrl || data?.authorization_url;
+      if (!authorizationUrl) {
+        throw new Error('Unable to start payment right now.');
+      }
+      window.location.assign(authorizationUrl);
+      return;
+    } catch (error) {
+      addToast(error?.response?.data?.error || error?.message || 'Failed to start checkout', 'error');
+      setCheckoutLoadingPlan('');
+    }
+  };
+
+  const isValidEmail = (value) => /^\S+@\S+\.\S+$/.test(String(value || '').trim().toLowerCase());
+
+  const resolveCheckoutEmail = () => {
+    const saved = String(localStorage.getItem('ledgerly_checkout_email') || '').trim().toLowerCase();
+    if (isValidEmail(saved)) {
+      return saved;
+    }
+
+    const input = window.prompt('Enter your email for payment and account setup:', saved || '');
+    if (input === null) return '';
+
+    const normalized = String(input).trim().toLowerCase();
+    if (!isValidEmail(normalized)) {
+      addToast('Please enter a valid email address to continue.', 'error');
+      return '';
+    }
+
+    localStorage.setItem('ledgerly_checkout_email', normalized);
+    return normalized;
+  };
+
+  const handlePlanAction = async (plan) => {
+    if (plan.id === 'enterprise') {
+      navigate(plan.ctaLink);
+      return;
+    }
+
+    savePendingCheckout({ plan: plan.id, billingCycle, source: 'landing' });
+    const email = resolveCheckoutEmail();
+    if (!email) {
+      return;
+    }
+
+    await startCheckout({ planId: plan.id, email });
+  };
 
   return (
     <motion.section
@@ -236,13 +301,15 @@ const Pricing = () => {
                 </ul>
 
                 <div className="relative z-10 mt-7 pt-6 border-t border-slate-200/80 dark:border-slate-700/80">
-                  <Link
-                    to={plan.ctaLink}
-                    className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold transition-all duration-300 ${plan.accent.button}`}
+                  <button
+                    type="button"
+                    onClick={() => handlePlanAction(plan)}
+                    disabled={checkoutLoadingPlan === plan.id}
+                    className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-70 ${plan.accent.button}`}
                   >
-                    {plan.ctaText}
+                    {checkoutLoadingPlan === plan.id ? 'Starting Checkout...' : plan.ctaText}
                     <ArrowRight className="h-4 w-4" />
-                  </Link>
+                  </button>
                 </div>
               </motion.div>
             );

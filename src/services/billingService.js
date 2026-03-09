@@ -20,6 +20,11 @@ export const initializeSubscriptionPayment = async (payload) => {
   return response.data;
 };
 
+export const initializePublicSubscriptionPayment = async (payload) => {
+  const response = await api.post('/payments/initialize-public-subscription', payload);
+  return response.data;
+};
+
 export const initializeTemplatePayment = async (payload) => {
   const response = await api.post('/payments/initialize-template', payload);
   return response.data;

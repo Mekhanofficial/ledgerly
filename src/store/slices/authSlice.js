@@ -110,6 +110,7 @@ export const logout = createAsyncThunk(
       localStorage.removeItem('template_purchases');
       localStorage.removeItem('template_access_owner');
       localStorage.removeItem('subscription');
+      localStorage.removeItem('ledgerly_pending_subscription_checkout');
       return null;
     } catch (error) {
       console.error('Logout error:', error);
@@ -120,6 +121,7 @@ export const logout = createAsyncThunk(
       localStorage.removeItem('template_purchases');
       localStorage.removeItem('template_access_owner');
       localStorage.removeItem('subscription');
+      localStorage.removeItem('ledgerly_pending_subscription_checkout');
       return rejectWithValue(error.message);
     }
   }

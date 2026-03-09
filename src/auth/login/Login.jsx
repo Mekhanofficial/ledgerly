@@ -1,7 +1,15 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { login, clearError } from '../../store/slices/authSlice';
+import {
+  buildCheckoutParams,
+  clearPendingCheckout,
+  getPendingCheckout,
+  normalizeCheckoutBillingCycle,
+  normalizeCheckoutPlan,
+  savePendingCheckout
+} from '../../utils/subscriptionCheckout';
 import { 
   Mail, 
   Lock, 
@@ -22,11 +30,76 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   
+  const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   
   // Get auth state from Redux
   const { loading, error } = useSelector((state) => state.auth);
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const isPaidFlow = searchParams.get('paid') === '1';
+  const queryCheckoutEmail = String(searchParams.get('checkoutEmail') || '').trim().toLowerCase();
+  const paymentReference = String(searchParams.get('reference') || '').trim();
+  const hasPaymentReference = Boolean(paymentReference);
+  const queryPlan = normalizeCheckoutPlan(searchParams.get('selectedPlan'));
+  const queryBillingCycle = normalizeCheckoutBillingCycle(searchParams.get('billingCycle'));
+  const pendingCheckout = useMemo(() => getPendingCheckout(), [location.search]);
+  const selectedPlan = queryPlan || pendingCheckout?.plan || '';
+  const selectedBillingCycle = queryPlan
+    ? queryBillingCycle
+    : normalizeCheckoutBillingCycle(pendingCheckout?.billingCycle);
+  const hasPendingCheckout = Boolean(selectedPlan);
+  const selectedPlanLabel = selectedPlan
+    ? `${selectedPlan.charAt(0).toUpperCase()}${selectedPlan.slice(1)}`
+    : '';
+  const checkoutParams = buildCheckoutParams({
+    plan: selectedPlan,
+    billingCycle: selectedBillingCycle,
+    checkout: hasPendingCheckout && !isPaidFlow && !hasPaymentReference
+  });
+  if (isPaidFlow) {
+    checkoutParams.set('paid', '1');
+  }
+  if (queryCheckoutEmail) {
+    checkoutParams.set('checkoutEmail', queryCheckoutEmail);
+  }
+  if (hasPaymentReference) {
+    checkoutParams.set('reference', paymentReference);
+  }
+  const checkoutQuery = checkoutParams.toString();
+  const signupPath = checkoutQuery ? `/signup?${checkoutQuery}` : '/signup';
+  const getVerifyEmailPath = (emailValue) => {
+    const params = buildCheckoutParams({
+      plan: selectedPlan,
+      billingCycle: selectedBillingCycle,
+      checkout: hasPendingCheckout && !isPaidFlow && !hasPaymentReference
+    });
+    if (isPaidFlow) {
+      params.set('paid', '1');
+    }
+    if (queryCheckoutEmail) {
+      params.set('checkoutEmail', queryCheckoutEmail);
+    }
+    if (hasPaymentReference) {
+      params.set('reference', paymentReference);
+    }
+    params.set('verifyEmail', String(emailValue || '').trim().toLowerCase());
+    return `/signup?${params.toString()}`;
+  };
+
+  useEffect(() => {
+    if (!queryPlan) return;
+    savePendingCheckout({
+      plan: queryPlan,
+      billingCycle: queryBillingCycle,
+      source: 'landing'
+    });
+  }, [queryPlan, queryBillingCycle]);
+
+  useEffect(() => {
+    if (!queryCheckoutEmail) return;
+    setEmail((prev) => prev || queryCheckoutEmail);
+  }, [queryCheckoutEmail]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,7 +118,16 @@ const Login = () => {
         if (rememberMe) {
           localStorage.setItem('rememberMe', 'true');
         }
-        
+
+        if (hasPendingCheckout && !isPaidFlow && !hasPaymentReference) {
+          navigate(`/payments/pricing?${checkoutQuery}`);
+          return;
+        }
+
+        if (isPaidFlow || hasPaymentReference) {
+          clearPendingCheckout();
+        }
+
         // Redirect to dashboard
         navigate('/dashboard');
       }
@@ -136,6 +218,17 @@ const Login = () => {
             <p className="mt-2 text-slate-600 dark:text-slate-300">
               Sign in to your Ledgerly account
             </p>
+            {hasPendingCheckout && (
+              <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-left dark:border-cyan-800 dark:bg-cyan-950/35">
+                <p className="text-sm text-cyan-800 dark:text-cyan-200">
+                  {isPaidFlow
+                    ? <>Payment received for <strong>{selectedPlanLabel}</strong> ({selectedBillingCycle}). Sign in to continue setup.</>
+                    : hasPaymentReference
+                    ? <>Payment reference detected for <strong>{selectedPlanLabel}</strong> ({selectedBillingCycle}). Sign in to continue setup.</>
+                    : <>Selected plan: <strong>{selectedPlanLabel}</strong> ({selectedBillingCycle}). Sign in to continue checkout.</>}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Error Message */}
@@ -154,7 +247,7 @@ const Login = () => {
                     </button>
                     {error.includes('Invalid credentials') && (
                       <Link 
-                        to="/signup" 
+                        to={signupPath} 
                         className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium"
                         onClick={clearErrors}
                       >
@@ -172,7 +265,7 @@ const Login = () => {
                     )}
                     {error.toLowerCase().includes('verify your email') && email.trim() && (
                       <Link
-                        to={`/signup?verifyEmail=${encodeURIComponent(email.trim().toLowerCase())}`}
+                        to={getVerifyEmailPath(email)}
                         className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium"
                         onClick={clearErrors}
                       >
@@ -289,7 +382,7 @@ const Login = () => {
                   Don't have an account?
                 </p>
                 <Link 
-                  to="/signup" 
+                  to={signupPath} 
                   className="inline-block w-full rounded-xl border border-cyan-600 py-3 text-center font-medium text-cyan-700 transition hover:bg-cyan-50 dark:border-cyan-500 dark:text-cyan-300 dark:hover:bg-cyan-900/20"
                   onClick={clearErrors}
                 >

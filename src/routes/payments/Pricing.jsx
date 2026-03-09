@@ -1,5 +1,5 @@
 // src/pages/Pricing.jsx
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Crown, Sparkles, Zap, Shield, Star } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
@@ -7,12 +7,41 @@ import { initializeSubscriptionPayment } from '../../services/billingService';
 import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
 import { normalizePlanId } from '../../utils/subscription';
+import { useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import {
+  clearPendingCheckout,
+  getPendingCheckout,
+  normalizeCheckoutBillingCycle,
+  normalizeCheckoutPlan
+} from '../../utils/subscriptionCheckout';
 
 const Pricing = () => {
   const { isDarkMode } = useTheme();
   const [billingCycle, setBillingCycle] = useState('yearly');
+  const [checkoutLoadingPlan, setCheckoutLoadingPlan] = useState('');
   const { addToast } = useToast();
   const { accountInfo } = useAccount();
+  const location = useLocation();
+  const authUser = useSelector((state) => state.auth?.user);
+  const normalizedRole = String(authUser?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const canStartCheckout = ['admin', 'super_admin'].includes(normalizedRole);
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const queryPlan = normalizeCheckoutPlan(searchParams.get('selectedPlan'));
+  const queryBillingCycle = normalizeCheckoutBillingCycle(searchParams.get('billingCycle'));
+  const shouldAutoCheckout = searchParams.get('checkout') === '1';
+  const pendingCheckout = useMemo(() => getPendingCheckout(), [location.search]);
+  const checkoutPlan = queryPlan || pendingCheckout?.plan || '';
+  const checkoutCycle = queryPlan
+    ? queryBillingCycle
+    : normalizeCheckoutBillingCycle(pendingCheckout?.billingCycle);
+  const checkoutPlanLabel = checkoutPlan
+    ? `${checkoutPlan.charAt(0).toUpperCase()}${checkoutPlan.slice(1)}`
+    : '';
+  const autoCheckoutStartedRef = useRef(false);
   const currentPlan = useMemo(() => normalizePlanId(accountInfo?.plan), [accountInfo]);
   const currentCycle = useMemo(
     () => (accountInfo?.billingCycle === 'yearly' ? 'yearly' : 'monthly'),
@@ -158,20 +187,44 @@ const Pricing = () => {
     }
   ];
 
-  const startCheckout = async (planId) => {
+  const startCheckout = useCallback(async (planId, cycleOverride = billingCycle) => {
+    if (!canStartCheckout) {
+      addToast('Only the account owner can complete subscription checkout.', 'warning');
+      return false;
+    }
+
+    setCheckoutLoadingPlan(planId);
     try {
-      const response = await initializeSubscriptionPayment({ plan: planId, billingCycle });
+      const response = await initializeSubscriptionPayment({ plan: planId, billingCycle: cycleOverride });
       const data = response?.data || response || {};
       const url = data?.authorizationUrl || data?.authorization_url;
       if (url) {
+        clearPendingCheckout();
         window.location.href = url;
-        return;
+        return true;
       }
       addToast('Unable to start payment. Please try again.', 'error');
+      return false;
     } catch (error) {
       addToast(error?.response?.data?.error || 'Failed to start payment', 'error');
+      return false;
+    } finally {
+      setCheckoutLoadingPlan('');
     }
-  };
+  }, [addToast, billingCycle, canStartCheckout]);
+
+  useEffect(() => {
+    if (!checkoutCycle) return;
+    setBillingCycle((prev) => (prev === checkoutCycle ? prev : checkoutCycle));
+  }, [checkoutCycle]);
+
+  useEffect(() => {
+    if (!shouldAutoCheckout || !checkoutPlan) return;
+    if (autoCheckoutStartedRef.current) return;
+
+    autoCheckoutStartedRef.current = true;
+    startCheckout(checkoutPlan, checkoutCycle);
+  }, [checkoutCycle, checkoutPlan, shouldAutoCheckout, startCheckout]);
 
   return (
     <DashboardLayout>
@@ -192,6 +245,18 @@ const Pricing = () => {
           <p className={`text-sm mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
             All prices are in NGN (Paystack checkout).
           </p>
+          {checkoutPlan && (
+            <div className={`mb-6 rounded-xl border px-4 py-3 text-left ${
+              isDarkMode
+                ? 'border-purple-800/70 bg-purple-900/20 text-purple-200'
+                : 'border-purple-200 bg-purple-50 text-purple-800'
+            }`}>
+              <p className="text-sm">
+                Selected plan: <strong>{checkoutPlanLabel}</strong> ({checkoutCycle}).
+                {shouldAutoCheckout ? ' Checkout will start automatically.' : ' Click its button to continue checkout.'}
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center justify-center gap-2">
             <button
@@ -275,13 +340,18 @@ const Pricing = () => {
 
                 <button
                   onClick={() => startCheckout(plan.id)}
-                  className={`w-full py-3 rounded-lg font-semibold mb-6 ${
+                  disabled={checkoutLoadingPlan === plan.id || !canStartCheckout}
+                  className={`w-full py-3 rounded-lg font-semibold mb-6 disabled:cursor-not-allowed disabled:opacity-70 ${
                     plan.buttonVariant === 'primary'
                       ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:opacity-90'
                       : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
-                  {isSubscriptionActive && currentPlan === plan.id && currentCycle === billingCycle
+                  {checkoutLoadingPlan === plan.id
+                    ? 'Starting Checkout...'
+                    : !canStartCheckout
+                    ? 'Only Owner Can Upgrade'
+                    : isSubscriptionActive && currentPlan === plan.id && currentCycle === billingCycle
                     ? 'Current Plan'
                     : plan.buttonText}
                 </button>

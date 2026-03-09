@@ -8,6 +8,13 @@ import {
   resendEmailOtp,
   verifyEmailOtp
 } from "../../store/slices/authSlice";
+import {
+  buildCheckoutParams,
+  getPendingCheckout,
+  normalizeCheckoutBillingCycle,
+  normalizeCheckoutPlan,
+  savePendingCheckout
+} from "../../utils/subscriptionCheckout";
 import countryData from "../../data/CountryData.json";
 import { 
   FileText, 
@@ -59,7 +66,38 @@ const SignUpPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
-  const queryVerificationEmail = new URLSearchParams(location.search).get('verifyEmail');
+  const signupParams = new URLSearchParams(location.search);
+  const queryVerificationEmail = signupParams.get('verifyEmail');
+  const isPaidFlow = signupParams.get('paid') === '1';
+  const queryCheckoutEmail = String(signupParams.get('checkoutEmail') || '').trim().toLowerCase();
+  const paymentReference = String(signupParams.get('reference') || '').trim();
+  const hasPaymentReference = Boolean(paymentReference);
+  const queryPlan = normalizeCheckoutPlan(signupParams.get('selectedPlan'));
+  const queryBillingCycle = normalizeCheckoutBillingCycle(signupParams.get('billingCycle'));
+  const pendingCheckout = getPendingCheckout();
+  const selectedPlan = queryPlan || pendingCheckout?.plan || '';
+  const selectedBillingCycle = queryPlan
+    ? queryBillingCycle
+    : normalizeCheckoutBillingCycle(pendingCheckout?.billingCycle);
+  const hasPendingCheckout = Boolean(selectedPlan);
+  const selectedPlanLabel = selectedPlan
+    ? `${selectedPlan.charAt(0).toUpperCase()}${selectedPlan.slice(1)}`
+    : '';
+  const loginCheckoutParams = buildCheckoutParams({
+    plan: selectedPlan,
+    billingCycle: selectedBillingCycle,
+    checkout: hasPendingCheckout && !isPaidFlow && !hasPaymentReference
+  });
+  if (isPaidFlow) {
+    loginCheckoutParams.set('paid', '1');
+  }
+  if (queryCheckoutEmail) {
+    loginCheckoutParams.set('checkoutEmail', queryCheckoutEmail);
+  }
+  if (hasPaymentReference) {
+    loginCheckoutParams.set('reference', paymentReference);
+  }
+  const loginPath = loginCheckoutParams.toString() ? `/login?${loginCheckoutParams.toString()}` : '/login';
   
   const { loading, error: apiError, pendingVerification } = useSelector((state) => state.auth);
   const apiErrorMessage =
@@ -67,6 +105,15 @@ const SignUpPage = () => {
       ? apiError
       : (apiError && typeof apiError.message === 'string' ? apiError.message : '');
   const hasExistingAccountError = apiErrorMessage.toLowerCase().includes('already exists');
+
+  useEffect(() => {
+    if (!queryPlan) return;
+    savePendingCheckout({
+      plan: queryPlan,
+      billingCycle: queryBillingCycle,
+      source: 'landing'
+    });
+  }, [queryPlan, queryBillingCycle]);
 
   useEffect(() => {
     if (pendingVerification?.email) {
@@ -83,9 +130,14 @@ const SignUpPage = () => {
   }, [queryVerificationEmail]);
 
   useEffect(() => {
+    if (!queryCheckoutEmail) return;
+    setFormData((prev) => (prev.email ? prev : { ...prev, email: queryCheckoutEmail }));
+  }, [queryCheckoutEmail]);
+
+  useEffect(() => {
     if (!otpVerified) return undefined;
     if (redirectSeconds <= 0) {
-      navigate('/login');
+      navigate(loginPath);
       return undefined;
     }
 
@@ -94,7 +146,7 @@ const SignUpPage = () => {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [otpVerified, redirectSeconds, navigate]);
+  }, [otpVerified, redirectSeconds, navigate, loginPath]);
 
   // Auto-populate currency when country is selected
   useEffect(() => {
@@ -215,9 +267,12 @@ const SignUpPage = () => {
           businessName: formData.businessName.trim(),
           country: formData.country,
           currencyCode: formData.currencyCode,
-          // Only these fields are expected by backend register function
-          // Remove other fields that backend doesn't accept
+          // Backend supports optional paymentReference for paid landing signups
         };
+
+        if (paymentReference) {
+          userData.paymentReference = paymentReference;
+        }
         
         console.log('Submitting registration to backend:', userData);
         
@@ -385,7 +440,7 @@ const SignUpPage = () => {
               >
                 Back to signup
               </button>
-              <Link to="/login" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium">
+              <Link to={loginPath} className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium">
                 Go to login
               </Link>
             </div>
@@ -515,7 +570,7 @@ const SignUpPage = () => {
                     </button>
                     {hasExistingAccountError && (
                       <Link 
-                        to="/login" 
+                        to={loginPath} 
                         className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium"
                         onClick={() => dispatch(clearError())}
                       >
@@ -534,9 +589,30 @@ const SignUpPage = () => {
             </h1>
             <p className="mt-2 text-slate-600 dark:text-slate-300">
               {currentStep === 1 
-                ? "Start your 30-day free trial. No credit card required." 
+                ? (isPaidFlow
+                  ? "Your payment was successful. Finish creating your account."
+                  : "Start your 30-day free trial. No credit card required.")
                 : "Tell us about your business to get started"}
             </p>
+            {isPaidFlow && (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-left dark:border-emerald-800 dark:bg-emerald-950/35">
+                <p className="text-sm text-emerald-800 dark:text-emerald-200">
+                  Payment received. Complete signup to continue with your selected plan.
+                </p>
+                {paymentReference && (
+                  <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+                    Ref: {paymentReference}
+                  </p>
+                )}
+              </div>
+            )}
+            {hasPendingCheckout && (
+              <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-left dark:border-cyan-800 dark:bg-cyan-950/35">
+                <p className="text-sm text-cyan-800 dark:text-cyan-200">
+                  Selected plan: <strong>{selectedPlanLabel}</strong> ({selectedBillingCycle}). We will keep this selection after signup.
+                </p>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -970,7 +1046,7 @@ const SignUpPage = () => {
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Already have an account?{" "}
               <Link
-                to="/login"
+                to={loginPath}
                 className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
               >
                 Sign in
