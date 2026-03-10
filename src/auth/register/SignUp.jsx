@@ -758,7 +758,7 @@ const SignUpPage = () => {
                     <div className="relative">
                       <select
                         name="country"
-                        className={`w-full px-4 py-3 rounded-xl border ${
+                        className={`w-full pl-11 pr-4 py-3 rounded-xl border ${
                           errors.country ? "border-red-500" : "border-gray-300 dark:border-gray-700"
                         } focus:ring-4 focus:ring-primary-500/20 dark:focus:ring-primary-400/20 focus:border-primary-500 dark:focus:border-primary-400 focus:outline-none transition-all duration-200 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm dark:text-white`}
                         onChange={handleChange}
@@ -773,7 +773,7 @@ const SignUpPage = () => {
                           </option>
                         ))}
                       </select>
-                      <Globe className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Globe className="pointer-events-none absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     </div>
                     {errors.country && (
                       <p className="mt-1 text-sm text-red-500 dark:text-red-400">{errors.country}</p>
