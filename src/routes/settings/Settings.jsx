@@ -24,6 +24,11 @@ import IntegrationsSettings from '../../components/settings/IntegrationsSettings
 import AuditLogSettings from '../../components/settings/AuditLogSettings';
 import SecuritySettings from '../../components/settings/SecuritySettings';
 import { useTheme } from '../../context/ThemeContext';
+import { useAccount } from '../../context/AccountContext';
+import api from '../../services/api';
+import { fetchSettings } from '../../services/settingsService';
+import { fetchDocuments } from '../../services/documentService';
+import { normalizePlanId } from '../../utils/subscription';
 
 const SETTINGS_SECTIONS = [
   { id: 'account', label: 'Account', icon: User },
@@ -39,9 +44,47 @@ const SETTINGS_SECTIONS = [
 ];
 
 const SETTINGS_SECTION_IDS = new Set(SETTINGS_SECTIONS.map((section) => section.id));
+const MB = 1024 * 1024;
+const GB = 1024 * MB;
+const STORAGE_LIMIT_BY_PLAN = {
+  starter: 250 * MB,
+  professional: 5 * GB,
+  enterprise: 50 * GB
+};
+
+const APP_VERSION_RAW = String(import.meta.env.VITE_APP_VERSION || '1').trim() || '1';
+const APP_VERSION = APP_VERSION_RAW.toLowerCase().startsWith('v') ? APP_VERSION_RAW : `v${APP_VERSION_RAW}`;
+
+const formatReadableDate = (value) => {
+  if (!value) return 'Not available';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Not available';
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+};
+
+const formatFileSize = (bytes = 0) => {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value < 0) return '0 B';
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  if (value < 1024 * 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(value / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
+
+const toTimestamp = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  const time = parsed.getTime();
+  return Number.isFinite(time) ? time : null;
+};
 
 const Settings = () => {
   const { isDarkMode, toggleTheme, setTheme } = useTheme();
+  const { accountInfo } = useAccount();
   const location = useLocation();
   const authUser = useSelector((state) => state.auth?.user);
   const normalizedRole = String(authUser?.role || '')
@@ -50,6 +93,10 @@ const Settings = () => {
     .replace(/[\s-]+/g, '_');
   const canManageAdvancedSettings = ['admin', 'super_admin'].includes(normalizedRole);
   const [activeSection, setActiveSection] = useState('account');
+  const [systemInfoLoading, setSystemInfoLoading] = useState(true);
+  const [systemLastUpdated, setSystemLastUpdated] = useState(null);
+  const [systemStorageUsedBytes, setSystemStorageUsedBytes] = useState(null);
+  const [systemStorageLimitBytes, setSystemStorageLimitBytes] = useState(STORAGE_LIMIT_BY_PLAN.starter);
   const visibleSections = useMemo(
     () => SETTINGS_SECTIONS.filter((section) => !section.adminOnly || canManageAdvancedSettings),
     [canManageAdvancedSettings]
@@ -74,6 +121,85 @@ const Settings = () => {
       setActiveSection(visibleSections[0]?.id || 'account');
     }
   }, [activeSection, visibleSectionIds, visibleSections]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadSystemInfo = async () => {
+      setSystemInfoLoading(true);
+      try {
+        const [businessResult, settingsResult, documentsResult] = await Promise.allSettled([
+          api.get('/business'),
+          fetchSettings(),
+          fetchDocuments()
+        ]);
+
+        if (!isActive) return;
+
+        const business = businessResult.status === 'fulfilled'
+          ? businessResult.value?.data?.data || {}
+          : {};
+        const settings = settingsResult.status === 'fulfilled' ? settingsResult.value || {} : {};
+        const documents = documentsResult.status === 'fulfilled' ? documentsResult.value || [] : [];
+
+        let planId = normalizePlanId(business?.subscription?.plan || accountInfo?.plan);
+        const subscriptionStatus = String(
+          business?.subscription?.status || accountInfo?.subscriptionStatus || 'active'
+        ).toLowerCase();
+        if (subscriptionStatus === 'expired') {
+          planId = 'starter';
+        }
+        const storageLimit = STORAGE_LIMIT_BY_PLAN[planId] || STORAGE_LIMIT_BY_PLAN.starter;
+        setSystemStorageLimitBytes(storageLimit);
+
+        const backendStorageCandidates = [
+          business?.storage?.usedBytes,
+          business?.storageUsedBytes,
+          settings?.storage?.usedBytes,
+          settings?.storageUsedBytes
+        ];
+        const backendStorageUsed = backendStorageCandidates
+          .map((candidate) => Number(candidate))
+          .find((candidate) => Number.isFinite(candidate) && candidate >= 0);
+
+        const documentStorageUsed = Array.isArray(documents)
+          ? documents.reduce((total, doc) => total + (Number(doc?.size) || 0), 0)
+          : null;
+
+        if (Number.isFinite(backendStorageUsed)) {
+          setSystemStorageUsedBytes(backendStorageUsed);
+        } else if (Number.isFinite(documentStorageUsed)) {
+          setSystemStorageUsedBytes(documentStorageUsed);
+        } else {
+          setSystemStorageUsedBytes(null);
+        }
+
+        const latestTimestamp = [
+          business?.updatedAt,
+          business?.subscription?.updatedAt,
+          settings?.updatedAt,
+          settings?.backup?.lastBackup,
+          authUser?.updatedAt,
+          authUser?.createdAt
+        ]
+          .map(toTimestamp)
+          .filter((value) => Number.isFinite(value))
+          .sort((a, b) => b - a)[0];
+
+        setSystemLastUpdated(latestTimestamp ? new Date(latestTimestamp).toISOString() : null);
+      } finally {
+        if (isActive) {
+          setSystemInfoLoading(false);
+        }
+      }
+    };
+
+    void loadSystemInfo();
+
+    return () => {
+      isActive = false;
+    };
+  }, [accountInfo?.plan, accountInfo?.subscriptionStatus, authUser?.updatedAt, authUser?.createdAt]);
 
   const renderSection = () => {
     switch (activeSection) {
@@ -306,7 +432,7 @@ const Settings = () => {
               <div className={`font-medium ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                Ledgerly v2.4.1
+                Ledgerly {APP_VERSION}
               </div>
             </div>
             <div>
@@ -318,7 +444,7 @@ const Settings = () => {
               <div className={`font-medium ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                Dec 15, 2024
+                {systemInfoLoading ? 'Loading...' : formatReadableDate(systemLastUpdated)}
               </div>
             </div>
             <div>
@@ -330,7 +456,11 @@ const Settings = () => {
               <div className={`font-medium ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                245 MB / 5 GB
+                {systemInfoLoading
+                  ? 'Loading...'
+                  : systemStorageUsedBytes === null
+                    ? 'Not available'
+                    : `${formatFileSize(systemStorageUsedBytes)} / ${formatFileSize(systemStorageLimitBytes)}`}
               </div>
             </div>
           </div>
