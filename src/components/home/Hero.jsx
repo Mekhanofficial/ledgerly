@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle, BarChart3, DollarSign, Shield, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -12,22 +11,10 @@ const Hero = () => {
   ];
 
   return (
-    <motion.section
-      className="pt-20 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-[#f5f7ff] to-[#eef2ff] dark:from-slate-950 dark:to-slate-900"
-      initial={{ opacity: 0 }}
-      whileInView={{ opacity: 1 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.5 }}
-    >
+    <section className="pt-20 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-[#f5f7ff] to-[#eef2ff] dark:from-slate-950 dark:to-slate-900">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row items-center gap-12">
-          <motion.div
-            className="lg:w-1/2"
-            initial={{ opacity: 0, x: -24 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, amount: 0.25 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          >
+          <div className="lg:w-1/2">
             <div className="inline-flex items-center px-4 py-2 rounded-full bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-200 text-sm font-medium mb-6">
               <CheckCircle className="w-4 h-4 mr-2" />
               Trusted by 10,000+ businesses worldwide
@@ -48,13 +35,9 @@ const Hero = () => {
 
             <div className="space-y-4 mb-8">
               {benefits.map((benefit, index) => (
-                <motion.div
+                <div
                   key={index}
                   className="flex items-center"
-                  initial={{ opacity: 0, y: 10 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.4 }}
-                  transition={{ duration: 0.35, delay: index * 0.06 }}
                 >
                   <div className="w-8 h-8 rounded-full bg-cyan-50 dark:bg-cyan-500/15 flex items-center justify-center mr-3">
                     <div className="text-cyan-700 dark:text-cyan-200">
@@ -62,7 +45,7 @@ const Hero = () => {
                     </div>
                   </div>
                   <span className="text-slate-700 dark:text-slate-300 font-medium">{benefit.text}</span>
-                </motion.div>
+                </div>
               ))}
             </div>
 
@@ -79,21 +62,11 @@ const Hero = () => {
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-6">
               No credit card required | Cancel anytime | 24/7 customer support
             </p>
-          </motion.div>
+          </div>
 
-          <motion.div
-            className="lg:w-1/2 relative"
-            initial={{ opacity: 0, x: 24 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, amount: 0.25 }}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          >
+          <div className="lg:w-1/2 relative">
             <div className="relative">
-              <motion.div
-                className="bg-gradient-to-br from-white to-cyan-50/40 dark:from-slate-800 dark:to-cyan-500/10 rounded-2xl p-6 shadow-2xl shadow-cyan-500/10 dark:shadow-cyan-400/10 border border-cyan-100/70 dark:border-cyan-500/20 animate-float"
-                whileHover={{ y: -4, scale: 1.01 }}
-                transition={{ duration: 0.25 }}
-              >
+              <div className="bg-gradient-to-br from-white to-cyan-50/40 dark:from-slate-800 dark:to-cyan-500/10 rounded-2xl p-6 shadow-2xl shadow-cyan-500/10 dark:shadow-cyan-400/10 border border-cyan-100/70 dark:border-cyan-500/20 animate-float">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center space-x-3">
                     <div className="w-3 h-3 rounded-full bg-red-400"></div>
@@ -122,14 +95,10 @@ const Hero = () => {
                     </div>
                     <div className="flex items-end space-x-1 h-16">
                       {[30, 45, 60, 75, 90, 80, 70].map((height, idx) => (
-                        <motion.div
+                        <div
                           key={idx}
                           className="w-6 bg-gradient-to-t from-cyan-600 to-blue-500 dark:from-cyan-500 dark:to-blue-400 rounded-t-lg"
                           style={{ height: `${height}%` }}
-                          initial={{ scaleY: 0, originY: 1 }}
-                          whileInView={{ scaleY: 1 }}
-                          viewport={{ once: true, amount: 0.4 }}
-                          transition={{ duration: 0.35, delay: idx * 0.05 }}
                         />
                       ))}
                     </div>
@@ -143,13 +112,9 @@ const Hero = () => {
                         { name: 'Tech Solutions', amount: '$1,800', status: 'Pending' },
                         { name: 'Design Studio', amount: '$3,200', status: 'Paid' }
                       ].map((invoice, idx) => (
-                        <motion.div
+                        <div
                           key={idx}
                           className="flex justify-between items-center py-2"
-                          initial={{ opacity: 0, x: 10 }}
-                          whileInView={{ opacity: 1, x: 0 }}
-                          viewport={{ once: true, amount: 0.6 }}
-                          transition={{ duration: 0.3, delay: idx * 0.06 }}
                         >
                           <div className="font-medium text-slate-900 dark:text-white">{invoice.name}</div>
                           <div className="flex items-center space-x-3">
@@ -162,20 +127,20 @@ const Hero = () => {
                               {invoice.status}
                             </span>
                           </div>
-                        </motion.div>
+                        </div>
                       ))}
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </div>
 
               <div className="absolute -top-6 -left-6 w-24 h-24 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 dark:from-cyan-400/20 dark:to-blue-400/20 rounded-3xl blur-xl"></div>
               <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 dark:from-blue-400/10 dark:to-cyan-400/10 rounded-3xl blur-xl"></div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
-    </motion.section>
+    </section>
   );
 };
 

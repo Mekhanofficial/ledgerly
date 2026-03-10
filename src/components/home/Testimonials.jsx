@@ -92,7 +92,6 @@ const Testimonials = () => {
 
   return (
     <section
-      id="testimonials"
       className="py-14 md:py-16 bg-gradient-to-b from-[#f5f7ff] to-[#eef2ff] dark:from-slate-950 dark:to-slate-900"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}

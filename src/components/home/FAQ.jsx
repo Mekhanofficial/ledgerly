@@ -166,7 +166,6 @@ const FAQSection = () => {
 
   return (
     <MotionSection
-      id="faq"
       className="relative bg-gradient-to-b from-[#f5f7ff] to-[#eef2ff] py-16 dark:from-slate-950 dark:to-slate-900 md:py-20"
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}

@@ -186,7 +186,6 @@ const Pricing = () => {
 
   return (
     <motion.section
-      id="pricing"
       className="relative py-20 bg-gradient-to-b from-[#f5f7ff] to-[#eef2ff] dark:from-slate-950 dark:to-slate-900"
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}
