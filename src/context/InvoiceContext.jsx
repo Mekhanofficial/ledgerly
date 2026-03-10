@@ -37,8 +37,6 @@ import { mapCustomerFromApi, buildCustomerPayload } from '../utils/customerAdapt
 import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter';
 import { recurringStorage } from '../utils/recurringStorage';
 import { formatCurrency } from '../utils/currency';
-import { buildInvoiceEmailPdfAttachment } from '../utils/invoiceEmailPdf';
-import { buildReceiptEmailPdfAttachment } from '../utils/receiptEmailPdf';
 
 const dedupeTemplates = (templates = []) => {
   const map = new Map();
@@ -618,6 +616,7 @@ export const InvoiceProvider = ({ children }) => {
         const resolvedTemplateStyle = normalizedEmailOptions?.templateStyle || invoiceForPdf?.templateStyle || 'standard';
         if (invoiceForPdf) {
           try {
+            const { buildInvoiceEmailPdfAttachment } = await import('../utils/invoiceEmailPdf');
             const pdfAttachment = await buildInvoiceEmailPdfAttachment({
               invoiceData: {
                 ...invoiceForPdf,
@@ -696,6 +695,7 @@ export const InvoiceProvider = ({ children }) => {
       let receiptPdfAttachment = null;
       if (invoice) {
         try {
+          const { buildReceiptEmailPdfAttachment } = await import('../utils/receiptEmailPdf');
           const normalizedItems = Array.isArray(invoice.lineItems) ? invoice.lineItems : [];
           const subtotal = Number(invoice.subtotal)
             || normalizedItems.reduce(

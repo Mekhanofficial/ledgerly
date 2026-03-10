@@ -1,28 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 
-// Import components
-import HomePage from './routes/home'
-import Dashboard from './routes/dashboard/Dashboard'
-import InvoiceList from './routes/invoices/InvoiceList'
-import CreateInvoice from './routes/invoices/CreateInvoice'
-import RecurringInvoices from './routes/invoices/RecurringInvoices'
-import InvoiceTemplates from './routes/invoices/Templates'
-import Receipts from './routes/receipts/Receipts'
-import Inventory from './routes/inventory/Inventory'
-import Customers from './routes/customers/Customers'
-import Products from './routes/inventory/Products'
-import Categories from './routes/inventory/Categories'
-import StockAdjustments from './routes/inventory/StockAdjustments'
-import Suppliers from './routes/inventory/Suppliers'
-import Reports from './routes/reports/Reports'
-import Payments from './routes/payments/Payments'
-import Settings from './routes/settings/Settings'
-import Notifications from './routes/notifications/Notifications'
-import Support from './routes/support/Support'
-import LiveChatWrapper from './components/livechat/LiveChatWrapper'
-import SuperAdmin from './routes/super-admin/SuperAdmin'
 import RequireAuth from './components/auth/RequireAuth'
 
 // Import context providers
@@ -34,31 +13,52 @@ import { PaymentProvider } from './context/PaymentContext'
 import { InventoryProvider } from './context/InventoryContext'
 import { UserProvider } from './context/UserContext'
 import { AccountProvider } from './context/AccountContext'
-import Drafts from './routes/invoices/Draft'
-import EditInvoice from './routes/invoices/EditInvoice'
-import ViewInvoice from './routes/invoices/ViewInvoice'
-import CustomerProfile from './routes/customers/CustomerProfile'
-import LoginPage from './auth/login/Login'
-import SignupPage from './auth/register/SignUp'
-import ProcessPayment from './routes/payments/ProcessPayment'
-import PaymentCallback from './routes/payments/PaymentCallback'
-import ForgotPassword from './auth/forgot-password/ForgotPassword'
-import ResetPassword from './auth/reset-password/ResetPassword'
-import NewCategory from './routes/inventory/NewCategory'
-import NewProduct from './routes/inventory/NewProduct'
-import EditProduct from './routes/inventory/EditProduct'
-import NewSupplier from './routes/inventory/NewSupplier'
-import NewStockAdjustment from './routes/inventory/NewStockAdjustment'
-import AcceptInvite from './routes/team/AcceptInvite'
-import Team from './routes/team/Team'
-import Documents from './routes/documents/Documents'
-import SearchPage from './routes/search/Search'
-import PricingPage from './routes/payments/Pricing'
-import PublicInvoicePay from './routes/public/PublicInvoicePay'
-import PublicInvoicePaymentResult from './routes/public/PublicInvoicePaymentResult'
-import ContactPage from './routes/contact/Contact'
 import { resolveAuthUser } from './utils/userDisplay'
 import RouteLoadingSpinner from './components/ui/RouteLoadingSpinner'
+
+const HomePage = lazy(() => import('./routes/home'))
+const Dashboard = lazy(() => import('./routes/dashboard/Dashboard'))
+const InvoiceList = lazy(() => import('./routes/invoices/InvoiceList'))
+const CreateInvoice = lazy(() => import('./routes/invoices/CreateInvoice'))
+const RecurringInvoices = lazy(() => import('./routes/invoices/RecurringInvoices'))
+const InvoiceTemplates = lazy(() => import('./routes/invoices/Templates'))
+const Receipts = lazy(() => import('./routes/receipts/Receipts'))
+const Inventory = lazy(() => import('./routes/inventory/Inventory'))
+const Customers = lazy(() => import('./routes/customers/Customers'))
+const Products = lazy(() => import('./routes/inventory/Products'))
+const Categories = lazy(() => import('./routes/inventory/Categories'))
+const StockAdjustments = lazy(() => import('./routes/inventory/StockAdjustments'))
+const Suppliers = lazy(() => import('./routes/inventory/Suppliers'))
+const Reports = lazy(() => import('./routes/reports/Reports'))
+const Payments = lazy(() => import('./routes/payments/Payments'))
+const Settings = lazy(() => import('./routes/settings/Settings'))
+const Notifications = lazy(() => import('./routes/notifications/Notifications'))
+const Support = lazy(() => import('./routes/support/Support'))
+const LiveChatWrapper = lazy(() => import('./components/livechat/LiveChatWrapper'))
+const SuperAdmin = lazy(() => import('./routes/super-admin/SuperAdmin'))
+const Drafts = lazy(() => import('./routes/invoices/Draft'))
+const EditInvoice = lazy(() => import('./routes/invoices/EditInvoice'))
+const ViewInvoice = lazy(() => import('./routes/invoices/ViewInvoice'))
+const CustomerProfile = lazy(() => import('./routes/customers/CustomerProfile'))
+const LoginPage = lazy(() => import('./auth/login/Login'))
+const SignupPage = lazy(() => import('./auth/register/SignUp'))
+const ProcessPayment = lazy(() => import('./routes/payments/ProcessPayment'))
+const PaymentCallback = lazy(() => import('./routes/payments/PaymentCallback'))
+const ForgotPassword = lazy(() => import('./auth/forgot-password/ForgotPassword'))
+const ResetPassword = lazy(() => import('./auth/reset-password/ResetPassword'))
+const NewCategory = lazy(() => import('./routes/inventory/NewCategory'))
+const NewProduct = lazy(() => import('./routes/inventory/NewProduct'))
+const EditProduct = lazy(() => import('./routes/inventory/EditProduct'))
+const NewSupplier = lazy(() => import('./routes/inventory/NewSupplier'))
+const NewStockAdjustment = lazy(() => import('./routes/inventory/NewStockAdjustment'))
+const AcceptInvite = lazy(() => import('./routes/team/AcceptInvite'))
+const Team = lazy(() => import('./routes/team/Team'))
+const Documents = lazy(() => import('./routes/documents/Documents'))
+const SearchPage = lazy(() => import('./routes/search/Search'))
+const PricingPage = lazy(() => import('./routes/payments/Pricing'))
+const PublicInvoicePay = lazy(() => import('./routes/public/PublicInvoicePay'))
+const PublicInvoicePaymentResult = lazy(() => import('./routes/public/PublicInvoicePaymentResult'))
+const ContactPage = lazy(() => import('./routes/contact/Contact'))
 
 const AppRoutes = ({
   appRoles,
@@ -98,7 +98,8 @@ const AppRoutes = ({
   return (
     <>
       <RouteLoadingSpinner show={showRouteSpinner} />
-      <Routes location={location}>
+      <Suspense fallback={<RouteLoadingSpinner show />}>
+        <Routes location={location}>
           {/* Public Routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -399,7 +400,8 @@ const AppRoutes = ({
 
           {/* 404 Page (optional) */}
           {/* <Route path="*" element={<NotFound />} /> */}
-      </Routes>
+        </Routes>
+      </Suspense>
     </>
   )
 }
@@ -435,7 +437,9 @@ const App = () => {
                   <InvoiceProvider>
                     <PaymentProvider>
                       {/* Live Chat Component - Positioned globally */}
-                      <LiveChatWrapper />
+                      <Suspense fallback={null}>
+                        <LiveChatWrapper />
+                      </Suspense>
                       <AppRoutes
                         appRoles={appRoles}
                         businessRoles={businessRoles}

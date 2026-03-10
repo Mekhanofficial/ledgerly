@@ -253,7 +253,7 @@ const Products = () => {
               isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
             }`}>
               {product.image ? (
-                <img 
+                <img loading="lazy" decoding="async" 
                   src={product.image} 
                   alt={product.name}
                   className="h-full w-full object-cover rounded-lg"
@@ -723,7 +723,7 @@ const Products = () => {
                               isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
                             }`}>
                               {product.image ? (
-                                <img 
+                                <img loading="lazy" decoding="async" 
                                   src={product.image} 
                                   alt={product.name}
                                   className="h-full w-full object-cover rounded-lg"
@@ -930,4 +930,5 @@ const Products = () => {
 };
 
 export default Products;
+
 

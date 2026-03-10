@@ -170,7 +170,7 @@ const AccountSettings = () => {
             isDarkMode ? 'border-gray-600' : 'border-gray-200'
           }`}>
             {hasAvatar ? (
-              <img
+              <img loading="lazy" decoding="async"
                 src={resolvedAvatarUrl}
                 alt="Profile photo"
                 className="w-full h-full object-cover"
@@ -521,3 +521,4 @@ const AccountSettings = () => {
 };
 
 export default AccountSettings;
+

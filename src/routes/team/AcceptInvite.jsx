@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
-import logo from '../../assets/icons/ledgerly-logo.png';
+import logo from '../../assets/icons/ledgerly-logo.webp';
 
 const AcceptInvite = () => {
   const { token } = useParams();
@@ -44,7 +44,7 @@ const AcceptInvite = () => {
       <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-8">
         <div className="text-center mb-6">
           <div className="w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-800 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary-500/20">
-            <img src={logo} alt="Ledgerly logo" className="w-8 h-8 object-contain" />
+            <img loading="eager" decoding="async" src={logo} alt="Ledgerly logo" className="w-8 h-8 object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Accept Team Invite</h1>
           <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
@@ -123,3 +123,5 @@ const AcceptInvite = () => {
 };
 
 export default AcceptInvite;
+
+

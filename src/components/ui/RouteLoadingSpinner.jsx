@@ -1,5 +1,5 @@
 import React from 'react'
-import logo from '../../assets/icons/ledgerly-logo.png'
+import logo from '../../assets/icons/ledgerly-logo.webp'
 
 const RouteLoadingSpinner = ({ show }) => {
   if (!show) return null
@@ -10,7 +10,7 @@ const RouteLoadingSpinner = ({ show }) => {
       <div className="relative flex h-16 w-16 items-center justify-center">
         <span className="absolute h-16 w-16 rounded-full border-2 border-slate-300/80 dark:border-slate-700/80" />
         <span className="absolute h-16 w-16 rounded-full border-2 border-transparent border-t-cyan-500 dark:border-t-cyan-300 animate-spin" />
-        <img
+        <img loading="eager" decoding="sync"
           src={logo}
           alt="Ledgerly logo"
           className="h-9 w-9 rounded-lg object-contain shadow-sm"
@@ -21,3 +21,4 @@ const RouteLoadingSpinner = ({ show }) => {
 }
 
 export default RouteLoadingSpinner
+

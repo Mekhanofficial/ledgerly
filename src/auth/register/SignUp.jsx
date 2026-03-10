@@ -32,7 +32,7 @@ import {
   Shield,
   TrendingUp
 } from 'lucide-react';
-import logo from '../../assets/icons/ledgerly-logo.png';
+import logo from '../../assets/icons/ledgerly-logo.webp';
 
 const SignUpPage = () => {
   const [formData, setFormData] = useState({
@@ -497,7 +497,7 @@ const SignUpPage = () => {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.24),transparent_42%),radial-gradient(circle_at_85%_70%,rgba(255,255,255,0.12),transparent_45%)]" />
           <div className="relative">
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm">
-              <img src={logo} alt="Ledgerly logo" className="h-9 w-9 object-contain" />
+              <img loading="eager" decoding="async" src={logo} alt="Ledgerly logo" className="h-9 w-9 object-contain" />
             </div>
             <h1 className="mb-2 text-4xl font-bold">Invoicing & Inventory</h1>
             <p className="text-lg text-cyan-50/90">
@@ -1069,3 +1069,5 @@ const SignUpPage = () => {
 };
 
 export default SignUpPage;
+
+

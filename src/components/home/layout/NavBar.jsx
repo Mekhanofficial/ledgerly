@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
-import logo from '../../../assets/icons/ledgerly-logo.png';
+import logo from '../../../assets/icons/ledgerly-logo.webp';
 
 const NavBar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -27,7 +27,7 @@ const NavBar = () => {
           <Link to="/" className="flex items-center space-x-3 group">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl blur opacity-70 group-hover:opacity-100 transition-opacity"></div>
-              <img
+              <img loading="eager" decoding="async"
                 src={logo}
                 alt="Ledgerly logo"
                 className="relative w-10 h-10 rounded-xl transform group-hover:scale-105 transition-transform duration-300 object-contain bg-white"
@@ -70,6 +70,8 @@ const NavBar = () => {
           <motion.button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="md:hidden p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={isMenuOpen}
             whileTap={{ scale: 0.95 }}
           >
             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -123,3 +125,5 @@ const NavBar = () => {
 };
 
 export default NavBar;
+
+

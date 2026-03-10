@@ -1,5 +1,4 @@
 import templateStorage from './templateStorage';
-import { buildInvoiceEmailPdfAttachment } from './invoiceEmailPdf';
 
 const sanitizeFileName = (value, fallback = 'invoice.pdf') => {
   const trimmed = String(value || '')
@@ -78,6 +77,7 @@ export const downloadInvoicePdfWithTemplate = async ({
   templateId = 'standard',
   companyData = {}
 } = {}) => {
+  const { buildInvoiceEmailPdfAttachment } = await import('./invoiceEmailPdf');
   const resolvedTemplate = resolveTemplateId(templateId, invoice);
   const invoiceRef = invoice?.invoiceNumber || invoice?.number || invoice?.id || invoice?._id || 'invoice';
   const fallbackFileName = sanitizeFileName(`invoice-${invoiceRef}.pdf`);

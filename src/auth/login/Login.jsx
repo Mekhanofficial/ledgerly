@@ -22,7 +22,7 @@ import {
   BarChart3,
   Users
 } from 'lucide-react';
-import logo from '../../assets/icons/ledgerly-logo.png';
+import logo from '../../assets/icons/ledgerly-logo.webp';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -152,7 +152,7 @@ const Login = () => {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.24),transparent_42%),radial-gradient(circle_at_85%_70%,rgba(255,255,255,0.12),transparent_45%)]" />
           <div className="relative">
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm">
-              <img src={logo} alt="Ledgerly logo" className="h-9 w-9 object-contain" />
+              <img loading="eager" decoding="async" src={logo} alt="Ledgerly logo" className="h-9 w-9 object-contain" />
             </div>
             <h1 className="mb-2 text-4xl font-bold">Invoicing & Inventory</h1>
             <p className="text-lg text-cyan-50/90">
@@ -212,7 +212,7 @@ const Login = () => {
         <div className="w-full bg-white/60 p-8 dark:bg-slate-950/30 lg:w-1/2 md:p-12">
           <div className="text-center mb-8">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-600 to-blue-700 shadow-lg shadow-cyan-500/30 lg:hidden">
-              <img src={logo} alt="Ledgerly logo" className="w-8 h-8 object-contain" />
+              <img loading="eager" decoding="async" src={logo} alt="Ledgerly logo" className="w-8 h-8 object-contain" />
             </div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Welcome Back</h1>
             <p className="mt-2 text-slate-600 dark:text-slate-300">
@@ -449,3 +449,5 @@ const Login = () => {
 };
 
 export default Login;
+
+

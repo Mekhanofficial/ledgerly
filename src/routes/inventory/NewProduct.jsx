@@ -414,7 +414,7 @@ const NewProduct = () => {
                   >
                     {formData.image ? (
                       <div className="flex items-center justify-center">
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={formData.image}
                           alt="Preview"
                           className="h-20 w-20 object-cover rounded-lg"
@@ -450,7 +450,7 @@ const NewProduct = () => {
             <div className={`flex items-start p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
               <div className={`w-16 h-16 rounded-lg flex items-center justify-center mr-4 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
                 {formData.image ? (
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={formData.image}
                     alt="Preview"
                     className="w-full h-full object-cover rounded-lg"
@@ -517,3 +517,4 @@ const NewProduct = () => {
 };
 
 export default NewProduct;
+

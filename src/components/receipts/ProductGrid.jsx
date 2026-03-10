@@ -325,7 +325,7 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
                         isDarkMode ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-gray-50'
                       }`}>
                         {product.image ? (
-                          <img
+                          <img loading="lazy" decoding="async"
                             src={product.image}
                             alt={product.name}
                             className="h-full w-full object-cover"
@@ -463,3 +463,4 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
 };
 
 export default ProductGrid;
+

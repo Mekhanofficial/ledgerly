@@ -461,7 +461,7 @@ const EditProduct = () => {
                   >
                     {formData.image ? (
                       <div className="flex flex-col items-center justify-center">
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={formData.image}
                           alt="Preview"
                           className="h-32 w-32 object-cover rounded-lg mb-2"
@@ -506,7 +506,7 @@ const EditProduct = () => {
                 isDarkMode ? 'bg-gray-600' : 'bg-gray-200'
               }`}>
                 {formData.image ? (
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={formData.image}
                     alt="Preview"
                     className="w-full h-full object-cover rounded-lg"
@@ -573,3 +573,4 @@ const EditProduct = () => {
 };
 
 export default EditProduct;
+

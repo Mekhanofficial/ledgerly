@@ -24,7 +24,7 @@ import { useSelector } from 'react-redux';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNotifications } from '../../../context/NotificationContext'; // Add this import
 import { getUserDisplayName, getUserInitials, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
-import logo from '../../../assets/icons/ledgerly-logo.png';
+import logo from '../../../assets/icons/ledgerly-logo.webp';
 
 const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
@@ -268,7 +268,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         {/* Logo */}
         <div className="flex items-center h-16 px-4">
           <div className="w-10 h-10 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-            <img src={logo} alt="Ledgerly" className="w-6 h-6 object-contain" />
+            <img loading="eager" decoding="async" src={logo} alt="Ledgerly" className="w-6 h-6 object-contain" />
           </div>
         </div>
 
@@ -327,12 +327,13 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         <div className="flex items-center justify-between h-16 px-4 border-b border-slate-200/80 dark:border-slate-800/80">
           <div className="flex items-center">
             <div className="w-10 h-10 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl flex items-center justify-center">
-              <img src={logo} alt="Ledgerly" className="w-6 h-6 object-contain" />
+              <img loading="eager" decoding="async" src={logo} alt="Ledgerly" className="w-6 h-6 object-contain" />
             </div>
           </div>
           <button
             onClick={onMobileToggle}
             className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+            aria-label="Close sidebar"
           >
             <ChevronLeft className="w-5 h-5 text-gray-700 dark:text-gray-300" />
           </button>
@@ -372,3 +373,5 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
 };
 
 export default SideBar;
+
+

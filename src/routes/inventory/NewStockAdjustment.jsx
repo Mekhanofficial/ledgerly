@@ -209,7 +209,7 @@ const NewStockAdjustment = () => {
                               isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
                             }`}>
                               {product.image ? (
-                                <img 
+                                <img loading="lazy" decoding="async" 
                                   src={product.image} 
                                   alt={product.name}
                                   className="w-full h-full object-cover rounded-lg"
@@ -241,7 +241,7 @@ const NewStockAdjustment = () => {
                         isDarkMode ? 'bg-gray-600' : 'bg-gray-200'
                       }`}>
                         {selectedProduct.image ? (
-                          <img 
+                          <img loading="lazy" decoding="async" 
                             src={selectedProduct.image} 
                             alt={selectedProduct.name}
                             className="w-full h-full object-cover rounded-lg"
@@ -514,3 +514,4 @@ const NewStockAdjustment = () => {
 };
 
 export default NewStockAdjustment;
+

@@ -135,7 +135,7 @@ const Testimonials = () => {
                   whileHover={{ y: -2 }}
                 >
                   <div className="flex items-center gap-3">
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={review.avatar}
                       alt={`${review.name} avatar`}
                       className="w-11 h-11 rounded-full object-cover"
@@ -178,7 +178,7 @@ const Testimonials = () => {
 
                   <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-700 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={activeReview.avatar}
                         alt={`${activeReview.name} avatar`}
                         className="w-12 h-12 rounded-full object-cover"
@@ -266,3 +266,4 @@ const Testimonials = () => {
 };
 
 export default Testimonials;
+

@@ -383,6 +383,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
               <button
                 onClick={() => setIsSearchOpen(false)}
                 className="absolute right-3 p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label="Close search"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -680,7 +681,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
               >
                 <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-slate-800">
                   {showAvatarImage ? (
-                    <img 
+                    <img loading="lazy" decoding="async" 
                       src={computedAvatarUrl}
                       alt="User avatar" 
                       className="w-full h-full object-cover"
@@ -702,7 +703,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                     <div className="flex items-center space-x-3 sm:space-x-4">
                         <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-slate-800">
                           {showAvatarImage ? (
-                            <img 
+                            <img loading="lazy" decoding="async" 
                               src={computedAvatarUrl}
                               alt="User avatar" 
                               className="w-full h-full object-cover"
@@ -788,3 +789,4 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
 };
 
 export default Navbar;
+

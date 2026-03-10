@@ -851,7 +851,7 @@ const CreateInvoice = () => {
                   <div style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 6px; border: 1px solid #e9ecef;">
                     <div style="font-weight: bold; color: #495057; margin-bottom: 8px; font-size: 13px;">${file.name}</div>
                     <div style="color: #6c757d; font-size: 12px; margin-bottom: 10px;">${(file.size / 1024).toFixed(1)} KB</div>
-                    <img src="${e.target.result}" style="max-width: 300px; max-height: 200px; border-radius: 4px; border: 1px solid #dee2e6;" />
+                    <img loading="lazy" decoding="async" src="${e.target.result}" style="max-width: 300px; max-height: 200px; border-radius: 4px; border: 1px solid #dee2e6;" />
                   </div>
                 `;
                 resolve();
@@ -2089,5 +2089,6 @@ const CreateInvoice = () => {
 };
 
 export default CreateInvoice;
+
 
 
