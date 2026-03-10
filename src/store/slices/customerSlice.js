@@ -3,10 +3,25 @@ import api from '../../services/api';
 
 const normalizeListPayload = (payload) => {
   if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.customers)) return payload.customers;
   if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.customers)) return payload.data.customers;
   if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.data?.items)) return payload.data.items;
   if (Array.isArray(payload?.items)) return payload.items;
   return [];
+};
+
+const normalizeCustomerPayload = (payload) => {
+  if (!payload || typeof payload !== 'object') return null;
+  if (payload._id || payload.id || payload.name || payload.email) return payload;
+  if (payload.customer && typeof payload.customer === 'object') {
+    return normalizeCustomerPayload(payload.customer);
+  }
+  if (payload.data && typeof payload.data === 'object') {
+    return normalizeCustomerPayload(payload.data);
+  }
+  return payload;
 };
 
 const fetchAllPages = async (path, params = {}, pageSize = 200) => {
@@ -187,7 +202,21 @@ const customerSlice = createSlice({
       })
       .addCase(createCustomer.fulfilled, (state, action) => {
         state.loading = false;
-        state.customers.unshift(action.payload);
+        const createdCustomer = normalizeCustomerPayload(action.payload);
+        if (!createdCustomer) return;
+
+        const createdId = String(createdCustomer._id || createdCustomer.id || '').trim();
+        const existingIndex = state.customers.findIndex((customer) => {
+          const customerId = String(customer?._id || customer?.id || '').trim();
+          return Boolean(customerId) && customerId === createdId;
+        });
+
+        if (existingIndex >= 0) {
+          state.customers[existingIndex] = createdCustomer;
+          return;
+        }
+
+        state.customers.unshift(createdCustomer);
         state.total += 1;
       })
       .addCase(createCustomer.rejected, (state, action) => {

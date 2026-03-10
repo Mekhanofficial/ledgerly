@@ -5,9 +5,10 @@ import RequireAuth from './components/auth/RequireAuth'
 import { ThemeProvider } from './context/ThemeContext'
 import { ToastProvider } from './context/ToastContext'
 import RouteLoadingSpinner from './components/ui/RouteLoadingSpinner'
+import HomePage from './routes/home'
 
+const ReduxLayout = lazy(() => import('./routes/ReduxLayout'))
 const AuthenticatedLayout = lazy(() => import('./routes/AuthenticatedLayout'))
-const HomePage = lazy(() => import('./routes/home'))
 const Dashboard = lazy(() => import('./routes/dashboard/Dashboard'))
 const InvoiceList = lazy(() => import('./routes/invoices/InvoiceList'))
 const CreateInvoice = lazy(() => import('./routes/invoices/CreateInvoice'))
@@ -91,11 +92,7 @@ const AppRoutes = ({
       <Suspense fallback={<RouteLoadingSpinner show />}>
         <Routes location={location}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
           <Route path="/contact" element={<ContactPage />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/team/accept-invite/:token" element={<AcceptInvite />} />
           <Route path="/invoice/pay/:slug" element={<PublicInvoicePay />} />
           <Route
@@ -107,7 +104,13 @@ const AppRoutes = ({
             element={<PublicInvoicePaymentResult mode="failed" />}
           />
 
-          <Route element={<AuthenticatedLayout />}>
+          <Route element={<ReduxLayout />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
+
+            <Route element={<AuthenticatedLayout />}>
             <Route
               path="/dashboard"
               element={
@@ -378,6 +381,7 @@ const AppRoutes = ({
                 </RequireAuth>
               }
             />
+            </Route>
           </Route>
         </Routes>
       </Suspense>

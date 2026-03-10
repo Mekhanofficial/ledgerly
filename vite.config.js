@@ -19,6 +19,21 @@ export default defineConfig(({ mode }) => {
           brotliSize: true
         })
     ].filter(Boolean),
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('/node_modules/lucide-react/')) {
+              return 'lucide-icons'
+            }
+            if (id.includes('/node_modules/framer-motion/')) {
+              return 'motion-vendor'
+            }
+            return undefined
+          }
+        }
+      }
+    },
     server: {
       proxy: {
         '/api/v1': {

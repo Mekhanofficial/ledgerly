@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import {
   ArrowRight,
   FileText,
@@ -14,6 +14,13 @@ import {
 } from 'lucide-react';
 
 const Footer = () => {
+  const socialLinks = [
+    { label: 'X (Twitter)', href: 'https://x.com', icon: Twitter },
+    { label: 'LinkedIn', href: 'https://www.linkedin.com', icon: Linkedin },
+    { label: 'Instagram', href: 'https://www.instagram.com', icon: Instagram },
+    { label: 'GitHub', href: 'https://github.com', icon: Github }
+  ];
+
   const footerLinks = {
     Company: ['About', 'Careers', 'Press', 'Partners', 'Contact', 'Security'],
     Product: ['Features', 'Pricing', 'API', 'Documentation', 'Changelog', 'Status'],
@@ -27,7 +34,7 @@ const Footer = () => {
   ];
 
   return (
-    <motion.footer
+    <Motion.footer
       className="relative bg-gradient-to-b from-[#f5f7ff] to-[#eef2ff] dark:from-slate-950 dark:to-slate-900 border-t border-slate-200/70 dark:border-slate-700/70"
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}
@@ -39,7 +46,7 @@ const Footer = () => {
         <div className="absolute -right-20 bottom-6 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
       </div>
 
-      <motion.div
+      <Motion.div
         className="mb-12 w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white"
         initial={{ opacity: 0, y: 18 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -70,7 +77,7 @@ const Footer = () => {
             <p className="mt-3 text-xs text-cyan-100/85">No credit card required. Start free forever.</p>
           </div>
         </div>
-      </motion.div>
+      </Motion.div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
@@ -112,7 +119,7 @@ const Footer = () => {
           <div className="lg:w-3/5">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 lg:gap-8">
               {Object.entries(footerLinks).map(([category, links], index) => (
-                <motion.div
+                <Motion.div
                   key={category}
                   initial={{ opacity: 0, y: 10 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -133,7 +140,7 @@ const Footer = () => {
                       </li>
                     ))}
                   </ul>
-                </motion.div>
+                </Motion.div>
               ))}
             </div>
           </div>
@@ -142,23 +149,28 @@ const Footer = () => {
         <div className="pt-8 border-t border-slate-200/80 dark:border-slate-700/80">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="text-slate-600 dark:text-slate-400 text-sm text-center md:text-left">
-              © {new Date().getFullYear()} Ledgerly, Inc. All rights reserved.
+              &copy; {new Date().getFullYear()} Ledgerly, Inc. All rights reserved.
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6">
               <div className="flex items-center space-x-4">
-                <a href="#" className="text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors">
-                  <Twitter className="w-5 h-5" />
-                </a>
-                <a href="#" className="text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors">
-                  <Linkedin className="w-5 h-5" />
-                </a>
-                <a href="#" className="text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors">
-                  <Instagram className="w-5 h-5" />
-                </a>
-                <a href="#" className="text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors">
-                  <Github className="w-5 h-5" />
-                </a>
+                {socialLinks.map((social) => {
+                  const Icon = social.icon;
+
+                  return (
+                    <a
+                      key={social.label}
+                      href={social.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={social.label}
+                      title={social.label}
+                      className="text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors"
+                    >
+                      <Icon className="w-5 h-5" />
+                    </a>
+                  );
+                })}
               </div>
 
               <div className="hidden md:flex items-center space-x-6 text-sm text-slate-600 dark:text-slate-400">
@@ -189,8 +201,9 @@ const Footer = () => {
           </div>
         </div>
       </div>
-    </motion.footer>
+    </Motion.footer>
   );
 };
 
 export default Footer;
+

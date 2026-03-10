@@ -7,7 +7,10 @@ import {
   clearPendingCheckout,
   getPendingCheckout,
   normalizeCheckoutBillingCycle,
+  normalizeCheckoutEmail,
+  normalizeCheckoutPaid,
   normalizeCheckoutPlan,
+  normalizeCheckoutReference,
   savePendingCheckout
 } from '../../utils/subscriptionCheckout';
 import { 
@@ -37,13 +40,23 @@ const Login = () => {
   // Get auth state from Redux
   const { loading, error } = useSelector((state) => state.auth);
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const isPaidFlow = searchParams.get('paid') === '1';
-  const queryCheckoutEmail = String(searchParams.get('checkoutEmail') || '').trim().toLowerCase();
-  const paymentReference = String(searchParams.get('reference') || '').trim();
-  const hasPaymentReference = Boolean(paymentReference);
+  const queryPaid = normalizeCheckoutPaid(searchParams.get('paid'));
+  const queryCheckoutEmail = normalizeCheckoutEmail(
+    searchParams.get('checkoutEmail') || searchParams.get('email')
+  );
+  const queryPaymentReference = normalizeCheckoutReference(
+    searchParams.get('reference')
+    || searchParams.get('trxref')
+    || searchParams.get('ref')
+    || searchParams.get('paymentReference')
+  );
   const queryPlan = normalizeCheckoutPlan(searchParams.get('selectedPlan'));
   const queryBillingCycle = normalizeCheckoutBillingCycle(searchParams.get('billingCycle'));
   const pendingCheckout = useMemo(() => getPendingCheckout(), [location.search]);
+  const checkoutEmail = queryCheckoutEmail || pendingCheckout?.checkoutEmail || '';
+  const paymentReference = queryPaymentReference || pendingCheckout?.paymentReference || '';
+  const hasPaymentReference = Boolean(paymentReference);
+  const isPaidFlow = queryPaid === true || pendingCheckout?.paid === true;
   const selectedPlan = queryPlan || pendingCheckout?.plan || '';
   const selectedBillingCycle = queryPlan
     ? queryBillingCycle
@@ -60,8 +73,8 @@ const Login = () => {
   if (isPaidFlow) {
     checkoutParams.set('paid', '1');
   }
-  if (queryCheckoutEmail) {
-    checkoutParams.set('checkoutEmail', queryCheckoutEmail);
+  if (checkoutEmail) {
+    checkoutParams.set('checkoutEmail', checkoutEmail);
   }
   if (hasPaymentReference) {
     checkoutParams.set('reference', paymentReference);
@@ -77,8 +90,8 @@ const Login = () => {
     if (isPaidFlow) {
       params.set('paid', '1');
     }
-    if (queryCheckoutEmail) {
-      params.set('checkoutEmail', queryCheckoutEmail);
+    if (checkoutEmail) {
+      params.set('checkoutEmail', checkoutEmail);
     }
     if (hasPaymentReference) {
       params.set('reference', paymentReference);
@@ -92,14 +105,17 @@ const Login = () => {
     savePendingCheckout({
       plan: queryPlan,
       billingCycle: queryBillingCycle,
-      source: 'landing'
+      source: 'landing',
+      checkoutEmail,
+      paymentReference,
+      paid: isPaidFlow
     });
-  }, [queryPlan, queryBillingCycle]);
+  }, [queryPlan, queryBillingCycle, checkoutEmail, paymentReference, isPaidFlow]);
 
   useEffect(() => {
-    if (!queryCheckoutEmail) return;
-    setEmail((prev) => prev || queryCheckoutEmail);
-  }, [queryCheckoutEmail]);
+    if (!checkoutEmail) return;
+    setEmail((prev) => prev || checkoutEmail);
+  }, [checkoutEmail]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

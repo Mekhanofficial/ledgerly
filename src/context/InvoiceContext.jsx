@@ -897,6 +897,15 @@ export const InvoiceProvider = ({ children }) => {
       const payload = buildCustomerPayload(customerData);
       const created = await dispatch(createCustomerThunk(payload)).unwrap();
       const newCustomer = mapCustomerFromApi(created);
+      const resolvedCustomerId = String(
+        newCustomer.id
+        || newCustomer.raw?._id
+        || newCustomer.raw?.id
+        || ''
+      ).trim();
+
+      // Refresh to ensure the selector list has the canonical backend record.
+      await dispatch(fetchCustomers());
 
       const showNotificationToast = options.showNotificationToast ?? true;
       addNotification({
@@ -907,12 +916,15 @@ export const InvoiceProvider = ({ children }) => {
         time: 'Just now',
         action: 'View Profile',
         color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
-        link: `/customers/${newCustomer.id}`,
+        link: resolvedCustomerId ? `/customers/${resolvedCustomerId}` : '/customers',
         icon: 'UserPlus',
-        customerId: newCustomer.id
+        customerId: resolvedCustomerId || undefined
       }, { showToast: showNotificationToast });
 
-      return newCustomer;
+      return {
+        ...newCustomer,
+        id: resolvedCustomerId || newCustomer.id
+      };
     } catch (error) {
       addToast(error?.message || 'Error adding customer', 'error');
       throw error;
@@ -920,7 +932,7 @@ export const InvoiceProvider = ({ children }) => {
   };
 
   const refreshCustomers = useCallback(() => {
-    dispatch(fetchCustomers());
+    return dispatch(fetchCustomers());
   }, [dispatch]);
 
   const updateCustomer = async (id, updates) => {

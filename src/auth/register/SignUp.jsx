@@ -12,7 +12,10 @@ import {
   buildCheckoutParams,
   getPendingCheckout,
   normalizeCheckoutBillingCycle,
+  normalizeCheckoutEmail,
+  normalizeCheckoutPaid,
   normalizeCheckoutPlan,
+  normalizeCheckoutReference,
   savePendingCheckout
 } from "../../utils/subscriptionCheckout";
 import countryData from "../../data/CountryData.json";
@@ -71,13 +74,23 @@ const SignUpPage = () => {
     : '';
   const signupParams = new URLSearchParams(location.search);
   const queryVerificationEmail = signupParams.get('verifyEmail');
-  const isPaidFlow = signupParams.get('paid') === '1';
-  const queryCheckoutEmail = String(signupParams.get('checkoutEmail') || '').trim().toLowerCase();
-  const paymentReference = String(signupParams.get('reference') || '').trim();
-  const hasPaymentReference = Boolean(paymentReference);
+  const queryPaid = normalizeCheckoutPaid(signupParams.get('paid'));
+  const queryCheckoutEmail = normalizeCheckoutEmail(
+    signupParams.get('checkoutEmail') || signupParams.get('email')
+  );
+  const queryPaymentReference = normalizeCheckoutReference(
+    signupParams.get('reference')
+    || signupParams.get('trxref')
+    || signupParams.get('ref')
+    || signupParams.get('paymentReference')
+  );
   const queryPlan = normalizeCheckoutPlan(signupParams.get('selectedPlan'));
   const queryBillingCycle = normalizeCheckoutBillingCycle(signupParams.get('billingCycle'));
   const pendingCheckout = getPendingCheckout();
+  const checkoutEmail = queryCheckoutEmail || pendingCheckout?.checkoutEmail || '';
+  const paymentReference = queryPaymentReference || pendingCheckout?.paymentReference || '';
+  const hasPaymentReference = Boolean(paymentReference);
+  const isPaidFlow = queryPaid === true || pendingCheckout?.paid === true;
   const selectedPlan = queryPlan || pendingCheckout?.plan || '';
   const selectedBillingCycle = queryPlan
     ? queryBillingCycle
@@ -94,8 +107,8 @@ const SignUpPage = () => {
   if (isPaidFlow) {
     loginCheckoutParams.set('paid', '1');
   }
-  if (queryCheckoutEmail) {
-    loginCheckoutParams.set('checkoutEmail', queryCheckoutEmail);
+  if (checkoutEmail) {
+    loginCheckoutParams.set('checkoutEmail', checkoutEmail);
   }
   if (hasPaymentReference) {
     loginCheckoutParams.set('reference', paymentReference);
@@ -114,9 +127,12 @@ const SignUpPage = () => {
     savePendingCheckout({
       plan: queryPlan,
       billingCycle: queryBillingCycle,
-      source: 'landing'
+      source: 'landing',
+      checkoutEmail,
+      paymentReference,
+      paid: isPaidFlow
     });
-  }, [queryPlan, queryBillingCycle]);
+  }, [queryPlan, queryBillingCycle, checkoutEmail, paymentReference, isPaidFlow]);
 
   useEffect(() => {
     if (pendingVerification?.email) {
@@ -133,9 +149,9 @@ const SignUpPage = () => {
   }, [queryVerificationEmail]);
 
   useEffect(() => {
-    if (!queryCheckoutEmail) return;
-    setFormData((prev) => (prev.email ? prev : { ...prev, email: queryCheckoutEmail }));
-  }, [queryCheckoutEmail]);
+    if (!checkoutEmail) return;
+    setFormData((prev) => (prev.email ? prev : { ...prev, email: checkoutEmail }));
+  }, [checkoutEmail]);
 
   useEffect(() => {
     if (!otpVerified) return undefined;

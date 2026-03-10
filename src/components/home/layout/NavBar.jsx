@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Menu, Moon, Sun, X } from 'lucide-react';
-import logo from '../../../assets/icons/ledgerly-logo.webp';
+import { FileText, Menu, Moon, Sun, X } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 
 const NavBar = () => {
@@ -17,7 +16,7 @@ const NavBar = () => {
   ];
 
   return (
-    <motion.nav
+    <Motion.nav
       className="fixed top-0 w-full z-50 bg-white/92 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80"
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
@@ -29,11 +28,9 @@ const NavBar = () => {
           <Link to="/" className="flex items-center space-x-3 group">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl blur opacity-70 group-hover:opacity-100 transition-opacity"></div>
-              <img loading="eager" decoding="async"
-                src={logo}
-                alt="Ledgerly logo"
-                className="relative w-10 h-10 rounded-xl transform group-hover:scale-105 transition-transform duration-300 object-contain bg-white"
-              />
+              <div className="relative w-10 h-10 rounded-xl transform group-hover:scale-105 transition-transform duration-300 bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center">
+                <FileText className="w-6 h-6 text-white" aria-hidden="true" />
+              </div>
             </div>
             <span className="sr-only">Ledgerly</span>
           </Link>
@@ -41,14 +38,14 @@ const NavBar = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-6">
             {navItems.map((item) => (
-              <motion.a
+              <Motion.a
                 key={item.label}
                 href={item.href}
                 className="text-slate-600 dark:text-slate-300 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium px-3 py-2 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-500/10 transition-colors"
                 whileHover={{ y: -1 }}
               >
                 {item.label}
-              </motion.a>
+              </Motion.a>
             ))}
           </div>
 
@@ -87,7 +84,7 @@ const NavBar = () => {
             </button>
 
             {/* Mobile menu button */}
-            <motion.button
+            <Motion.button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
@@ -95,14 +92,14 @@ const NavBar = () => {
               whileTap={{ scale: 0.95 }}
             >
               {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </motion.button>
+            </Motion.button>
           </div>
         </div>
 
         {/* Mobile Navigation */}
         <AnimatePresence initial={false}>
           {isMenuOpen && (
-            <motion.div
+            <Motion.div
               className="md:hidden py-3 border-t border-slate-200/80 dark:border-slate-700/80 overflow-hidden"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -137,11 +134,11 @@ const NavBar = () => {
                   </Link>
                 </div>
               </div>
-            </motion.div>
+            </Motion.div>
           )}
         </AnimatePresence>
       </div>
-    </motion.nav>
+    </Motion.nav>
   );
 };
 

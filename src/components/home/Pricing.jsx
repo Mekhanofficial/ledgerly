@@ -127,9 +127,18 @@ const Pricing = () => {
       });
       const data = response?.data || response || {};
       const authorizationUrl = data?.authorizationUrl || data?.authorization_url;
+      const paymentReference = String(data?.reference || '').trim();
       if (!authorizationUrl) {
         throw new Error('Unable to start payment right now.');
       }
+      savePendingCheckout({
+        plan: planId,
+        billingCycle,
+        source: 'landing',
+        checkoutEmail: email,
+        paymentReference,
+        paid: null
+      });
       window.location.assign(authorizationUrl);
       return;
     } catch (error) {
@@ -160,12 +169,18 @@ const Pricing = () => {
   };
 
   const handlePlanAction = async (plan) => {
-    savePendingCheckout({ plan: plan.id, billingCycle, source: 'landing' });
     const email = resolveCheckoutEmail();
     if (!email) {
       return;
     }
 
+    savePendingCheckout({
+      plan: plan.id,
+      billingCycle,
+      source: 'landing',
+      checkoutEmail: email,
+      paid: null
+    });
     await startCheckout({ planId: plan.id, email });
   };
 

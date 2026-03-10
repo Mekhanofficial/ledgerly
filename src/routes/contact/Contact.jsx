@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 import {
   ArrowLeft,
   ArrowRight,
@@ -59,12 +58,24 @@ const TOPICS = [
 ];
 
 const MotionDiv = motion.div;
+const getStoredAuthUser = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null');
+  } catch {
+    return null;
+  }
+};
+
+const hasStoredToken = () => {
+  if (typeof window === 'undefined') return false;
+  return Boolean(String(localStorage.getItem('token') || '').trim());
+};
 
 const ContactPage = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated: reduxAuthenticated } = useSelector((state) => state.auth || {});
-  const authUser = resolveAuthUser(user);
-  const isAuthenticated = Boolean(reduxAuthenticated && authUser);
+  const authUser = resolveAuthUser(getStoredAuthUser());
+  const isAuthenticated = Boolean(hasStoredToken() && authUser);
   const authIdentity = authUser?._id || authUser?.id || authUser?.email || '';
   const [formData, setFormData] = useState({
     name: '',

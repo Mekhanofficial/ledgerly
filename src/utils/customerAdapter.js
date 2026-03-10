@@ -31,7 +31,28 @@ const formatAddress = (address) => {
   return parts.join(', ');
 };
 
-export const mapCustomerFromApi = (customer = {}) => {
+const unwrapCustomerPayload = (payload) => {
+  if (!payload || typeof payload !== 'object') {
+    return {};
+  }
+
+  if (payload._id || payload.id || payload.name || payload.email) {
+    return payload;
+  }
+
+  if (payload.customer && typeof payload.customer === 'object') {
+    return unwrapCustomerPayload(payload.customer);
+  }
+
+  if (payload.data && typeof payload.data === 'object') {
+    return unwrapCustomerPayload(payload.data);
+  }
+
+  return payload;
+};
+
+export const mapCustomerFromApi = (customerInput = {}) => {
+  const customer = unwrapCustomerPayload(customerInput);
   const lastTransactionDate = customer.lastPurchaseDate || customer.updatedAt || customer.createdAt;
   const totalPaid = Number(customer.totalPaid ?? customer.totalSpent ?? 0);
   const totalInvoiced = Number(customer.totalInvoiced ?? 0);

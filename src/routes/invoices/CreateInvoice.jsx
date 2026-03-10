@@ -296,6 +296,14 @@ const CreateInvoice = () => {
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState('');
+
+  const resolveCustomerId = (customer) => String(
+    customer?.id
+    || customer?._id
+    || customer?.raw?._id
+    || customer?.raw?.id
+    || ''
+  ).trim();
   
   const roundMoney = (value) => {
     const number = Number(value);
@@ -683,9 +691,12 @@ const CreateInvoice = () => {
     setIsAddingCustomer(true);
     try {
       const addedCustomer = await addCustomer(newCustomer, { showNotificationToast: false });
-      setSelectedCustomer(addedCustomer.id);
+      const addedCustomerId = resolveCustomerId(addedCustomer);
+      await refreshCustomers();
+      if (addedCustomerId) {
+        setSelectedCustomer(addedCustomerId);
+      }
       setNewCustomer({ name: '', email: '', phone: '', address: '' });
-      refreshCustomers();
       addToast(`Customer "${addedCustomer.name}" added successfully!`, 'success');
     } catch (error) {
       addToast(error?.message || 'Error adding customer', 'error');
@@ -695,7 +706,9 @@ const CreateInvoice = () => {
   };
 
   const getSelectedCustomer = () => {
-    return customers.find(c => c.id === selectedCustomer);
+    const selectedId = String(selectedCustomer || '').trim();
+    if (!selectedId) return null;
+    return customers.find((customer) => resolveCustomerId(customer) === selectedId) || null;
   };
 
   const handleSaveDraft = async () => {
@@ -705,7 +718,7 @@ const CreateInvoice = () => {
         customer = await addCustomer(newCustomer, { showNotificationToast: false });
       }
 
-      const customerId = customer?.id || customer?._id;
+      const customerId = resolveCustomerId(customer);
       if (!customerId) {
         addToast('Please select a customer before saving draft', 'error');
         return;
@@ -1170,7 +1183,7 @@ const CreateInvoice = () => {
         paymentTerms,
         customer: customer.name,
         customerEmail: customer.email,
-        customerId: customer.id,
+        customerId: resolveCustomerId(customer),
         lineItems: lineItemsWithInventory.map(item => ({
           description: item.description,
           quantity: item.quantity,
