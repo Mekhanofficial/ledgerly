@@ -89,6 +89,8 @@ const CreateReportModal = ({ isOpen, onClose, onSave }) => {
               </p>
             </div>
             <button
+              type="button"
+              aria-label="Close report modal"
               onClick={onClose}
               className={`p-2 rounded-lg ${
                 isDarkMode 

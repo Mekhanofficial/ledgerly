@@ -65,6 +65,8 @@ const RecurringSettingsModal = ({ settings, onSave, onClose }) => {
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Recurring Settings</h2>
           </div>
           <button
+            type="button"
+            aria-label="Close recurring settings"
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
           >

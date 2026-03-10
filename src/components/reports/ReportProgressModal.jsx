@@ -3,7 +3,7 @@ import React from 'react';
 import { X, Loader, CheckCircle, AlertCircle } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-const ReportProgressModal = ({ isOpen, onClose, report, reports }) => {
+const ReportProgressModal = ({ isOpen, onClose, reports }) => {
   const { isDarkMode } = useTheme();
 
   if (!isOpen) return null;
@@ -26,6 +26,8 @@ const ReportProgressModal = ({ isOpen, onClose, report, reports }) => {
               Report Generation
             </h3>
             <button
+              type="button"
+              aria-label="Close report progress"
               onClick={onClose}
               className={`p-2 rounded-lg ${
                 isDarkMode 

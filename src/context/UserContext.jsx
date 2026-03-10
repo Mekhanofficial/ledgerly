@@ -1,8 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 // src/context/UserContext.jsx
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { toast } from 'react-toastify';
 import * as authServices from '../services/authServices';
+import { useToast } from './ToastContext';
 
 // Create context
 export const UserContext = createContext();
@@ -17,6 +17,7 @@ export const useUser = () => {
 };
 
 export const UserProvider = ({ children }) => {
+  const { addToast } = useToast();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -51,9 +52,9 @@ export const UserProvider = ({ children }) => {
     setIsAuthenticated(true);
     setLoading(false);
     
-    toast.success('Login successful!');
+    addToast('Login successful!', 'success');
     return result.user;
-  }, []);
+  }, [addToast]);
 
   // Register function using authServices (NO auto-login)
   const registerUser = useCallback(async (userData) => {
@@ -77,8 +78,8 @@ export const UserProvider = ({ children }) => {
     authServices.logoutUser();
     setUser(null);
     setIsAuthenticated(false);
-    toast.success('Logged out successfully');
-  }, []);
+    addToast('Logged out successfully', 'success');
+  }, [addToast]);
 
   // Update user profile
   const updateProfile = useCallback(async (updates) => {
@@ -92,13 +93,13 @@ export const UserProvider = ({ children }) => {
       }
 
       setUser(result.user);
-      toast.success('Profile updated successfully');
+      addToast('Profile updated successfully', 'success');
       return result.user;
     } catch (error) {
-      toast.error(error.message || 'Failed to update profile');
+      addToast(error.message || 'Failed to update profile', 'error');
       throw error;
     }
-  }, [user]);
+  }, [addToast, user]);
 
   // Check if user is admin
   const isAdmin = useCallback(() => {

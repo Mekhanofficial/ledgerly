@@ -291,11 +291,15 @@ const PaymentTable = ({ payments, onViewDetails, onProcess, onRefund, readOnly =
                         </button>
                       )}
                       {!readOnly && (
-                        <button className={`p-1 rounded-lg ${
-                          isDarkMode 
-                            ? 'text-gray-400 hover:bg-gray-700' 
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`}>
+                        <button
+                          type="button"
+                          aria-label="More payment actions"
+                          className={`p-1 rounded-lg ${
+                            isDarkMode
+                              ? 'text-gray-400 hover:bg-gray-700'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
                           <MoreVertical className="w-4 h-4" />
                         </button>
                       )}

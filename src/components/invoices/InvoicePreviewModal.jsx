@@ -38,6 +38,8 @@ const InvoicePreviewModal = ({
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Invoice Preview</h2>
           <button
+            type="button"
+            aria-label="Close invoice preview"
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
           >

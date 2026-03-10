@@ -91,6 +91,8 @@ const PaymentMethodModal = ({ isOpen, onClose, methodToEdit = null }) => {
                 {methodToEdit ? 'Edit Payment Method' : 'Add Payment Method'}
               </h3>
               <button
+                type="button"
+                aria-label="Close payment method modal"
                 onClick={handleClose}
                 className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
               >

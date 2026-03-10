@@ -19,42 +19,6 @@ export default defineConfig(({ mode }) => {
           brotliSize: true
         })
     ].filter(Boolean),
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('jspdf') || id.includes('jspdf-autotable')) {
-                return 'jspdf-vendor'
-              }
-              if (id.includes('html2canvas')) {
-                return 'html2canvas-vendor'
-              }
-              if (id.includes('recharts')) {
-                return 'charts-vendor'
-              }
-              if (id.includes('framer-motion') || id.includes('lucide-react')) {
-                return 'ui-vendor'
-              }
-              if (
-                id.includes('react-router') ||
-                id.includes('react-dom') ||
-                id.includes('/react/')
-              ) {
-                return 'react-vendor'
-              }
-            }
-            if (id.includes('/src/routes/')) {
-              const routeMatch = id.match(/\/src\/routes\/([^/]+)/)
-              if (routeMatch?.[1]) {
-                return `route-${routeMatch[1]}`
-              }
-            }
-            return undefined
-          }
-        }
-      }
-    },
     server: {
       proxy: {
         '/api/v1': {

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, Moon, Sun, X } from 'lucide-react';
 import logo from '../../../assets/icons/ledgerly-logo.webp';
+import { useTheme } from '../../../context/ThemeContext';
 
 const NavBar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isDarkMode, toggleTheme } = useTheme();
 
   const navItems = [
     { label: 'Features', href: '#features' },
@@ -52,6 +54,14 @@ const NavBar = () => {
 
           {/* Desktop CTA Buttons */}
           <div className="hidden md:flex items-center space-x-4">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
             <Link 
               to="/login" 
               className="text-slate-700 dark:text-slate-300 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium px-4 py-2"
@@ -66,16 +76,27 @@ const NavBar = () => {
             </Link>
           </div>
 
-          {/* Mobile menu button */}
-          <motion.button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-            aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            aria-expanded={isMenuOpen}
-            whileTap={{ scale: 0.95 }}
-          >
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </motion.button>
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+
+            {/* Mobile menu button */}
+            <motion.button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={isMenuOpen}
+              whileTap={{ scale: 0.95 }}
+            >
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </motion.button>
+          </div>
         </div>
 
         {/* Mobile Navigation */}

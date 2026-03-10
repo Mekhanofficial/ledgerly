@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { AiOutlineEyeInvisible, AiOutlineEye } from "react-icons/ai";
+import { Eye, EyeOff } from "lucide-react";
 
 const Input = ({ id, name, type, label, placeholder, value, onChange, error }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -34,12 +34,14 @@ const Input = ({ id, name, type, label, placeholder, value, onChange, error }) =
         />
 
         {type === "password" && (
-          <div
+          <button
+            type="button"
+            aria-label={showPassword ? "Hide password" : "Show password"}
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-0 bottom-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 text-xl cursor-pointer px-3"
+            className="absolute right-0 bottom-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 cursor-pointer px-3"
           >
-            {showPassword ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
-          </div>
+            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+          </button>
         )}
       </div>
       {error && (

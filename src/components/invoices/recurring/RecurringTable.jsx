@@ -247,9 +247,13 @@ const RecurringTable = ({ invoices, onPauseResume, onEdit, onDelete, onGenerateN
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                      <button className={`p-1 rounded ${
-                        isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
-                      }`}>
+                      <button
+                        type="button"
+                        aria-label="More recurring invoice actions"
+                        className={`p-1 rounded ${
+                          isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+                        }`}
+                      >
                         <MoreVertical className="w-4 h-4" />
                       </button>
                     </div>

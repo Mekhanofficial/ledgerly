@@ -270,7 +270,11 @@ const RecentInvoices = () => {
                                   <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 </button>
                               ) : null}
-                              <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                              <button
+                                type="button"
+                                aria-label="More invoice actions"
+                                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                              >
                                 <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                               </button>
                             </>

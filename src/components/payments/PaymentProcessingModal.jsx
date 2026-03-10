@@ -140,6 +140,8 @@ const PaymentProcessingModal = ({ isOpen, onClose, invoice = null }) => {
                 Process Payment
               </h3>
               <button
+                type="button"
+                aria-label="Close payment processing modal"
                 onClick={handleClose}
                 className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
                 disabled={isProcessing}

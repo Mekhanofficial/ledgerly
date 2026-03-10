@@ -1,21 +1,12 @@
 import React, { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import { useSelector } from 'react-redux'
 
 import RequireAuth from './components/auth/RequireAuth'
-
-// Import context providers
 import { ThemeProvider } from './context/ThemeContext'
 import { ToastProvider } from './context/ToastContext'
-import { NotificationProvider } from './context/NotificationContext'
-import { InvoiceProvider } from './context/InvoiceContext'
-import { PaymentProvider } from './context/PaymentContext'
-import { InventoryProvider } from './context/InventoryContext'
-import { UserProvider } from './context/UserContext'
-import { AccountProvider } from './context/AccountContext'
-import { resolveAuthUser } from './utils/userDisplay'
 import RouteLoadingSpinner from './components/ui/RouteLoadingSpinner'
 
+const AuthenticatedLayout = lazy(() => import('./routes/AuthenticatedLayout'))
 const HomePage = lazy(() => import('./routes/home'))
 const Dashboard = lazy(() => import('./routes/dashboard/Dashboard'))
 const InvoiceList = lazy(() => import('./routes/invoices/InvoiceList'))
@@ -34,7 +25,6 @@ const Payments = lazy(() => import('./routes/payments/Payments'))
 const Settings = lazy(() => import('./routes/settings/Settings'))
 const Notifications = lazy(() => import('./routes/notifications/Notifications'))
 const Support = lazy(() => import('./routes/support/Support'))
-const LiveChatWrapper = lazy(() => import('./components/livechat/LiveChatWrapper'))
 const SuperAdmin = lazy(() => import('./routes/super-admin/SuperAdmin'))
 const Drafts = lazy(() => import('./routes/invoices/Draft'))
 const EditInvoice = lazy(() => import('./routes/invoices/EditInvoice'))
@@ -100,7 +90,6 @@ const AppRoutes = ({
       <RouteLoadingSpinner show={showRouteSpinner} />
       <Suspense fallback={<RouteLoadingSpinner show />}>
         <Routes location={location}>
-          {/* Public Routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
@@ -118,288 +107,278 @@ const AppRoutes = ({
             element={<PublicInvoicePaymentResult mode="failed" />}
           />
 
-          {/* Dashboard & Main App Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <RequireAuth allowedRoles={appRoles}>
-                <Dashboard />
-              </RequireAuth>
-            }
-          />
+          <Route element={<AuthenticatedLayout />}>
+            <Route
+              path="/dashboard"
+              element={
+                <RequireAuth allowedRoles={appRoles}>
+                  <Dashboard />
+                </RequireAuth>
+              }
+            />
 
-          {/* Invoice Management Routes */}
-          <Route
-            path="/invoices"
-            element={
-              <RequireAuth allowedRoles={appRoles}>
-                <InvoiceList />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/invoices/create"
-            element={
-              <RequireAuth allowedRoles={businessRoles}>
-                <CreateInvoice />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/invoices/view/:id"
-            element={
-              <RequireAuth allowedRoles={appRoles}>
-                <ViewInvoice />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/invoices/drafts"
-            element={
-              <RequireAuth allowedRoles={businessRoles}>
-                <Drafts />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/invoices/edit/:id"
-            element={
-              <RequireAuth allowedRoles={businessRoles}>
-                <EditInvoice />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/invoices/recurring"
-            element={
-              <RequireAuth allowedRoles={businessRoles}>
-                <RecurringInvoices />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/invoices/templates"
-            element={
-              <RequireAuth allowedRoles={businessRoles}>
-                <InvoiceTemplates />
-              </RequireAuth>
-            }
-          />
+            <Route
+              path="/invoices"
+              element={
+                <RequireAuth allowedRoles={appRoles}>
+                  <InvoiceList />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/invoices/create"
+              element={
+                <RequireAuth allowedRoles={businessRoles}>
+                  <CreateInvoice />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/invoices/view/:id"
+              element={
+                <RequireAuth allowedRoles={appRoles}>
+                  <ViewInvoice />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/invoices/drafts"
+              element={
+                <RequireAuth allowedRoles={businessRoles}>
+                  <Drafts />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/invoices/edit/:id"
+              element={
+                <RequireAuth allowedRoles={businessRoles}>
+                  <EditInvoice />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/invoices/recurring"
+              element={
+                <RequireAuth allowedRoles={businessRoles}>
+                  <RecurringInvoices />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/invoices/templates"
+              element={
+                <RequireAuth allowedRoles={businessRoles}>
+                  <InvoiceTemplates />
+                </RequireAuth>
+              }
+            />
 
-          {/* Receipts Route */}
-          <Route
-            path="/receipts"
-            element={
-              <RequireAuth allowedRoles={reportsRoles}>
-                <Receipts />
-              </RequireAuth>
-            }
-          />
+            <Route
+              path="/receipts"
+              element={
+                <RequireAuth allowedRoles={reportsRoles}>
+                  <Receipts />
+                </RequireAuth>
+              }
+            />
 
-          {/* Inventory Routes */}
-          <Route
-            path="/inventory"
-            element={
-              <RequireAuth allowedRoles={businessRoles}>
-                <Inventory />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/inventory/products"
-            element={
-              <RequireAuth allowedRoles={businessRoles}>
-                <Products />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/inventory/products/edit/:id"
-            element={
-              <RequireAuth allowedRoles={inventoryManageRoles}>
-                <EditProduct />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/inventory/products/new"
-            element={
-              <RequireAuth allowedRoles={inventoryManageRoles}>
-                <NewProduct />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/inventory/categories"
-            element={
-              <RequireAuth allowedRoles={businessRoles}>
-                <Categories />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/inventory/categories/new"
-            element={
-              <RequireAuth allowedRoles={inventoryManageRoles}>
-                <NewCategory />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/inventory/stock-adjustments"
-            element={
-              <RequireAuth allowedRoles={inventoryManageRoles}>
-                <StockAdjustments />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/inventory/suppliers"
-            element={
-              <RequireAuth allowedRoles={businessRoles}>
-                <Suppliers />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/inventory/suppliers/new"
-            element={
-              <RequireAuth allowedRoles={inventoryManageRoles}>
-                <NewSupplier />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/inventory/stock-adjustments/new"
-            element={
-              <RequireAuth allowedRoles={inventoryManageRoles}>
-                <NewStockAdjustment />
-              </RequireAuth>
-            }
-          />
+            <Route
+              path="/inventory"
+              element={
+                <RequireAuth allowedRoles={businessRoles}>
+                  <Inventory />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/inventory/products"
+              element={
+                <RequireAuth allowedRoles={businessRoles}>
+                  <Products />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/inventory/products/edit/:id"
+              element={
+                <RequireAuth allowedRoles={inventoryManageRoles}>
+                  <EditProduct />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/inventory/products/new"
+              element={
+                <RequireAuth allowedRoles={inventoryManageRoles}>
+                  <NewProduct />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/inventory/categories"
+              element={
+                <RequireAuth allowedRoles={businessRoles}>
+                  <Categories />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/inventory/categories/new"
+              element={
+                <RequireAuth allowedRoles={inventoryManageRoles}>
+                  <NewCategory />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/inventory/stock-adjustments"
+              element={
+                <RequireAuth allowedRoles={inventoryManageRoles}>
+                  <StockAdjustments />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/inventory/suppliers"
+              element={
+                <RequireAuth allowedRoles={businessRoles}>
+                  <Suppliers />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/inventory/suppliers/new"
+              element={
+                <RequireAuth allowedRoles={inventoryManageRoles}>
+                  <NewSupplier />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/inventory/stock-adjustments/new"
+              element={
+                <RequireAuth allowedRoles={inventoryManageRoles}>
+                  <NewStockAdjustment />
+                </RequireAuth>
+              }
+            />
 
-          {/* Customer Management */}
-          <Route
-            path="/customers"
-            element={
-              <RequireAuth allowedRoles={businessRoles}>
-                <Customers />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/customers/:id"
-            element={
-              <RequireAuth allowedRoles={businessRoles}>
-                <CustomerProfile />
-              </RequireAuth>
-            }
-          />
+            <Route
+              path="/customers"
+              element={
+                <RequireAuth allowedRoles={businessRoles}>
+                  <Customers />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/customers/:id"
+              element={
+                <RequireAuth allowedRoles={businessRoles}>
+                  <CustomerProfile />
+                </RequireAuth>
+              }
+            />
 
-          {/* Payments Routes */}
-          <Route
-            path="/payments"
-            element={
-              <RequireAuth allowedRoles={paymentsRoles}>
-                <Payments />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/payments/callback"
-            element={
-              <RequireAuth allowedRoles={paymentsRoles}>
-                <PaymentCallback />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/payments/process"
-            element={
-              <RequireAuth allowedRoles={reportsRoles}>
-                <ProcessPayment />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/payments/pricing"
-            element={
-              <RequireAuth allowedRoles={['admin', 'accountant', 'super_admin']}>
-                <PricingPage />
-              </RequireAuth>
-            }
-          />
+            <Route
+              path="/payments"
+              element={
+                <RequireAuth allowedRoles={paymentsRoles}>
+                  <Payments />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/payments/callback"
+              element={
+                <RequireAuth allowedRoles={paymentsRoles}>
+                  <PaymentCallback />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/payments/process"
+              element={
+                <RequireAuth allowedRoles={reportsRoles}>
+                  <ProcessPayment />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/payments/pricing"
+              element={
+                <RequireAuth allowedRoles={['admin', 'accountant', 'super_admin']}>
+                  <PricingPage />
+                </RequireAuth>
+              }
+            />
 
-          {/* Reports & Analytics */}
-          <Route
-            path="/reports"
-            element={
-              <RequireAuth allowedRoles={reportsRoles}>
-                <Reports />
-              </RequireAuth>
-            }
-          />
-
-          {/* Support & Settings */}
-          <Route
-            path="/support"
-            element={
-              <RequireAuth allowedRoles={['admin', 'accountant', 'staff', 'client', 'super_admin']}>
-                <Support />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <RequireAuth allowedRoles={settingsRoles}>
-                <Settings />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/notifications"
-            element={
-              <RequireAuth allowedRoles={['admin', 'accountant', 'staff', 'client', 'super_admin']}>
-                <Notifications />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/documents"
-            element={
-              <RequireAuth allowedRoles={documentsRoles}>
-                <Documents />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/search"
-            element={
-              <RequireAuth allowedRoles={appRoles}>
-                <SearchPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/team"
-            element={
-              <RequireAuth allowedRoles={teamRoles}>
-                <Team />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/super-admin"
-            element={
-              <RequireAuth allowedRoles={['super_admin']}>
-                <SuperAdmin />
-              </RequireAuth>
-            }
-          />
-
-          {/* 404 Page (optional) */}
-          {/* <Route path="*" element={<NotFound />} /> */}
+            <Route
+              path="/reports"
+              element={
+                <RequireAuth allowedRoles={reportsRoles}>
+                  <Reports />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/support"
+              element={
+                <RequireAuth allowedRoles={['admin', 'accountant', 'staff', 'client', 'super_admin']}>
+                  <Support />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <RequireAuth allowedRoles={settingsRoles}>
+                  <Settings />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/notifications"
+              element={
+                <RequireAuth allowedRoles={['admin', 'accountant', 'staff', 'client', 'super_admin']}>
+                  <Notifications />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/documents"
+              element={
+                <RequireAuth allowedRoles={documentsRoles}>
+                  <Documents />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/search"
+              element={
+                <RequireAuth allowedRoles={appRoles}>
+                  <SearchPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/team"
+              element={
+                <RequireAuth allowedRoles={teamRoles}>
+                  <Team />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/super-admin"
+              element={
+                <RequireAuth allowedRoles={['super_admin']}>
+                  <SuperAdmin />
+                </RequireAuth>
+              }
+            />
+          </Route>
         </Routes>
       </Suspense>
     </>
@@ -407,15 +386,6 @@ const AppRoutes = ({
 }
 
 const App = () => {
-  const authState = useSelector((state) => state.auth || {})
-  const authUser = resolveAuthUser(authState.user)
-  const sessionIdentity =
-    authUser?._id ||
-    authUser?.id ||
-    authUser?.email ||
-    'guest'
-  const sessionKey = `${authState.isAuthenticated ? 'auth' : 'guest'}:${sessionIdentity}`
-
   const businessRoles = ['admin', 'accountant', 'staff']
   const clientRoles = ['client']
   const appRoles = [...businessRoles, ...clientRoles]
@@ -430,32 +400,16 @@ const App = () => {
     <BrowserRouter>
       <ThemeProvider>
         <ToastProvider>
-          <NotificationProvider key={sessionKey}>
-            <AccountProvider>
-              <UserProvider> {/* Only add UserProvider, no route protection */}
-                <InventoryProvider>
-                  <InvoiceProvider>
-                    <PaymentProvider>
-                      {/* Live Chat Component - Positioned globally */}
-                      <Suspense fallback={null}>
-                        <LiveChatWrapper />
-                      </Suspense>
-                      <AppRoutes
-                        appRoles={appRoles}
-                        businessRoles={businessRoles}
-                        reportsRoles={reportsRoles}
-                        paymentsRoles={paymentsRoles}
-                        inventoryManageRoles={inventoryManageRoles}
-                        settingsRoles={settingsRoles}
-                        teamRoles={teamRoles}
-                        documentsRoles={documentsRoles}
-                      />
-                    </PaymentProvider>
-                  </InvoiceProvider>
-                </InventoryProvider>
-              </UserProvider>
-            </AccountProvider>
-          </NotificationProvider>
+          <AppRoutes
+            appRoles={appRoles}
+            businessRoles={businessRoles}
+            reportsRoles={reportsRoles}
+            paymentsRoles={paymentsRoles}
+            inventoryManageRoles={inventoryManageRoles}
+            settingsRoles={settingsRoles}
+            teamRoles={teamRoles}
+            documentsRoles={documentsRoles}
+          />
         </ToastProvider>
       </ThemeProvider>
     </BrowserRouter>

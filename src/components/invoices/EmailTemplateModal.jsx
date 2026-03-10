@@ -33,6 +33,8 @@ const EmailTemplateModal = ({ subject, message, onSave, onClose }) => {
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Customize Email Template</h2>
           </div>
           <button
+            type="button"
+            aria-label="Close email template modal"
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
           >
