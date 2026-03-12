@@ -400,6 +400,43 @@ const App = () => {
   const teamRoles = ['admin', 'super_admin']
   const documentsRoles = ['admin', 'accountant', 'staff']
 
+  useEffect(() => {
+    const handleNumberInputFocus = (event) => {
+      const target = event.target
+
+      if (!(target instanceof HTMLInputElement) || target.type !== 'number') {
+        return
+      }
+
+      if (target.disabled || target.readOnly) {
+        return
+      }
+
+      const currentValue = String(target.value ?? '').trim()
+      if (!/^0(?:\.0+)?$/.test(currentValue)) {
+        return
+      }
+
+      window.requestAnimationFrame(() => {
+        if (document.activeElement !== target) {
+          return
+        }
+
+        try {
+          target.select()
+        } catch {
+          // Some browsers can throw if the input is no longer selectable.
+        }
+      })
+    }
+
+    document.addEventListener('focusin', handleNumberInputFocus)
+
+    return () => {
+      document.removeEventListener('focusin', handleNumberInputFocus)
+    }
+  }, [])
+
   return (
     <BrowserRouter>
       <ThemeProvider>

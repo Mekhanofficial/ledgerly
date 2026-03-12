@@ -187,16 +187,21 @@ export default function PublicInvoicePaymentResult({ mode = 'success' }) {
         currency: invoice?.currency || business?.currency || 'NGN',
         templateStyle: resolvedTemplateStyle
       };
-      const pdfAttachment = buildReceiptEmailPdfAttachment({
-        receiptData,
-        accountInfo,
-        templateId: resolvedTemplateStyle,
-        fallbackReceiptId: slug
-      });
-
-      if (!pdfAttachment) {
+      let pdfAttachment = null;
+      try {
+        pdfAttachment = buildReceiptEmailPdfAttachment({
+          receiptData,
+          accountInfo,
+          templateId: resolvedTemplateStyle,
+          fallbackReceiptId: slug
+        });
+      } catch (error) {
+        console.warn('Frontend receipt PDF generation failed:', error);
+      }
+      if (!pdfAttachment?.data) {
+        if (!active) return;
         setReceiptStatus('error');
-        setReceiptMessage('Unable to generate receipt PDF from template.');
+        setReceiptMessage('Unable to generate the receipt PDF. Please try again.');
         return;
       }
 

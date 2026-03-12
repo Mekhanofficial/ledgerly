@@ -1,10 +1,11 @@
 // src/components/invoices/create/AttachmentsSection.jsx
-import React from 'react';
+import React, { useId } from 'react';
 import { Upload, Trash2, Image as ImageIcon, File } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 
 const AttachmentsSection = ({ attachments, setAttachments }) => {
   const { addToast } = useToast();
+  const inputId = useId();
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
@@ -58,12 +59,12 @@ const AttachmentsSection = ({ attachments, setAttachments }) => {
       <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
         Attachments
       </h2>
-      
+
       <div 
         className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary-400 transition-colors cursor-pointer bg-gray-50 dark:bg-gray-900"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
-        onClick={() => document.getElementById('file-upload').click()}
+        onClick={() => document.getElementById(inputId)?.click()}
       >
         <Upload className="w-10 h-10 mx-auto mb-3 text-gray-400" />
         <p className="text-sm mb-2 text-gray-600 dark:text-gray-300 font-medium">
@@ -73,7 +74,7 @@ const AttachmentsSection = ({ attachments, setAttachments }) => {
           Supports: PDF, JPG, PNG, DOC, DOCX
         </p>
         <input
-          id="file-upload"
+          id={inputId}
           type="file"
           multiple
           className="hidden"
@@ -92,13 +93,13 @@ const AttachmentsSection = ({ attachments, setAttachments }) => {
               const previewUrl = getFilePreview(file);
               
               return (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div key={index} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
                     <div className="flex-shrink-0">
                       {getFileIcon(file)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                           {file.name}
                         </p>
@@ -112,7 +113,7 @@ const AttachmentsSection = ({ attachments, setAttachments }) => {
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 self-end sm:self-auto">
                     {previewUrl && (
                       <a 
                         href={previewUrl} 

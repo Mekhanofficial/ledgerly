@@ -594,7 +594,6 @@ export const InvoiceProvider = ({ children }) => {
       const hasEmailOptions = emailOptions && typeof emailOptions === 'object';
       const {
         invoiceData: explicitInvoiceData,
-        includeFrontendPdf = true,
         ...emailOptionPayload
       } = hasEmailOptions ? emailOptions : {};
 
@@ -611,46 +610,40 @@ export const InvoiceProvider = ({ children }) => {
           }
         : null;
 
-      if (includeFrontendPdf !== false) {
-        const invoiceForPdf = await resolveInvoiceForEmailPdf(id, explicitInvoiceData);
-        const resolvedTemplateStyle = normalizedEmailOptions?.templateStyle || invoiceForPdf?.templateStyle || 'standard';
-        if (invoiceForPdf) {
-          try {
-            const { buildInvoiceEmailPdfAttachment } = await import('../utils/invoiceEmailPdf');
-            const pdfAttachment = await buildInvoiceEmailPdfAttachment({
-              invoiceData: {
-                ...invoiceForPdf,
-                templateStyle: resolvedTemplateStyle
-              },
-              templateStyle: resolvedTemplateStyle,
-              companyData: accountInfo,
-              fallbackInvoiceId: id
-            });
-
-            if (!pdfAttachment) {
-              throw new Error('Unable to generate frontend invoice PDF attachment.');
-            }
-
-            const attachmentByteSize = getBase64ByteSize(pdfAttachment.data);
-            if (attachmentByteSize > MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES) {
-              const maxMb = Math.round(MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES / (1024 * 1024));
-              throw new Error(
-                `Invoice PDF is too large to email with this template. Max allowed is ${maxMb}MB.`
-              );
-            }
-
-            normalizedEmailOptions = {
-              ...(normalizedEmailOptions || {}),
-              templateStyle: normalizedEmailOptions?.templateStyle || resolvedTemplateStyle,
-              pdfAttachment
-            };
-          } catch (pdfError) {
-            throw pdfError;
-          }
-        } else {
-          throw new Error('Unable to load invoice data for frontend email PDF.');
-        }
+      const invoiceForPdf = await resolveInvoiceForEmailPdf(id, explicitInvoiceData);
+      if (!invoiceForPdf) {
+        throw new Error('Unable to load invoice data for frontend PDF generation.');
       }
+
+      const resolvedTemplateStyle = normalizedEmailOptions?.templateStyle || invoiceForPdf?.templateStyle || 'standard';
+      const { buildInvoiceEmailPdfAttachment } = await import('../utils/invoiceEmailPdf');
+      const pdfAttachment = await buildInvoiceEmailPdfAttachment({
+        invoiceData: {
+          ...invoiceForPdf,
+          templateStyle: resolvedTemplateStyle
+        },
+        templateStyle: resolvedTemplateStyle,
+        companyData: accountInfo,
+        fallbackInvoiceId: id
+      });
+
+      if (!pdfAttachment) {
+        throw new Error('Unable to generate frontend invoice PDF attachment.');
+      }
+
+      const attachmentByteSize = getBase64ByteSize(pdfAttachment.data);
+      if (attachmentByteSize > MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES) {
+        const maxMb = Math.round(MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES / (1024 * 1024));
+        throw new Error(
+          `Invoice PDF is too large to email with this template. Max allowed is ${maxMb}MB.`
+        );
+      }
+
+      normalizedEmailOptions = {
+        ...(normalizedEmailOptions || {}),
+        templateStyle: normalizedEmailOptions?.templateStyle || resolvedTemplateStyle,
+        pdfAttachment
+      };
 
       const buildPayload = (optionsPayload) =>
         optionsPayload && Object.keys(optionsPayload).length > 0
@@ -745,6 +738,9 @@ export const InvoiceProvider = ({ children }) => {
           });
         } catch (attachmentError) {
           console.warn('Unable to prepare frontend receipt PDF attachment for auto-email:', attachmentError);
+          if (showToast) {
+            addToast('Payment will be recorded, but receipt email will be skipped because PDF generation failed.', 'warning');
+          }
         }
       }
 

@@ -1,6 +1,7 @@
 // src/components/live-chat/LiveChat.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import {
   MessageSquare, X, Send, User, Bot, Paperclip,
   FileText, Receipt, Package, CreditCard, AlertCircle,
@@ -13,10 +14,10 @@ import { useInvoice } from '../../context/InvoiceContext';
 import { useInventory } from '../../context/InventoryContext';
 import { usePayments } from '../../context/PaymentContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { useUser } from '../../context/UserContext';
 import { useAccount } from '../../context/AccountContext';
 import { generateReportData } from '../../utils/reportGenerator';
 import { formatCurrency } from '../../utils/currency';
+import { resolveAuthUser } from '../../utils/userDisplay';
 import {
   getLiveChatStatus,
   sendLiveChatMessage,
@@ -51,7 +52,8 @@ const LiveChat = () => {
     getRecentNotifications,
     getNotificationStats
   } = useNotifications();
-  const { user } = useUser();
+  const authUser = useSelector((state) => state.auth?.user);
+  const user = resolveAuthUser(authUser);
   const { accountInfo } = useAccount();
   const baseCurrency = accountInfo?.currency || user?.currencyCode || 'USD';
   const formatMoney = (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency);

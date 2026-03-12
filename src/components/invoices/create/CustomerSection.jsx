@@ -20,6 +20,7 @@ const CustomerSection = ({
   ).trim();
 
   const selectedCustomerData = getSelectedCustomer();
+  const inputClassName = 'w-full min-h-[44px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white';
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
@@ -35,7 +36,7 @@ const CustomerSection = ({
           <select
             value={String(selectedCustomer || '')}
             onChange={(e) => setSelectedCustomer(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className={inputClassName}
           >
             <option value="">Select a customer</option>
             {customers.map((customer) => {
@@ -61,30 +62,31 @@ const CustomerSection = ({
               placeholder="Customer Name"
               value={newCustomer.name}
               onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={inputClassName}
             />
             <input
               type="email"
               placeholder="Email"
               value={newCustomer.email}
               onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={inputClassName}
             />
             <input
               type="text"
               placeholder="Phone"
               value={newCustomer.phone}
               onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={inputClassName}
             />
             <input
               type="text"
               placeholder="Address"
               value={newCustomer.address}
               onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={inputClassName}
             />
           </div>
+
           <button
             type="button"
             onClick={onAddCustomer}
@@ -104,7 +106,7 @@ const CustomerSection = ({
             <div className="text-sm mt-1 text-gray-600 dark:text-gray-300">
               {selectedCustomerData.email}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-300">
+            <div className="text-sm text-gray-600 dark:text-gray-300 break-words">
               {selectedCustomerData.phone} - {selectedCustomerData.address}
             </div>
           </div>

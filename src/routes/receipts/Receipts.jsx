@@ -173,11 +173,14 @@ const Receipts = () => {
       templateId: resolvedTemplateStyle,
       fallbackReceiptId: receiptId
     });
+    if (!pdfAttachment?.data) {
+      throw new Error('Unable to generate frontend receipt PDF attachment.');
+    }
 
     const payload = {
       ...(resolvedEmail ? { customerEmail: resolvedEmail } : {}),
       ...(resolvedTemplateStyle ? { templateStyle: resolvedTemplateStyle } : {}),
-      ...(pdfAttachment ? { pdfAttachment } : {})
+      pdfAttachment
     };
     const response = await emailReceiptService(receiptId, payload);
     return response;

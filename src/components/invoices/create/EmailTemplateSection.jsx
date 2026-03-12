@@ -8,6 +8,8 @@ const EmailTemplateSection = ({
   setEmailMessage,
   onCustomize
 }) => {
+  const inputClassName = 'w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white';
+
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
       <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
@@ -23,7 +25,7 @@ const EmailTemplateSection = ({
             type="text"
             value={emailSubject}
             onChange={(e) => setEmailSubject(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className={inputClassName}
           />
         </div>
         <div>
@@ -34,7 +36,7 @@ const EmailTemplateSection = ({
             value={emailMessage}
             onChange={(e) => setEmailMessage(e.target.value)}
             rows="4"
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className={inputClassName}
           />
         </div>
         <button

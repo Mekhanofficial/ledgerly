@@ -70,11 +70,14 @@ const ReceiptHistory = ({ receipts = [], onRefresh, defaultTemplateId }) => {
         templateId: resolvedTemplateStyle,
         fallbackReceiptId: receiptRecordId
       });
+      if (!pdfAttachment?.data) {
+        throw new Error('Unable to generate frontend receipt PDF attachment.');
+      }
 
       await emailReceiptService(receiptRecordId, {
         customerEmail,
         templateStyle: resolvedTemplateStyle,
-        ...(pdfAttachment ? { pdfAttachment } : {})
+        pdfAttachment
       });
       addToast(`Receipt ${receipt.id} sent to ${customerEmail}`, 'success');
     } catch (error) {

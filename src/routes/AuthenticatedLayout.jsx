@@ -6,7 +6,6 @@ import { NotificationProvider } from '../context/NotificationContext'
 import { InvoiceProvider } from '../context/InvoiceContext'
 import { PaymentProvider } from '../context/PaymentContext'
 import { InventoryProvider } from '../context/InventoryContext'
-import { UserProvider } from '../context/UserContext'
 import { AccountProvider } from '../context/AccountContext'
 import { resolveAuthUser } from '../utils/userDisplay'
 
@@ -21,18 +20,16 @@ const AuthenticatedLayout = () => {
   return (
     <NotificationProvider key={sessionKey}>
       <AccountProvider>
-        <UserProvider>
-          <InventoryProvider>
-            <InvoiceProvider>
-              <PaymentProvider>
-                <Suspense fallback={null}>
-                  <LiveChatWrapper />
-                </Suspense>
-                <Outlet />
-              </PaymentProvider>
-            </InvoiceProvider>
-          </InventoryProvider>
-        </UserProvider>
+        <InventoryProvider>
+          <InvoiceProvider>
+            <PaymentProvider>
+              <Suspense fallback={null}>
+                <LiveChatWrapper />
+              </Suspense>
+              <Outlet />
+            </PaymentProvider>
+          </InvoiceProvider>
+        </InventoryProvider>
       </AccountProvider>
     </NotificationProvider>
   )

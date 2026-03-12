@@ -3,7 +3,6 @@ import html2canvas from 'html2canvas';
 import templateStorage from './templateStorage';
 import { resolveTemplateStyleVariant } from './templateStyleVariants';
 import { getWatermarkFooterText, shouldShowWatermark } from './brandingPlan';
-import { generateInvoicePDF } from './pdfGenerator';
 
 const DEFAULT_CONTENT_TYPE = 'application/pdf';
 const DEFAULT_ENCODING = 'base64';
@@ -394,13 +393,13 @@ const renderInvoiceHtmlToPdf = async (htmlContent) => {
     await new Promise((resolve) => setTimeout(resolve, 120));
 
     const canvas = await html2canvas(pdfContainer, {
-      scale: 2,
+      scale: 1.5,
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff'
     });
 
-    const imgData = canvas.toDataURL('image/png');
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
@@ -410,13 +409,13 @@ const renderInvoiceHtmlToPdf = async (htmlContent) => {
     let heightLeft = imgHeight;
     let position = 0;
 
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
 
     while (heightLeft > 0) {
       position = heightLeft - imgHeight;
       pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
     }
 
@@ -478,19 +477,8 @@ export const buildInvoiceEmailPdfAttachment = async ({
       return htmlAttachment;
     }
   } catch (error) {
-    console.warn('HTML renderer failed for invoice email PDF, falling back to jsPDF template renderer:', error);
+    console.warn('HTML renderer failed for invoice email PDF:', error);
   }
 
-  try {
-    const fallbackDoc = generateInvoicePDF(
-      invoiceData,
-      resolvedTemplateStyle || 'standard',
-      companyData || {}
-    );
-    const fallbackBuffer = fallbackDoc.output('arraybuffer');
-    return buildAttachmentFromArrayBuffer(fallbackBuffer, fileName, 'frontend-jspdf-fallback');
-  } catch (error) {
-    console.warn('Fallback template renderer failed for invoice email PDF:', error);
-    return null;
-  }
+  return null;
 };

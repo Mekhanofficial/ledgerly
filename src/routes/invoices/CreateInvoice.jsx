@@ -1,5 +1,5 @@
 // src/routes/invoices/CreateInvoice.js
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, Mail, Download, Repeat, Save, Printer, Palette, Package, Search, Plus, X } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
@@ -67,44 +67,6 @@ const dedupeTemplates = (templates = []) => {
     }
   });
   return Array.from(map.values());
-};
-
-const parsePositiveInt = (value, fallback) => {
-  const parsed = Number.parseInt(String(value ?? ''), 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
-
-const MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES = parsePositiveInt(
-  import.meta.env.VITE_MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES,
-  15 * 1024 * 1024
-);
-
-const pdfArrayBufferToBase64 = (arrayBuffer) => {
-  if (!(arrayBuffer instanceof ArrayBuffer)) return '';
-  const bytes = new Uint8Array(arrayBuffer);
-  const chunkSize = 0x8000;
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return window.btoa(binary);
-};
-
-const buildPdfAttachmentPayload = (arrayBuffer, fileName = 'invoice.pdf') => {
-  if (!(arrayBuffer instanceof ArrayBuffer)) return null;
-  if (arrayBuffer.byteLength > MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES) {
-    const maxMb = Math.round(MAX_FRONTEND_EMAIL_PDF_ATTACHMENT_BYTES / (1024 * 1024));
-    throw new Error(`Invoice PDF is too large to email with this template. Max allowed is ${maxMb}MB.`);
-  }
-  const base64 = pdfArrayBufferToBase64(arrayBuffer);
-  if (!base64) return null;
-  return {
-    fileName: String(fileName || 'invoice.pdf'),
-    contentType: 'application/pdf',
-    encoding: 'base64',
-    data: base64,
-    source: 'frontend-create-html'
-  };
 };
 
 const buildTemplateDecorations = (variant, colors) => {
@@ -358,6 +320,7 @@ const CreateInvoice = () => {
   const totalAmount = roundMoney(subtotal + totalTax);
   const resolvedCurrency = canUseMultiCurrency ? currency : baseCurrency;
   const isTaxOverridden = taxEnabled && allowManualOverride && useTaxOverride && (hasOverrideRate || hasOverrideAmount);
+  const inputClassName = 'w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-slate-600 dark:bg-slate-800 dark:text-white';
 
   
   useEffect(() => {
@@ -368,7 +331,7 @@ const CreateInvoice = () => {
     if (!currency) {
       setCurrency(baseCurrency);
     }
-  }, [baseCurrency, canUseMultiCurrency]);
+  }, [baseCurrency, canUseMultiCurrency, currency]);
 // Load templates
   useEffect(() => {
     const templates = dedupeTemplates(getAvailableTemplates());
@@ -426,7 +389,7 @@ const CreateInvoice = () => {
     if (!hasSelected) {
       setSelectedTemplate(availableTemplates[0].id);
     }
-  }, [availableTemplates]);
+  }, [availableTemplates, selectedTemplate]);
 
   // Load products from inventory
   useEffect(() => {
@@ -434,14 +397,7 @@ const CreateInvoice = () => {
     setAvailableProducts(products);
   }, [getProductsForInvoice]);
 
-  // Load specific template if provided in URL
-  useEffect(() => {
-    if (templateId) {
-      loadTemplate(templateId);
-    }
-  }, [templateId]);
-
-  const loadTemplate = (templateId) => {
+  const loadTemplate = useCallback((templateId) => {
     setLoadingTemplate(true);
     try {
       const templates = dedupeTemplates(getAvailableTemplates());
@@ -480,7 +436,14 @@ const CreateInvoice = () => {
     } finally {
       setLoadingTemplate(false);
     }
-  };
+  }, [addToast, canUseMultiCurrency, getAvailableTemplates]);
+
+  // Load specific template if provided in URL
+  useEffect(() => {
+    if (templateId) {
+      loadTemplate(templateId);
+    }
+  }, [templateId, loadTemplate]);
 
   const handleSelectTemplate = (template) => {
     if (!template) return;
@@ -1219,20 +1182,9 @@ const CreateInvoice = () => {
         throw new Error('Failed to create invoice');
       }
 
-      const emailPdfDoc = await generatePDF(false, lineItemsWithInventory);
-      const emailPdfArrayBuffer = emailPdfDoc?.output?.('arraybuffer');
-      const emailPdfAttachment = buildPdfAttachmentPayload(
-        emailPdfArrayBuffer,
-        `invoice-${invoiceNumber}.pdf`
-      );
-      if (!emailPdfAttachment) {
-        throw new Error('Unable to generate frontend invoice PDF attachment.');
-      }
-
       const sendPayloadBase = {
         templateStyle: selectedTemplate,
         invoiceData,
-        includeFrontendPdf: false,
         emailSubject,
         emailMessage: brandedEmailMessage,
         emailFrom: emailSenderConfig.fromAddress,
@@ -1243,7 +1195,7 @@ const CreateInvoice = () => {
 
       const sentInvoice = await sendInvoice(
         createdInvoice.id,
-        { ...sendPayloadBase, pdfAttachment: emailPdfAttachment },
+        sendPayloadBase,
         { throwOnError: true }
       );
 
@@ -1473,10 +1425,10 @@ const CreateInvoice = () => {
     <DashboardLayout>
       <div className="space-y-6 p-4 md:p-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-              Create Invoice
+                Create Invoice
             </h1>
             <p className="text-gray-600 dark:text-gray-300 mt-1">
               Create and send professional invoices to your customers
@@ -1491,25 +1443,25 @@ const CreateInvoice = () => {
               )}
             </p>
           </div>
-          <div className="flex items-center space-x-3 mt-4 md:mt-0">
-            <button 
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap md:justify-end">
+            <button
               onClick={handlePreview}
-              className="flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              className="w-full sm:w-auto flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <Eye className="w-4 h-4 mr-2" />
               Preview
             </button>
-            <button 
+            <button
               onClick={handleSaveDraft}
-              className="flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              className="w-full sm:w-auto flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <Save className="w-4 h-4 mr-2" />
               Save Draft
             </button>
-            <button 
+            <button
               onClick={handleSendInvoice}
               disabled={isSending}
-              className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Mail className="w-4 h-4 mr-2" />
               {isSending ? 'Sending...' : 'Send Invoice'}
@@ -1547,7 +1499,7 @@ const CreateInvoice = () => {
                     const template = availableTemplates.find(item => item.id === e.target.value);
                     handleSelectTemplate(template);
                   }}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className={`${inputClassName} py-2`}
                 >
                   {availableTemplates.map(template => (
                     <option
@@ -1570,7 +1522,7 @@ const CreateInvoice = () => {
                   </button>
                 </div>
                 
-                <div className="mt-4 grid grid-cols-5 gap-2">
+                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                   {availableTemplates.map(template => (
                     <button
                       key={template.id}
@@ -1578,25 +1530,25 @@ const CreateInvoice = () => {
                       disabled={!resolveTemplateAccess(template)}
                       className={`p-3 rounded-lg border transition-all duration-200 ${
                         selectedTemplate === template.id
-                          ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20 shadow-md scale-105'
+                          ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20 shadow-md scale-[1.02]'
                           : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-sm'
                       } ${!resolveTemplateAccess(template) ? 'opacity-60 cursor-not-allowed' : ''}`}
                       title={template.name}
                     >
                       <div className="flex flex-col items-center">
-                        <div 
+                        <div
                           className="w-8 h-8 rounded-lg mb-2 shadow-inner"
-                          style={{ 
-                            backgroundColor: template.colors?.primary ? 
+                          style={{
+                            backgroundColor: template.colors?.primary ?
                               `rgb(${template.colors.primary.join(',')})` : '#2980b9',
-                            background: template.colors?.primary && template.colors?.secondary ? 
-                              `linear-gradient(135deg, 
-                               rgb(${template.colors.primary.join(',')}) 0%, 
-                               rgb(${template.colors.secondary.join(',')}) 100%)` : 
+                            background: template.colors?.primary && template.colors?.secondary ?
+                              `linear-gradient(135deg,
+                               rgb(${template.colors.primary.join(',')}) 0%,
+                               rgb(${template.colors.secondary.join(',')}) 100%)` :
                               'linear-gradient(135deg, #2980b9 0%, #2c3e50 100%)'
                           }}
                         ></div>
-                        <span className="text-xs font-medium">{template.id}</span>
+                        <span className="text-[11px] sm:text-xs font-medium text-center break-all">{template.id}</span>
                         {template.isDefault && (
                           <span className="text-[10px] text-primary-600 dark:text-primary-400 mt-1">
                             Default
@@ -1618,7 +1570,7 @@ const CreateInvoice = () => {
                 </div>
               </div>
             </div>
-            
+
             <InvoiceDetailsSection
               invoiceNumber={invoiceNumber}
               setInvoiceNumber={setInvoiceNumber}
@@ -1636,13 +1588,13 @@ const CreateInvoice = () => {
             
             {/* Products from Inventory */}
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Products from Inventory
                 </h2>
                 <button
                   onClick={() => setShowProductSelector(true)}
-                  className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
                 >
                   <Package className="w-4 h-4 mr-2" />
                   Add from Inventory
@@ -1672,23 +1624,23 @@ const CreateInvoice = () => {
                     return (
                       <div
                         key={product.id}
-                        className={`border rounded-lg p-4 cursor-pointer hover:border-primary-500 transition-colors ${
+                        className={`border rounded-lg p-4 transition-colors ${
                           isOutOfStock
                             ? 'opacity-50 cursor-not-allowed'
-                            : 'hover:shadow-md'
+                            : 'cursor-pointer hover:border-primary-500 hover:shadow-md'
                         }`}
                         onClick={() => !isOutOfStock && addProductFromInventory(product)}
                       >
-                        <div className="flex items-start justify-between">
-                          <div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
                             <h4 className="font-medium text-gray-900 dark:text-white">{product.name}</h4>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{product.sku}</p>
                           </div>
-                          <span className="font-bold text-gray-900 dark:text-white">
+                          <span className="font-bold text-gray-900 dark:text-white whitespace-nowrap">
                             ${product.price.toFixed(2)}
                           </span>
                         </div>
-                        <div className="mt-3 flex items-center justify-between text-sm">
+                        <div className="mt-3 flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             isOutOfStock
                               ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
@@ -1699,7 +1651,7 @@ const CreateInvoice = () => {
                             {isOutOfStock ? 'Out of Stock' : `${productStock} in stock`}
                           </span>
                           {!isOutOfStock && (
-                            <button className="text-primary-600 hover:text-primary-700">
+                            <button className="text-primary-600 hover:text-primary-700 text-left sm:text-right">
                               Add to Invoice
                             </button>
                           )}
@@ -1742,8 +1694,8 @@ const CreateInvoice = () => {
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    rows="3"
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    rows="4"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-y"
                     placeholder="Additional notes..."
                   />
                 </div>
@@ -1754,8 +1706,8 @@ const CreateInvoice = () => {
                   <textarea
                     value={terms}
                     onChange={(e) => setTerms(e.target.value)}
-                    rows="3"
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    rows="4"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-y"
                     placeholder="Terms and conditions..."
                   />
                 </div>
@@ -1840,7 +1792,7 @@ const CreateInvoice = () => {
             
             {/* Recurring Invoice Checkbox */}
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -1857,7 +1809,7 @@ const CreateInvoice = () => {
                 {isRecurring && (
                   <button
                     onClick={() => setShowRecurringModal(true)}
-                    className="text-sm text-primary-600 hover:text-primary-700"
+                    className="w-full sm:w-auto text-sm text-primary-600 hover:text-primary-700"
                   >
                     Configure
                   </button>
@@ -1896,7 +1848,7 @@ const CreateInvoice = () => {
       {showProductSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Select Products from Inventory
@@ -1924,7 +1876,7 @@ const CreateInvoice = () => {
               </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {filteredProducts.length === 0 ? (
                 <div className="text-center py-8">
                   <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
@@ -1948,8 +1900,8 @@ const CreateInvoice = () => {
                         }`}
                         onClick={() => !isOutOfStock && addProductFromInventory(product)}
                       >
-                        <div className="flex items-start justify-between">
-                          <div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
                             <h4 className="font-medium text-gray-900 dark:text-white">{product.name}</h4>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{product.sku}</p>
                             {product.description && (
@@ -1958,11 +1910,11 @@ const CreateInvoice = () => {
                               </p>
                             )}
                           </div>
-                          <span className="font-bold text-gray-900 dark:text-white">
+                          <span className="font-bold text-gray-900 dark:text-white whitespace-nowrap">
                             ${product.price.toFixed(2)}
                           </span>
                         </div>
-                        <div className="mt-4 flex items-center justify-between">
+                        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             isOutOfStock
                               ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
@@ -1973,7 +1925,7 @@ const CreateInvoice = () => {
                             {isOutOfStock ? 'Out of Stock' : `${productStock} in stock`}
                           </span>
                           {!isOutOfStock && (
-                            <button className="text-primary-600 hover:text-primary-700">
+                            <button className="text-primary-600 hover:text-primary-700 text-left sm:text-right">
                               Add
                             </button>
                           )}
@@ -1985,8 +1937,8 @@ const CreateInvoice = () => {
               )}
             </div>
             
-            <div className="p-6 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between items-center">
+            <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   {filteredProducts.length} products found
                 </span>
