@@ -2,7 +2,6 @@ import React from 'react';
 import { motion as Motion } from 'framer-motion';
 import {
   ArrowRight,
-  FileText,
   Github,
   Globe,
   Instagram,
@@ -12,6 +11,7 @@ import {
   Phone,
   Twitter
 } from 'lucide-react';
+import logo from '../../../assets/icons/ledger-icon.png';
 
 const Footer = () => {
   const socialLinks = [
@@ -84,12 +84,13 @@ const Footer = () => {
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 mb-12">
           <div className="lg:w-2/5 space-y-6">
             <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl blur opacity-70" />
-                <div className="relative w-12 h-12 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl flex items-center justify-center">
-                  <FileText className="w-7 h-7 text-white" />
-                </div>
-              </div>
+              <img
+                loading="eager"
+                decoding="async"
+                src={logo}
+                alt="Ledgerly"
+                className="h-14 w-14 shrink-0 object-contain sm:h-16 sm:w-16"
+              />
               <div>
                 <span className="text-2xl font-bold text-slate-900 dark:text-white">Ledgerly</span>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Professional Billing & Inventory Platform</p>

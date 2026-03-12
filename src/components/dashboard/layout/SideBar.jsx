@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -24,7 +24,7 @@ import { useSelector } from 'react-redux';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNotifications } from '../../../context/NotificationContext'; // Add this import
 import { getUserDisplayName, getUserInitials, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
-import logo from '../../../assets/icons/ledgerly-logo.webp';
+import logo from '../../../assets/icons/ledger-icon.png';
 
 const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
@@ -192,7 +192,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
           
           <AnimatePresence initial={false}>
             {isOpen && activeSubmenu === item.label && (
-              <motion.div
+              <Motion.div
                 className="ml-4 pl-3 border-l-2 border-cyan-100 dark:border-cyan-500/30 space-y-1 mb-2 overflow-hidden"
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -214,7 +214,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
                     {subItem.label}
                   </NavLink>
                 ))}
-              </motion.div>
+              </Motion.div>
             )}
           </AnimatePresence>
         </div>
@@ -258,7 +258,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   return (
     <>
       {/* Desktop Sidebar */}
-      <motion.aside
+      <Motion.aside
         data-dashboard-sidebar="true"
         className="hidden lg:flex flex-col fixed inset-y-0 left-0 z-30 bg-white/92 dark:bg-slate-950/88 border-r border-slate-200/80 dark:border-slate-800/80 overflow-hidden"
         initial={false}
@@ -267,9 +267,13 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
       >
         {/* Logo */}
         <div className="flex items-center h-16 px-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-            <img loading="eager" decoding="async" src={logo} alt="Ledgerly" className="w-6 h-6 object-contain" />
-          </div>
+          <img
+            loading="eager"
+            decoding="async"
+            src={logo}
+            alt="Ledgerly"
+            className="h-10 w-10 flex-shrink-0 object-contain"
+          />
         </div>
 
         {/* Main Menu */}
@@ -314,10 +318,10 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
             )}
           </div>
         </div>
-      </motion.aside>
+      </Motion.aside>
 
       {/* Mobile Sidebar */}
-      <motion.aside
+      <Motion.aside
         data-dashboard-sidebar="true"
         className="lg:hidden fixed inset-y-0 left-0 z-40 w-64 bg-white/95 dark:bg-slate-950/95 border-r border-slate-200/80 dark:border-slate-800/80"
         initial={false}
@@ -326,9 +330,13 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
       >
         <div className="flex items-center justify-between h-16 px-4 border-b border-slate-200/80 dark:border-slate-800/80">
           <div className="flex items-center">
-            <div className="w-10 h-10 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl flex items-center justify-center">
-              <img loading="eager" decoding="async" src={logo} alt="Ledgerly" className="w-6 h-6 object-contain" />
-            </div>
+            <img
+              loading="eager"
+              decoding="async"
+              src={logo}
+              alt="Ledgerly"
+              className="h-10 w-10 object-contain"
+            />
           </div>
           <button
             onClick={onMobileToggle}
@@ -367,7 +375,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
             </button>
           </div>
         </div>
-      </motion.aside>
+      </Motion.aside>
     </>
   );
 };

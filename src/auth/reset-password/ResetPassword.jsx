@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
-import logo from '../../assets/icons/ledgerly-logo.webp';
+import logo from '../../assets/icons/ledger-icon.png';
 
 const ResetPassword = () => {
   const navigate = useNavigate();

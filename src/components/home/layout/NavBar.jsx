@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Menu, Moon, Sun, X } from 'lucide-react';
+import { Menu, Moon, Sun, X } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
+import logo from '../../../assets/icons/ledger-icon.png';
 
 const NavBar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -21,13 +22,14 @@ const NavBar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 group">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl blur opacity-70 group-hover:opacity-100 transition-opacity"></div>
-              <div className="relative w-10 h-10 rounded-xl transform group-hover:scale-105 transition-transform duration-300 bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center">
-                <FileText className="w-6 h-6 text-white" aria-hidden="true" />
-              </div>
-            </div>
+          <Link to="/" className="flex items-center">
+            <img
+              loading="eager"
+              decoding="async"
+              src={logo}
+              alt="Ledgerly"
+              className="block h-11 w-11 object-contain sm:h-12 sm:w-12"
+            />
             <span className="sr-only">Ledgerly</span>
           </Link>
 

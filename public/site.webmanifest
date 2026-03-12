@@ -1,0 +1,20 @@
+{
+  "name": "Ledgerly",
+  "short_name": "Ledgerly",
+  "description": "Invoices, receipts and business management for growing businesses.",
+  "icons": [
+    {
+      "src": "/favicon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#0c2d63",
+  "background_color": "#ffffff",
+  "display": "standalone"
+}

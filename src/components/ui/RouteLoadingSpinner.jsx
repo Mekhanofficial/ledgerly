@@ -1,5 +1,5 @@
 import React from 'react'
-import logo from '../../assets/icons/ledgerly-logo.webp'
+import logo from '../../assets/icons/ledger-icon.png'
 
 const RouteLoadingSpinner = ({ show }) => {
   if (!show) return null
