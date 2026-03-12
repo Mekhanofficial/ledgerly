@@ -47,7 +47,7 @@ const Footer = () => {
       </div>
 
       <Motion.div
-        className="mb-12 w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white"
+        className="mb-12 w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white dark:border-y dark:border-cyan-500/20 dark:from-cyan-950/60 dark:via-slate-950 dark:to-blue-950/60"
         initial={{ opacity: 0, y: 18 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.2 }}
@@ -55,7 +55,7 @@ const Footer = () => {
       >
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-4 py-8 sm:px-6 lg:flex-row lg:gap-8 lg:px-8 lg:py-10">
           <div className="lg:w-1/2 xl:w-3/5">
-            <h3 className="mb-4 text-2xl font-bold leading-tight md:text-3xl lg:text-4xl">
+            <h3 className="mb-4 text-2xl font-bold leading-tight text-white md:text-3xl lg:text-4xl">
               Streamline your invoicing workflow today
             </h3>
             <p className="text-base text-cyan-50/90 md:text-lg">
@@ -67,9 +67,9 @@ const Footer = () => {
               <input
                 type="email"
                 placeholder="Enter your email"
-                className="flex-1 border border-white/25 bg-white/12 px-4 py-3 text-white placeholder-white/75 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-white/35"
+                className="flex-1 rounded-2xl border border-white/70 bg-white/95 px-4 py-3 text-slate-900 shadow-sm transition-colors placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/35 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-white/70 dark:backdrop-blur-sm"
               />
-              <button className="flex items-center justify-center gap-2 whitespace-nowrap bg-white px-6 py-3 font-semibold text-cyan-700 transition-colors hover:bg-cyan-50">
+              <button className="flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-white px-6 py-3 font-semibold text-cyan-700 shadow-sm transition-colors hover:bg-cyan-50 dark:bg-white dark:text-cyan-700 dark:hover:bg-cyan-50">
                 Get Started
                 <ArrowRight className="w-4 h-4" />
               </button>
