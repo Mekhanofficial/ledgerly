@@ -128,7 +128,7 @@ export const InventoryProvider = ({ children }) => {
       return;
     }
     try {
-      const data = await fetchAllPages('/categories', { limit: 200 }, 200);
+      const data = await fetchAllPages('/categories', { limit: 200, _ts: Date.now() }, 200);
       setCategories(Array.isArray(data) ? data.map(normalizeCategory) : []);
     } catch (error) {
       console.error('Error loading categories:', error);
@@ -138,13 +138,18 @@ export const InventoryProvider = ({ children }) => {
     }
   }, [addToast, normalizeCategory, canAccessInventory, fetchAllPages]);
 
+  const refreshCategoriesInBackground = useCallback(() => {
+    // Keep the local UI responsive and let the full sync happen after.
+    void loadCategories();
+  }, [loadCategories]);
+
   const loadSuppliers = useCallback(async () => {
     if (!canAccessInventory) {
       setSuppliers([]);
       return;
     }
     try {
-      const data = await fetchAllPages('/suppliers', { limit: 200 }, 200);
+      const data = await fetchAllPages('/suppliers', { limit: 200, _ts: Date.now() }, 200);
       setSuppliers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading suppliers:', error);
@@ -444,7 +449,7 @@ export const InventoryProvider = ({ children }) => {
         link: '/inventory/categories',
         icon: 'Folder'
       }, { showToast: false });
-      await loadCategories();
+      refreshCategoriesInBackground();
       return newCategory;
     } catch (error) {
       console.error('Error creating category:', error);
@@ -465,7 +470,7 @@ export const InventoryProvider = ({ children }) => {
         return catId === updatedId ? updatedCategory : cat;
       }));
       addToast('Category updated successfully!', 'success');
-      await loadCategories();
+      refreshCategoriesInBackground();
       return updatedCategory;
     } catch (error) {
       console.error('Error updating category:', error);
@@ -487,7 +492,7 @@ export const InventoryProvider = ({ children }) => {
       await api.delete(`/categories/${id}`);
       setCategories(prev => prev.filter(c => (c.id || c._id) !== id));
       addToast('Category deleted successfully!', 'success');
-      await loadCategories();
+      refreshCategoriesInBackground();
       return true;
     } catch (error) {
       console.error('Error deleting category:', error);

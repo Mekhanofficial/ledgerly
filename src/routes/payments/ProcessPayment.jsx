@@ -129,7 +129,7 @@ const ProcessPayment = () => {
       // Generate receipt PDF
       if (paymentResult.receipt) {
         const receiptTemplateId = getReceiptTemplatePreference();
-        const pdfDoc = generateReceiptPDF(paymentResult.receipt, accountInfo, receiptTemplateId);
+        const pdfDoc = await generateReceiptPDF(paymentResult.receipt, accountInfo, receiptTemplateId);
         pdfDoc.save(`${paymentResult.receipt.id}.pdf`);
       }
 

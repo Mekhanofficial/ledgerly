@@ -41,6 +41,7 @@ const buildEmptyAccountInfo = (preferredCurrency = 'USD') => ({
   subscriptionEndsAt: null,
   customDomain: '',
   customEmailSender: '',
+  logoUrl: '',
   brandingSettings: {
     removeWatermark: false,
     logoUrl: '',
@@ -60,6 +61,7 @@ const buildEmptyAccountInfo = (preferredCurrency = 'USD') => ({
 const mapBusinessToAccount = (business = {}, user = {}) => {
   const resolvedProfile = user.profileImage || business.owner?.profileImage || '';
   const avatarUrl = getAvatarUrl(user) || getAvatarUrl(business.owner);
+  const businessLogoUrl = business.logo || business.brandingSettings?.logoUrl || business.logoUrl || '';
 
   const rawAccount = {
     companyName: business.name || '',
@@ -85,9 +87,10 @@ const mapBusinessToAccount = (business = {}, user = {}) => {
     subscriptionEndsAt: business.subscription?.currentPeriodEnd || null,
     customDomain: business.customDomain || business.whiteLabel?.customDomain || '',
     customEmailSender: business.customEmailSender || business.whiteLabel?.customEmailSender || '',
+    logoUrl: businessLogoUrl,
     brandingSettings: {
       removeWatermark: business.brandingSettings?.removeWatermark,
-      logoUrl: business.brandingSettings?.logoUrl || business.logoUrl || '',
+      logoUrl: businessLogoUrl,
       brandColor: business.brandingSettings?.brandColor || business.brandColor || ''
     },
     whiteLabel: {
@@ -160,7 +163,7 @@ export const AccountProvider = ({ children }) => {
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
-  const canUpdateBusiness = normalizedRole === 'super_admin';
+  const canUpdateBusiness = ['super_admin', 'admin', 'accountant'].includes(normalizedRole);
 
   // Hydrate from storage on mount
   useEffect(() => {
@@ -260,10 +263,19 @@ export const AccountProvider = ({ children }) => {
     };
   }, [activeUser, defaultAccountInfo]);
 
-  const updateAccountInfo = useCallback(async (updates, profileImageFile) => {
+  const updateAccountInfo = useCallback(async (updates, uploadOptions = {}) => {
     if (!activeUser) {
       throw new Error('Not authenticated');
     }
+
+    const normalizedUploadOptions = ((typeof File !== 'undefined' && uploadOptions instanceof File) || uploadOptions === null)
+      ? { profileImageFile: uploadOptions }
+      : (uploadOptions || {});
+    const {
+      profileImageFile = null,
+      businessLogoFile = null,
+      removeBusinessLogo = false
+    } = normalizedUploadOptions;
 
     const businessPayload = {};
     if (updates.companyName !== undefined) {
@@ -283,6 +295,9 @@ export const AccountProvider = ({ children }) => {
     }
     if (updates.currency !== undefined) {
       businessPayload.currency = updates.currency;
+    }
+    if (removeBusinessLogo) {
+      businessPayload.logo = '';
     }
 
     const addressFields = {
@@ -334,14 +349,26 @@ export const AccountProvider = ({ children }) => {
     }
 
     let businessData;
-    if (Object.keys(businessPayload).length > 0 && canUpdateBusiness) {
-      try {
+    const hasBusinessChanges = Object.keys(businessPayload).length > 0 || Boolean(businessLogoFile);
+    if (hasBusinessChanges && canUpdateBusiness) {
+      if (businessLogoFile || removeBusinessLogo) {
+        const businessFormData = new FormData();
+        Object.entries(businessPayload).forEach(([field, value]) => {
+          if (value === undefined || value === null) return;
+          if (typeof value === 'object') {
+            businessFormData.append(field, JSON.stringify(value));
+            return;
+          }
+          businessFormData.append(field, value);
+        });
+        if (businessLogoFile) {
+          businessFormData.append('logo', businessLogoFile);
+        }
+        const response = await api.put('/business', businessFormData);
+        businessData = response.data.data;
+      } else {
         const response = await api.put('/business', businessPayload);
         businessData = response.data.data;
-      } catch (error) {
-        if (!isAccessDeniedError(error)) {
-          throw error;
-        }
       }
     }
 

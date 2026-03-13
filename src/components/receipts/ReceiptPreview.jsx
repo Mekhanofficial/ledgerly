@@ -16,6 +16,7 @@ import { useAccount } from '../../context/AccountContext';
 import templateStorage from '../../utils/templateStorage';
 import PaymentMethodDisplay from './PaymentMethodDisplay';
 import { formatCurrency } from '../../utils/currency';
+import { getBusinessLogoUrl } from '../../utils/brandingPlan';
 
 const TEMPLATE_COLOR_FALLBACK = {
   primary: '#2980b9',
@@ -73,6 +74,7 @@ const ReceiptPreview = ({
 }) => {
   const { isDarkMode } = useTheme();
   const { accountInfo } = useAccount();
+  const businessLogoUrl = getBusinessLogoUrl(accountInfo);
   const currencyCode = accountInfo?.currency || 'USD';
   const formatMoney = (value, currencyOverride) => formatCurrency(value, currencyOverride || currencyCode);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
@@ -183,6 +185,15 @@ const ReceiptPreview = ({
             }`}>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
+                  {businessLogoUrl && (
+                    <img
+                      loading="lazy"
+                      decoding="async"
+                      src={businessLogoUrl}
+                      alt={`${companyName} logo`}
+                      className="mb-3 h-12 max-w-[140px] object-contain"
+                    />
+                  )}
                   <div className="text-lg font-semibold tracking-tight" style={{ color: templatePalette.primary }}>
                     {companyName}
                   </div>

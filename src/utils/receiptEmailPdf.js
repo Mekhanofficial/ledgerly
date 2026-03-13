@@ -32,7 +32,7 @@ const resolveReceiptFileName = (receiptData = {}, fallbackId = '') => {
   return 'receipt.pdf';
 };
 
-export const buildReceiptEmailPdfAttachment = ({
+export const buildReceiptEmailPdfAttachment = async ({
   receiptData,
   accountInfo = {},
   templateId,
@@ -47,7 +47,7 @@ export const buildReceiptEmailPdfAttachment = ({
     || 'standard';
 
   try {
-    const doc = generateReceiptPDF(receiptData, accountInfo, { templateId: resolvedTemplateId });
+    const doc = await generateReceiptPDF(receiptData, accountInfo, { templateId: resolvedTemplateId });
     const buffer = doc.output('arraybuffer');
     if (!(buffer instanceof ArrayBuffer) || buffer.byteLength <= 0) {
       return null;

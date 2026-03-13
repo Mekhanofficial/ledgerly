@@ -189,7 +189,7 @@ export default function PublicInvoicePaymentResult({ mode = 'success' }) {
       };
       let pdfAttachment = null;
       try {
-        pdfAttachment = buildReceiptEmailPdfAttachment({
+        pdfAttachment = await buildReceiptEmailPdfAttachment({
           receiptData,
           accountInfo,
           templateId: resolvedTemplateStyle,

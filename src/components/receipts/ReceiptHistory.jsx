@@ -35,9 +35,9 @@ const ReceiptHistory = ({ receipts = [], onRefresh, defaultTemplateId }) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const handleReprint = (receipt) => {
+  const handleReprint = async (receipt) => {
     try {
-      const pdfDoc = generateReceiptPDF(receipt, accountInfo, defaultTemplateId);
+      const pdfDoc = await generateReceiptPDF(receipt, accountInfo, defaultTemplateId);
       pdfDoc.save(`${receipt.id}-reprint.pdf`);
       addToast(`Receipt ${receipt.id} reprinted`, 'success');
       setActionMenu(null);
@@ -64,7 +64,7 @@ const ReceiptHistory = ({ receipts = [], onRefresh, defaultTemplateId }) => {
     }
 
     try {
-      const pdfAttachment = buildReceiptEmailPdfAttachment({
+      const pdfAttachment = await buildReceiptEmailPdfAttachment({
         receiptData: receipt,
         accountInfo,
         templateId: resolvedTemplateStyle,
@@ -88,9 +88,9 @@ const ReceiptHistory = ({ receipts = [], onRefresh, defaultTemplateId }) => {
     }
   };
 
-  const handleDownloadPDF = (receipt) => {
+  const handleDownloadPDF = async (receipt) => {
     try {
-      const pdfDoc = generateReceiptPDF(receipt, accountInfo, defaultTemplateId);
+      const pdfDoc = await generateReceiptPDF(receipt, accountInfo, defaultTemplateId);
       pdfDoc.save(`${receipt.id}.pdf`);
       addToast(`Receipt ${receipt.id} downloaded`, 'success');
       setActionMenu(null);
@@ -136,9 +136,9 @@ const ReceiptHistory = ({ receipts = [], onRefresh, defaultTemplateId }) => {
     }
   };
 
-  const handleViewReceipt = (receipt) => {
+  const handleViewReceipt = async (receipt) => {
     try {
-      const pdfDoc = generateReceiptPDF(receipt, accountInfo, defaultTemplateId);
+      const pdfDoc = await generateReceiptPDF(receipt, accountInfo, defaultTemplateId);
       const pdfBlob = pdfDoc.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, '_blank');

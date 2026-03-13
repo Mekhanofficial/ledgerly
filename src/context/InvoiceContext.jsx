@@ -730,7 +730,7 @@ export const InvoiceProvider = ({ children }) => {
             notes: paymentData.notes || invoice.notes || ''
           };
 
-          receiptPdfAttachment = buildReceiptEmailPdfAttachment({
+          receiptPdfAttachment = await buildReceiptEmailPdfAttachment({
             receiptData: receiptPreviewData,
             accountInfo,
             templateId: resolvedTemplateStyle,

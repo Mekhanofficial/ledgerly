@@ -77,12 +77,13 @@ export const fetchProducts = createAsyncThunk(
   'products/fetchAll',
   async (params = {}, { rejectWithValue }) => {
     try {
-      const payload = await fetchAllPages('/products', params, 200);
+      const cacheBustedParams = { ...params, _ts: Date.now() };
+      const payload = await fetchAllPages('/products', cacheBustedParams, 200);
       const requestedIsActive = normalizeBooleanParam(params?.isActive);
       const data = normalizeListPayload(payload);
 
       if (requestedIsActive !== undefined && data.length === 0) {
-        const fallbackParams = { ...params };
+        const fallbackParams = { ...params, _ts: Date.now() };
         delete fallbackParams.isActive;
 
         const fallbackPayload = await fetchAllPages('/products', fallbackParams, 200);
@@ -109,7 +110,7 @@ export const fetchProductById = createAsyncThunk(
   'products/fetchById',
   async (id, { rejectWithValue }) => {
     try {
-      const response = await api.get(`/products/${id}`);
+      const response = await api.get(`/products/${id}`, { params: { _ts: Date.now() } });
       return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || 'Failed to fetch product');
@@ -179,7 +180,9 @@ export const fetchStockAdjustments = createAsyncThunk(
   'products/fetchAdjustments',
   async (params = { limit: 50 }, { rejectWithValue }) => {
     try {
-      const response = await api.get('/inventory/stock-adjustments', { params });
+      const response = await api.get('/inventory/stock-adjustments', {
+        params: { ...params, _ts: Date.now() }
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || 'Failed to fetch stock adjustments');

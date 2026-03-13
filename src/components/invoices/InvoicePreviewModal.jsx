@@ -2,6 +2,7 @@
 import React from 'react';
 import { X, Mail, Download, Printer } from 'lucide-react';
 import { useAccount } from '../../context/AccountContext';
+import { getBusinessLogoUrl } from '../../utils/brandingPlan';
 
 const InvoicePreviewModal = ({
   invoiceData,
@@ -13,6 +14,7 @@ const InvoicePreviewModal = ({
   const { accountInfo } = useAccount();
   const canPrint = typeof onPrint === 'function';
   const canDownloadPDF = typeof onDownloadPDF === 'function';
+  const businessLogoUrl = getBusinessLogoUrl(accountInfo);
   const locationParts = [
     accountInfo?.city,
     accountInfo?.state,
@@ -62,6 +64,15 @@ const InvoicePreviewModal = ({
                 </p>
               </div>
               <div className="text-right">
+                {businessLogoUrl && (
+                  <img
+                    loading="lazy"
+                    decoding="async"
+                    src={businessLogoUrl}
+                    alt={`${accountInfo?.companyName || 'Business'} logo`}
+                    className="ml-auto mb-3 h-14 max-w-[160px] object-contain"
+                  />
+                )}
                 <div className="text-lg font-bold text-gray-900 dark:text-white">
                   {accountInfo?.companyName || 'Ledgerly'}
                 </div>

@@ -167,7 +167,7 @@ const Receipts = () => {
       || selectedTemplateId
       || 'standard';
 
-    const pdfAttachment = buildReceiptEmailPdfAttachment({
+    const pdfAttachment = await buildReceiptEmailPdfAttachment({
       receiptData,
       accountInfo,
       templateId: resolvedTemplateStyle,
@@ -272,7 +272,7 @@ const Receipts = () => {
         throw new Error('Failed to create receipt');
       }
 
-      const pdfDoc = generateReceiptPDF(createdReceipt, accountInfo, selectedTemplateId);
+      const pdfDoc = await generateReceiptPDF(createdReceipt, accountInfo, selectedTemplateId);
       pdfDoc.save(`${createdReceipt.id}.pdf`);
 
       addNotification({
@@ -361,7 +361,7 @@ const Receipts = () => {
         throw new Error('Failed to create receipt');
       }
 
-      const pdfDoc = generateReceiptPDF(createdReceipt, accountInfo, selectedTemplateId);
+      const pdfDoc = await generateReceiptPDF(createdReceipt, accountInfo, selectedTemplateId);
       pdfDoc.save(`${createdReceipt.id}.pdf`);
       const receiptCurrency = createdReceipt.currency || baseCurrency;
       const emailTo = customerEmail || selectedCustomer?.email || createdReceipt.customerEmail;

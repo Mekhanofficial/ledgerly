@@ -44,12 +44,15 @@ export const resolveBrandingProfile = (userLike = {}) => {
     incomingWhiteLabel.customEmailSender || userLike?.customEmailSender || ''
   ).trim();
   const isEnterprise = plan === 'enterprise';
+  const resolvedLogoUrl = String(
+    incomingBranding.logoUrl || userLike?.logoUrl || userLike?.business?.logo || ''
+  ).trim();
 
   const brandingSettings = {
     removeWatermark: Boolean(
       incomingBranding.removeWatermark ?? (plan !== 'starter')
     ),
-    logoUrl: incomingBranding.logoUrl || userLike?.logoUrl || '',
+    logoUrl: resolvedLogoUrl,
     brandColor: incomingBranding.brandColor || userLike?.brandColor || ''
   };
 
@@ -65,6 +68,7 @@ export const resolveBrandingProfile = (userLike = {}) => {
   return {
     ...userLike,
     plan,
+    logoUrl: resolvedLogoUrl,
     customDomain: whiteLabel.customDomain,
     customEmailSender: whiteLabel.customEmailSender,
     brandingSettings,
@@ -97,6 +101,18 @@ export const shouldShowWatermark = (userLike = {}) => {
 export const getWatermarkFooterText = (userLike = {}) => {
   if (!shouldShowWatermark(userLike)) return '';
   return 'Powered by Ledgerly';
+};
+
+export const canUseBusinessLogo = (userLike = {}) => {
+  const profile = resolveBrandingProfile(userLike);
+  const features = getPlanFeatures(profile);
+  return Boolean(features.customLogo);
+};
+
+export const getBusinessLogoUrl = (userLike = {}) => {
+  const profile = resolveBrandingProfile(userLike);
+  if (!canUseBusinessLogo(profile)) return '';
+  return String(profile.brandingSettings?.logoUrl || profile.logoUrl || '').trim();
 };
 
 export const getEmailSenderConfig = (userLike = {}) => {

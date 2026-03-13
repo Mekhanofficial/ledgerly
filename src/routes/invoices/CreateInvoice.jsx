@@ -23,6 +23,7 @@ import templateStorage, { hasTemplateAccess } from '../../utils/templateStorage'
 import { resolveTemplateStyleVariant } from '../../utils/templateStyleVariants';
 import {
   buildBrandedEmailMessage,
+  getBusinessLogoUrl,
   getEmailSenderConfig,
   getWatermarkFooterText,
   resolveInvoiceBaseUrl,
@@ -181,6 +182,7 @@ const CreateInvoice = () => {
   const canUseMultiCurrency = isMultiCurrencyPlan(accountInfo?.plan, accountInfo?.subscriptionStatus);
   const watermarkEnabled = useMemo(() => shouldShowWatermark(accountInfo), [accountInfo]);
   const watermarkFooterText = useMemo(() => getWatermarkFooterText(accountInfo), [accountInfo]);
+  const businessLogoUrl = useMemo(() => getBusinessLogoUrl(accountInfo), [accountInfo]);
   const emailSenderConfig = useMemo(() => getEmailSenderConfig(accountInfo), [accountInfo]);
   const hideLedgerlyBrandingEverywhere = useMemo(
     () => shouldHideLedgerlyBrandingEverywhere(accountInfo),
@@ -778,6 +780,9 @@ const CreateInvoice = () => {
       const { headerHtml, footerHtml, paddingTop, paddingBottom } = buildTemplateDecorations(templateVariant, colors);
       
       const companyName = accountInfo?.companyName || 'Your Business';
+      const businessLogoMarkup = businessLogoUrl
+        ? `<img src="${businessLogoUrl}" alt="${companyName} logo" crossorigin="anonymous" style="display:block;max-width:140px;max-height:60px;width:auto;height:auto;object-fit:contain;margin:0 0 12px auto;" />`
+        : '';
       const contactTitle = accountInfo?.contactName ? `Attn: ${accountInfo.contactName}` : '';
       const locationPieces = [
         accountInfo?.city,
@@ -875,6 +880,7 @@ const CreateInvoice = () => {
                 </div>
               </div>
               <div style="text-align: right;">
+                ${businessLogoMarkup}
                 <div style="font-size: 18px; font-weight: bold; color: ${colors.primary}; margin-bottom: 10px;">
                   ${companyName}
                 </div>
@@ -1243,6 +1249,9 @@ const CreateInvoice = () => {
       : '';
 
     const printCompanyName = accountInfo?.companyName || 'Your Business';
+    const printBusinessLogoMarkup = businessLogoUrl
+      ? `<img src="${businessLogoUrl}" alt="${printCompanyName} logo" crossorigin="anonymous" style="display:block;max-width:140px;max-height:60px;width:auto;height:auto;object-fit:contain;margin:0 0 12px auto;" />`
+      : '';
     const printContactTitle = accountInfo?.contactName ? `Attn: ${accountInfo.contactName}` : '';
     const printLocationPieces = [
       accountInfo?.city,
@@ -1276,14 +1285,32 @@ const CreateInvoice = () => {
               margin: 40px; 
               background: white;
             }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+            }
             @media print {
               body { margin: 20px; }
               .no-print { display: none; }
+              .invoice-container {
+                width: 210mm;
+                min-height: 297mm;
+              }
+              thead { display: table-header-group; }
+              tfoot { display: table-footer-group; }
+              tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+              }
+              .no-break {
+                page-break-inside: avoid;
+                break-inside: avoid;
+              }
             }
           </style>
         </head>
         <body>
-          <div style="max-width: 800px; margin: 0 auto; position: relative; overflow: hidden; border: 1px solid #ddd; border-radius: 12px; background: white;">
+          <div class="invoice-container" style="max-width: 800px; margin: 0 auto; position: relative; overflow: hidden; border: 1px solid #ddd; border-radius: 12px; background: white;">
             ${headerHtml}
             ${footerHtml}
             <div style="position: relative; z-index: 2; padding: ${paddingTop}px 30px ${paddingBottom}px 30px;">
@@ -1299,6 +1326,7 @@ const CreateInvoice = () => {
                   </div>
                 </div>
                 <div style="text-align: right;">
+                  ${printBusinessLogoMarkup}
                   <div style="font-size: 18px; font-weight: bold; color: ${printColors.primary}; margin-bottom: 10px;">${printCompanyName}</div>
                   <div style="color: #6c757d; font-size: 14px;">
                     ${printContactTitle ? `${printContactTitle}<br>` : ''}
@@ -1334,7 +1362,7 @@ const CreateInvoice = () => {
               </thead>
               <tbody>
                 ${lineItems.map((item, index) => `
-                <tr style="${index % 2 === 0 ? `background: ${printColors.accent};` : ''} border-bottom: 1px solid #e9ecef;">
+                <tr class="no-break" style="${index % 2 === 0 ? `background: ${printColors.accent};` : ''} border-bottom: 1px solid #e9ecef;">
                     <td style="padding: 15px; font-size: 14px; color: #495057;">
                       ${item.description || 'Item'}
                       ${item.sku ? `<div style="font-size: 12px; color: #6c757d;">SKU: ${item.sku}</div>` : ''}

@@ -87,8 +87,6 @@ const NewCategory = () => {
       };
       
       await addCategory(categoryData);
-      
-      addToast('Category created successfully!', 'success');
       navigate('/inventory/categories');
       
     } catch (error) {

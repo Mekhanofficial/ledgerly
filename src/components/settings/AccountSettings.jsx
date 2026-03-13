@@ -4,24 +4,26 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAccount } from '../../context/AccountContext';
 import { useToast } from '../../context/ToastContext';
 import countryData from '../../data/CountryData.json';
+import { canUseBusinessLogo } from '../../utils/brandingPlan';
+
+const EMPTY_FORM_STATE = {
+  companyName: '',
+  contactName: '',
+  email: '',
+  phone: '',
+  address: '',
+  city: '',
+  state: '',
+  zipCode: '',
+  country: 'United States',
+  timezone: 'America/Los_Angeles',
+  currency: 'USD'
+};
 
 const AccountSettings = () => {
   const { isDarkMode } = useTheme();
   const { accountInfo, updateAccountInfo, refreshAccountInfo } = useAccount();
   const { addToast } = useToast();
-  const EMPTY_FORM_STATE = {
-    companyName: '',
-    contactName: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    country: 'United States',
-    timezone: 'America/Los_Angeles',
-    currency: 'USD'
-  };
   const [formData, setFormData] = useState({
     ...EMPTY_FORM_STATE,
     ...accountInfo
@@ -29,9 +31,16 @@ const AccountSettings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [profilePreviewUrl, setProfilePreviewUrl] = useState('');
+  const [businessLogoFile, setBusinessLogoFile] = useState(null);
+  const [businessLogoPreviewUrl, setBusinessLogoPreviewUrl] = useState('');
+  const [businessLogoRemoved, setBusinessLogoRemoved] = useState(false);
   const fileInputRef = useRef(null);
+  const businessLogoInputRef = useRef(null);
   const previewRef = useRef(null);
+  const businessLogoPreviewRef = useRef(null);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
+  const [businessLogoLoadError, setBusinessLogoLoadError] = useState(false);
+  const canUploadBusinessLogo = canUseBusinessLogo(accountInfo);
   const defaultCurrencyOptions = [
     { value: 'USD', label: 'USD' },
     { value: 'EUR', label: 'EUR' },
@@ -69,12 +78,16 @@ const AccountSettings = () => {
       ...EMPTY_FORM_STATE,
       ...accountInfo
     });
+    setBusinessLogoRemoved(false);
   }, [accountInfo]);
 
   useEffect(() => {
     return () => {
       if (previewRef.current) {
         URL.revokeObjectURL(previewRef.current);
+      }
+      if (businessLogoPreviewRef.current) {
+        URL.revokeObjectURL(businessLogoPreviewRef.current);
       }
     };
   }, []);
@@ -85,14 +98,28 @@ const AccountSettings = () => {
     }
   }, [accountInfo.avatarUrl, profileImageFile]);
 
+  useEffect(() => {
+    if (!businessLogoFile) {
+      setBusinessLogoPreviewUrl('');
+    }
+  }, [accountInfo.brandingSettings?.logoUrl, businessLogoFile]);
+
   const rawAvatarUrl = profilePreviewUrl || accountInfo.avatarUrl || '';
   const resolvedAvatarUrl = avatarLoadError ? '' : rawAvatarUrl;
   const hasAvatar = Boolean(resolvedAvatarUrl);
   const canRemovePhoto = Boolean(profileImageFile || accountInfo.avatarUrl);
+  const rawBusinessLogoUrl = businessLogoPreviewUrl || formData.brandingSettings?.logoUrl || accountInfo.brandingSettings?.logoUrl || '';
+  const resolvedBusinessLogoUrl = businessLogoLoadError ? '' : rawBusinessLogoUrl;
+  const hasBusinessLogo = Boolean(resolvedBusinessLogoUrl);
+  const canRemoveBusinessLogo = Boolean(businessLogoFile || rawBusinessLogoUrl);
 
   useEffect(() => {
     setAvatarLoadError(false);
   }, [profilePreviewUrl, accountInfo.avatarUrl]);
+
+  useEffect(() => {
+    setBusinessLogoLoadError(false);
+  }, [businessLogoPreviewUrl, formData.brandingSettings?.logoUrl, accountInfo.brandingSettings?.logoUrl]);
 
   const handleRemovePhoto = () => {
     if (previewRef.current) {
@@ -103,6 +130,19 @@ const AccountSettings = () => {
     setProfilePreviewUrl('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const resetBusinessLogoSelection = () => {
+    if (businessLogoPreviewRef.current) {
+      URL.revokeObjectURL(businessLogoPreviewRef.current);
+      businessLogoPreviewRef.current = null;
+    }
+    setBusinessLogoFile(null);
+    setBusinessLogoPreviewUrl('');
+    setBusinessLogoRemoved(false);
+    if (businessLogoInputRef.current) {
+      businessLogoInputRef.current.value = '';
     }
   };
 
@@ -129,6 +169,56 @@ const AccountSettings = () => {
     setProfileImageFile(file);
   };
 
+  const handleBusinessLogoChange = (event) => {
+    if (!canUploadBusinessLogo) {
+      addToast('Upgrade to Professional or Enterprise to use a business logo', 'info');
+      event.target.value = '';
+      return;
+    }
+
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      addToast('Only image files are allowed for business logos', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    if (businessLogoPreviewRef.current) {
+      URL.revokeObjectURL(businessLogoPreviewRef.current);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    businessLogoPreviewRef.current = objectUrl;
+    setBusinessLogoPreviewUrl(objectUrl);
+    setBusinessLogoFile(file);
+    setBusinessLogoRemoved(false);
+    setFormData((prev) => ({
+      ...prev,
+      logoUrl: objectUrl,
+      brandingSettings: {
+        ...(prev.brandingSettings || {}),
+        logoUrl: objectUrl
+      }
+    }));
+  };
+
+  const handleRemoveBusinessLogo = () => {
+    resetBusinessLogoSelection();
+    setBusinessLogoRemoved(true);
+    setFormData((prev) => ({
+      ...prev,
+      logoUrl: '',
+      brandingSettings: {
+        ...(prev.brandingSettings || {}),
+        logoUrl: ''
+      }
+    }));
+  };
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -139,10 +229,15 @@ const AccountSettings = () => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      await updateAccountInfo(formData, profileImageFile);
+      await updateAccountInfo(formData, {
+        profileImageFile,
+        businessLogoFile,
+        removeBusinessLogo: businessLogoRemoved
+      });
       await refreshAccountInfo({ silent: true });
       addToast('Account settings saved', 'success');
       handleRemovePhoto();
+      resetBusinessLogoSelection();
     } catch (error) {
       addToast(error?.message || 'Failed to save account settings', 'error');
     } finally {
@@ -225,6 +320,87 @@ const AccountSettings = () => {
           accept="image/*"
           className="sr-only"
           onChange={handleProfileImageChange}
+        />
+      </div>
+
+      <div className={`mb-6 border-b pb-6 ${
+        isDarkMode ? 'border-gray-700' : 'border-gray-200'
+      }`}>
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          <div className={`relative w-28 h-20 rounded-2xl border overflow-hidden ${
+            isDarkMode ? 'border-gray-600 bg-gray-900' : 'border-gray-200 bg-gray-50'
+          }`}>
+            {hasBusinessLogo ? (
+              <img
+                loading="lazy"
+                decoding="async"
+                src={resolvedBusinessLogoUrl}
+                alt="Business logo"
+                className="w-full h-full object-contain p-2"
+                onError={() => setBusinessLogoLoadError(true)}
+              />
+            ) : (
+              <div className={`w-full h-full flex items-center justify-center ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-500'
+              }`}>
+                <Building className="w-8 h-8" />
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className={`text-sm font-semibold ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Business logo
+            </div>
+            <p className={`text-xs ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-500'
+            }`}>
+              Used on invoices, receipts, and branded PDF/email exports. Available on Professional and Enterprise.
+            </p>
+            {!canUploadBusinessLogo && (
+              <p className={`text-xs ${
+                isDarkMode ? 'text-amber-300' : 'text-amber-700'
+              }`}>
+                Starter users can remove an existing logo, but uploading a custom logo requires an upgrade.
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!canUploadBusinessLogo) {
+                    addToast('Upgrade to Professional or Enterprise to use a business logo', 'info');
+                    return;
+                  }
+                  businessLogoInputRef.current?.click();
+                }}
+                className={`inline-flex items-center px-3 py-1.5 rounded-lg border text-xs font-medium transition ${
+                  isDarkMode ? 'border-gray-600 text-white' : 'border-gray-200 text-gray-700'
+                } hover:bg-primary-50 dark:hover:bg-gray-700`}
+              >
+                <Camera className="w-4 h-4 mr-1" />
+                {hasBusinessLogo ? 'Change logo' : 'Upload logo'}
+              </button>
+              {canRemoveBusinessLogo && (
+                <button
+                  type="button"
+                  onClick={handleRemoveBusinessLogo}
+                  className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:text-red-700 transition"
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        <input
+          ref={businessLogoInputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          onChange={handleBusinessLogoChange}
         />
       </div>
       

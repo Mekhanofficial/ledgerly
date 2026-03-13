@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Package, Plus, Filter, Download, Search, Edit, Trash2, MoreVertical, Eye, AlertCircle, CheckCircle, X, ChevronDown } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useInventory } from '../../context/InventoryContext';
 import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
-import { fetchProducts, deleteProduct as deactivateProduct } from '../../store/slices/productSlide';
+import { deleteProduct as deactivateProduct } from '../../store/slices/productSlide';
 import { mapProductFromApi } from '../../utils/productAdapter';
 import TablePagination from '../../components/ui/TablePagination';
 import { useTablePagination } from '../../hooks/usePagination';
@@ -47,10 +47,6 @@ const Products = () => {
   const [productToDelete, setProductToDelete] = useState(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(null);
-
-  useEffect(() => {
-    dispatch(fetchProducts({ isActive: true }));
-  }, [dispatch]);
 
   // Calculate product statistics
   const calculateProductStats = () => {

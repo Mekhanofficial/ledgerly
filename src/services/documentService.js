@@ -37,5 +37,8 @@ export const buildDocumentUrl = (doc = {}) => {
   const serverBase = resolveServerBaseUrl();
   const filePath = doc.filePath || doc.path;
   if (!filePath) return '';
+  if (/^https?:\/\//i.test(String(filePath))) {
+    return String(filePath);
+  }
   return `${serverBase}/${String(filePath).replace(/^\/+/, '')}`;
 };

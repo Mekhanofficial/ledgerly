@@ -17,7 +17,7 @@ import { useToast } from '../../context/ToastContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useAccount } from '../../context/AccountContext';
 import { isMultiCurrencyPlan } from '../../utils/subscription';
-import { generateInvoicePDF } from '../../utils/pdfGenerator';
+import { buildInvoiceEmailPdfAttachment } from '../../utils/invoiceEmailPdf';
 import {
   buildBrandedEmailMessage,
   getEmailSenderConfig,
@@ -26,6 +26,15 @@ import {
   shouldShowWatermark
 } from '../../utils/brandingPlan';
 import { fetchTaxSettings } from '../../services/taxSettingsService';
+
+const decodeBase64ToBlob = (base64, contentType = 'application/pdf') => {
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: contentType });
+};
 
 const EditInvoice = () => {
   const { id } = useParams();
@@ -477,7 +486,7 @@ const EditInvoice = () => {
     }
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     try {
       const invoiceData = {
         invoiceNumber,
@@ -498,12 +507,26 @@ const EditInvoice = () => {
         currency: resolvedCurrency,
       };
 
-      const pdfDoc = generateInvoicePDF(
+      const pdfAttachment = await buildInvoiceEmailPdfAttachment({
         invoiceData,
-        originalInvoice?.templateStyle || 'standard',
-        accountInfo
-      );
-      pdfDoc.save(`${invoiceNumber}.pdf`);
+        templateStyle: originalInvoice?.templateStyle || 'standard',
+        companyData: accountInfo,
+        fallbackInvoiceId: id
+      });
+      if (!pdfAttachment?.data) {
+        throw new Error('Unable to generate invoice PDF');
+      }
+
+      const pdfBlob = decodeBase64ToBlob(pdfAttachment.data, pdfAttachment.contentType);
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = pdfAttachment.fileName || `${invoiceNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+
       addToast('PDF invoice downloaded successfully!', 'success');
       if (shouldShowWatermark(accountInfo)) {
         addToast(
