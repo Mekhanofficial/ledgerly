@@ -49,8 +49,13 @@ const TeamManagementPanel = () => {
   const [shareInvite, setShareInvite] = useState({ open: false, url: '', email: '' });
 
   useEffect(() => {
+    if (!canManageTeam) {
+      setTeamMembers([]);
+      setLoading(false);
+      return;
+    }
     fetchTeam();
-  }, []);
+  }, [canManageTeam]);
 
   useEffect(() => {
     if (canManageTeam) {
@@ -67,11 +72,20 @@ const TeamManagementPanel = () => {
   }, [teamMembers]);
 
   const fetchTeam = async () => {
+    if (!canManageTeam) {
+      setTeamMembers([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const response = await api.get('/team');
       setTeamMembers(response.data.data || []);
     } catch (error) {
+      if (error?.response?.status === 403) {
+        setTeamMembers([]);
+        return;
+      }
       addToast(error?.response?.data?.error || 'Failed to load team members', 'error');
     } finally {
       setLoading(false);

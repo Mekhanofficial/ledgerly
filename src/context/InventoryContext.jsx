@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useMemo,
   useState
 } from 'react';
@@ -79,6 +80,7 @@ export const InventoryProvider = ({ children }) => {
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const initKeyRef = useRef('');
 
   const normalizeListPayload = useCallback((payload) => {
     if (Array.isArray(payload)) return payload;
@@ -164,19 +166,34 @@ export const InventoryProvider = ({ children }) => {
   }, [addToast, canAccessInventory, fetchAllPages]);
 
   useEffect(() => {
-    if (!isAuthenticated || !canAccessInventory) {
-      setLoading(false);
-      setCategories([]);
-      setSuppliers([]);
-      const hasCachedInventoryState =
-        (Array.isArray(rawProducts) && rawProducts.length > 0) ||
-        (Array.isArray(storeAdjustments) && storeAdjustments.length > 0);
-      if (hasCachedInventoryState) {
-        dispatch(clearInventoryState());
-      }
+    if (isAuthenticated && canAccessInventory) {
       return;
     }
 
+    setLoading(false);
+    setCategories([]);
+    setSuppliers([]);
+    initKeyRef.current = '';
+
+    const hasCachedInventoryState =
+      (Array.isArray(rawProducts) && rawProducts.length > 0) ||
+      (Array.isArray(storeAdjustments) && storeAdjustments.length > 0);
+    if (hasCachedInventoryState) {
+      dispatch(clearInventoryState());
+    }
+  }, [dispatch, isAuthenticated, canAccessInventory, rawProducts, storeAdjustments]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !canAccessInventory) return;
+
+    const userKey = String(authUser?.id || authUser?._id || '');
+    const currentInitKey = `${userKey}:${canAccessStockAdjustments ? '1' : '0'}`;
+    if (initKeyRef.current === currentInitKey) {
+      return;
+    }
+    initKeyRef.current = currentInitKey;
+
+    let isMounted = true;
     const initialize = async () => {
       setLoading(true);
       try {
@@ -195,11 +212,16 @@ export const InventoryProvider = ({ children }) => {
         console.error('Error initializing inventory state:', error);
         addToast('Error loading inventory data', 'error');
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     initialize();
+    return () => {
+      isMounted = false;
+    };
   }, [
     dispatch,
     loadCategories,
@@ -208,8 +230,8 @@ export const InventoryProvider = ({ children }) => {
     isAuthenticated,
     canAccessInventory,
     canAccessStockAdjustments,
-    rawProducts,
-    storeAdjustments
+    authUser?.id,
+    authUser?._id
   ]);
 
   // Helper function to parse numeric values safely
