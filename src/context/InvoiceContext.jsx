@@ -477,6 +477,8 @@ export const InvoiceProvider = ({ children }) => {
         invoiceId: mappedInvoice.id
       });
 
+      dispatch(fetchInvoices());
+
       return mappedInvoice;
     } catch (error) {
       addToast(error?.message || 'Error creating invoice', 'error');
@@ -760,6 +762,7 @@ export const InvoiceProvider = ({ children }) => {
       })).unwrap();
 
       const updatedInvoice = mapInvoiceFromApi(result?.invoice || result);
+      dispatch(fetchInvoices());
       if (canAccessCustomers) {
         dispatch(fetchCustomers());
       }

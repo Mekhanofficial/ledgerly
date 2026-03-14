@@ -32,9 +32,18 @@ const TeamManagementPanel = () => {
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
   const authUser = useSelector((state) => state.auth.user);
-  const canManageTeam = ['super_admin', 'admin'].includes(authUser?.role);
-  const canManageRoles = authUser?.role === 'super_admin';
-  const isProtectedAdmin = (member) => ['super_admin', 'admin'].includes(member?.role);
+  const normalizedRole = String(authUser?.role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const canManageTeam = ['super_admin', 'admin'].includes(normalizedRole);
+  const canManageRoles = normalizedRole === 'super_admin';
+  const isProtectedAdmin = (member) => ['super_admin', 'admin'].includes(
+    String(member?.role || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_')
+  );
   const visibleRoleOptions = canManageRoles
     ? roleOptions
     : roleOptions.filter((option) => option.value !== 'super_admin');

@@ -1,10 +1,11 @@
 // src/components/reports/CreateReportModal.js
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Calendar, Filter, Save, Download } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
 const CreateReportModal = ({ isOpen, onClose, onSave }) => {
   const { isDarkMode } = useTheme();
+  const [animateIn, setAnimateIn] = useState(false);
   const [reportData, setReportData] = useState({
     title: '',
     description: '',
@@ -64,11 +65,31 @@ const CreateReportModal = ({ isOpen, onClose, onSave }) => {
     onSave(newReport);
   };
 
+  useEffect(() => {
+    if (!isOpen) {
+      setAnimateIn(false);
+      return undefined;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      setAnimateIn(true);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className={`rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col ${
+    <div className={`fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-[1px] transition-opacity duration-200 ${
+      animateIn ? 'opacity-100' : 'opacity-0'
+    }`}>
+      <div className="flex min-h-full items-start justify-center p-4 md:p-8">
+        <div className={`w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-xl flex flex-col transform-gpu transition-all duration-200 ease-out ${
+        animateIn ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.985]'
+      } ${
         isDarkMode ? 'bg-gray-800' : 'bg-white'
       }`}>
         {/* Header */}
@@ -382,6 +403,7 @@ const CreateReportModal = ({ isOpen, onClose, onSave }) => {
               Create & Generate Report
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>

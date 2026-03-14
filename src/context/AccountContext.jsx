@@ -62,6 +62,7 @@ const mapBusinessToAccount = (business = {}, user = {}) => {
   const resolvedProfile = user.profileImage || business.owner?.profileImage || '';
   const avatarUrl = getAvatarUrl(user) || getAvatarUrl(business.owner);
   const businessLogoUrl = business.logo || business.brandingSettings?.logoUrl || business.logoUrl || '';
+  const subscription = business.subscription || {};
 
   const rawAccount = {
     companyName: business.name || '',
@@ -80,11 +81,11 @@ const mapBusinessToAccount = (business = {}, user = {}) => {
       user.currency,
       user.currencyCode
     ),
-    plan: user.plan || business.subscription?.plan || 'starter',
-    billingCycle: business.subscription?.billingCycle || 'monthly',
-    subscriptionStatus: user.subscriptionStatus || business.subscription?.status || 'active',
-    trialEndsAt: user.trialEndsAt || business.subscription?.trialEndsAt || null,
-    subscriptionEndsAt: user.subscriptionEndsAt || business.subscription?.currentPeriodEnd || null,
+    plan: subscription.plan || user.plan || 'starter',
+    billingCycle: subscription.billingCycle || 'monthly',
+    subscriptionStatus: subscription.status || user.subscriptionStatus || 'active',
+    trialEndsAt: subscription.trialEndsAt || user.trialEndsAt || null,
+    subscriptionEndsAt: subscription.currentPeriodEnd || user.subscriptionEndsAt || null,
     customDomain: business.customDomain || business.whiteLabel?.customDomain || '',
     customEmailSender: business.customEmailSender || business.whiteLabel?.customEmailSender || '',
     logoUrl: businessLogoUrl,

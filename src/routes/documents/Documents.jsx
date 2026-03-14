@@ -104,6 +104,15 @@ const getFileExtension = (fileName = '') => {
   return value.slice(dotIndex);
 };
 
+const getDocumentPreviewType = (doc = {}) => {
+  const mimeType = String(doc?.mimeType || '').trim().toLowerCase();
+  const extension = getFileExtension(doc?.fileName || doc?.originalName || doc?.name || '');
+
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType === 'application/pdf' || extension === '.pdf') return 'pdf';
+  return 'external';
+};
+
 const isAllowedFileForPlan = (file, planConfig) => {
   const extension = getFileExtension(file?.name);
   if (!planConfig.allowedExtensions.includes(extension)) {
@@ -139,6 +148,7 @@ const Documents = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [activeDocumentId, setActiveDocumentId] = useState(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
   const uploadInputRef = useRef(null);
   const bulkUploadInputRef = useRef(null);
   const scanInputRef = useRef(null);
@@ -173,6 +183,10 @@ const Documents = () => {
   const activeDocument = activeDocumentIndex >= 0 ? documents[activeDocumentIndex] : null;
   const activeDocumentUrl = useMemo(
     () => buildDocumentUrl(activeDocument || {}),
+    [activeDocument]
+  );
+  const activePreviewType = useMemo(
+    () => getDocumentPreviewType(activeDocument || {}),
     [activeDocument]
   );
   const canViewPreviousDocument = activeDocumentIndex > 0;
@@ -309,6 +323,7 @@ const Documents = () => {
   }, []);
 
   const openDocumentViewer = useCallback((docId) => {
+    setPreviewFailed(false);
     setActiveDocumentId(docId);
   }, []);
 
@@ -325,6 +340,7 @@ const Documents = () => {
     if (!canViewPreviousDocument) return;
     const previous = documents[activeDocumentIndex - 1];
     if (previous?.id) {
+      setPreviewFailed(false);
       setActiveDocumentId(previous.id);
     }
   }, [canViewPreviousDocument, documents, activeDocumentIndex]);
@@ -333,6 +349,7 @@ const Documents = () => {
     if (!canViewNextDocument) return;
     const next = documents[activeDocumentIndex + 1];
     if (next?.id) {
+      setPreviewFailed(false);
       setActiveDocumentId(next.id);
     }
   }, [canViewNextDocument, documents, activeDocumentIndex]);
@@ -635,15 +652,42 @@ const Documents = () => {
               </div>
             </div>
             <div className="flex-1 bg-gray-100 dark:bg-gray-950">
-              {activeDocumentUrl ? (
-                <iframe
-                  title={activeDocument.name}
-                  src={activeDocumentUrl}
-                  className="w-full h-full border-0"
-                />
+              {activeDocumentUrl && !previewFailed && activePreviewType === 'image' ? (
+                <div className="h-full w-full overflow-auto p-4 md:p-6">
+                  <img
+                    src={activeDocumentUrl}
+                    alt={activeDocument.name}
+                    className="mx-auto h-auto max-h-full w-auto max-w-full rounded-lg shadow"
+                    onError={() => setPreviewFailed(true)}
+                  />
+                </div>
+              ) : activeDocumentUrl && !previewFailed && activePreviewType === 'pdf' ? (
+                <object
+                  key={activeDocumentUrl}
+                  data={activeDocumentUrl}
+                  type="application/pdf"
+                  className="h-full w-full"
+                >
+                  <iframe
+                    title={activeDocument.name}
+                    src={activeDocumentUrl}
+                    className="h-full w-full border-0"
+                  />
+                </object>
               ) : (
                 <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-                  Unable to preview this document.
+                  <div className="text-center px-6">
+                    <p>
+                      {previewFailed
+                        ? 'Preview failed for this document.'
+                        : activePreviewType === 'external'
+                          ? 'Preview is not available for this file type.'
+                          : 'Unable to preview this document.'}
+                    </p>
+                    <p className="mt-2">
+                      Use the Open button above to view it in a new tab.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

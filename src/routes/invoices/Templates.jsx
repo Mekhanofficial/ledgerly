@@ -129,7 +129,7 @@ const InvoiceTemplates = () => {
         : templateOrId?.id;
       if (!templateId) {
         addToast('Missing template information for checkout', 'error');
-        return;
+        return false;
       }
       const tier = resolveTemplateTier(template || {});
 
@@ -140,12 +140,15 @@ const InvoiceTemplates = () => {
         tier
       });
       const data = response?.data || response;
-      if (!redirectToCheckout(data)) {
+      const started = redirectToCheckout(data);
+      if (!started) {
         addToast('Unable to start payment. Please try again.', 'error');
       }
+      return started;
     } catch (error) {
       console.error('Error starting template payment:', error);
       addToast(error?.response?.data?.error || 'Unable to purchase template', 'error');
+      return false;
     }
   };
 
@@ -163,12 +166,15 @@ const InvoiceTemplates = () => {
         unlockAllTemplates: normalizedTier === 'all'
       });
       const data = response?.data || response;
-      if (!redirectToCheckout(data)) {
+      const started = redirectToCheckout(data);
+      if (!started) {
         addToast('Unable to start payment. Please try again.', 'error');
       }
+      return started;
     } catch (error) {
       console.error('Error starting template bundle payment:', error);
       addToast(error?.response?.data?.error || 'Unable to purchase template bundle', 'error');
+      return false;
     }
   };
 

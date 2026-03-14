@@ -31,6 +31,12 @@ const formatAddress = (address) => {
   return parts.join(', ');
 };
 
+const toTitleCase = (value) => String(value || '')
+  .trim()
+  .replace(/\s+/g, ' ')
+  .toLowerCase()
+  .replace(/(^|[\s'-])[a-z]/g, (chunk) => chunk.toUpperCase());
+
 const unwrapCustomerPayload = (payload) => {
   if (!payload || typeof payload !== 'object') {
     return {};
@@ -82,7 +88,7 @@ export const mapCustomerFromApi = (customerInput = {}) => {
 
 export const buildCustomerPayload = (formData = {}) => {
   const payload = {
-    name: formData.name?.trim(),
+    name: toTitleCase(formData.name),
     email: formData.email?.trim(),
     phone: formData.phone?.trim()
   };

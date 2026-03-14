@@ -4,6 +4,7 @@ import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { verifyPayment } from '../../services/billingService';
 import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
+import { clearPendingCheckout } from '../../utils/subscriptionCheckout';
 
 const PaymentCallback = () => {
   const [searchParams] = useSearchParams();
@@ -12,6 +13,10 @@ const PaymentCallback = () => {
   const { refreshAccountInfo } = useAccount();
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('Verifying payment...');
+  const [primaryTarget, setPrimaryTarget] = useState('/settings');
+  const [primaryLabel, setPrimaryLabel] = useState('Go to Billing');
+  const [secondaryTarget, setSecondaryTarget] = useState('/invoices/templates');
+  const [secondaryLabel, setSecondaryLabel] = useState('View Templates');
 
   useEffect(() => {
     const reference =
@@ -26,15 +31,46 @@ const PaymentCallback = () => {
     }
 
     let isActive = true;
+    let redirectTimer;
 
     const verify = async () => {
       try {
-        await verifyPayment(reference);
+        const verification = await verifyPayment(reference);
         await refreshAccountInfo({ silent: true });
+        clearPendingCheckout();
         if (!isActive) return;
+        const applied = verification?.data?.applied || verification?.applied || {};
+        const appliedType = String(applied?.type || '').trim().toLowerCase();
+
+        if (appliedType === 'subscription') {
+          setPrimaryTarget('/settings?section=billing');
+          setPrimaryLabel('Open Billing');
+          setSecondaryTarget('/payments/pricing');
+          setSecondaryLabel('View Plans');
+          setMessage('Payment verified. Your subscription has been updated.');
+        } else if (appliedType === 'template' || appliedType === 'bundle' || appliedType === 'lifetime') {
+          setPrimaryTarget('/invoices/templates');
+          setPrimaryLabel('Open Templates');
+          setSecondaryTarget('/settings?section=billing');
+          setSecondaryLabel('Go to Billing');
+          setMessage('Payment verified. Template access has been unlocked.');
+        } else {
+          setMessage('Payment verified. Your account is now updated.');
+        }
         setStatus('success');
-        setMessage('Payment verified. Your account is now updated.');
         addToast('Payment verified successfully', 'success');
+
+        const redirectPath = appliedType === 'subscription'
+          ? '/settings?section=billing'
+          : (appliedType === 'template' || appliedType === 'bundle' || appliedType === 'lifetime'
+            ? '/invoices/templates'
+            : '');
+
+        if (redirectPath) {
+          redirectTimer = window.setTimeout(() => {
+            navigate(redirectPath, { replace: true });
+          }, 1400);
+        }
       } catch (error) {
         if (!isActive) return;
         setStatus('error');
@@ -47,8 +83,11 @@ const PaymentCallback = () => {
 
     return () => {
       isActive = false;
+      if (redirectTimer) {
+        window.clearTimeout(redirectTimer);
+      }
     };
-  }, [searchParams, addToast, refreshAccountInfo]);
+  }, [searchParams, addToast, navigate, refreshAccountInfo]);
 
   return (
     <DashboardLayout>
@@ -62,17 +101,17 @@ const PaymentCallback = () => {
         <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
           <button
             type="button"
-            onClick={() => navigate('/settings')}
+            onClick={() => navigate(primaryTarget)}
             className="px-4 py-2 rounded-lg bg-primary-600 text-white font-semibold"
           >
-            Go to Billing
+            {primaryLabel}
           </button>
           <button
             type="button"
-            onClick={() => navigate('/invoices/templates')}
+            onClick={() => navigate(secondaryTarget)}
             className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
           >
-            View Templates
+            {secondaryLabel}
           </button>
         </div>
       </div>

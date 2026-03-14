@@ -130,7 +130,15 @@ const ProcessPayment = () => {
       if (paymentResult.receipt) {
         const receiptTemplateId = getReceiptTemplatePreference();
         const pdfDoc = await generateReceiptPDF(paymentResult.receipt, accountInfo, receiptTemplateId);
-        pdfDoc.save(`${paymentResult.receipt.id}.pdf`);
+        const receiptFileName = String(
+          paymentResult.receipt?.receiptNumber
+          || paymentResult.receipt?.id
+          || paymentResult.receipt?.recordId
+          || `receipt-${selectedInvoice?.invoiceNumber || selectedInvoice?.number || Date.now()}`
+        )
+          .trim()
+          .replace(/[<>:"/\\|?*]+/g, '-');
+        pdfDoc.save(`${receiptFileName}.pdf`);
       }
 
       addToast(`Payment processed and receipt generated for ${customer.name}`, 'success');

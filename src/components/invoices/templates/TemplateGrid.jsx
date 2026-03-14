@@ -167,9 +167,10 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
   const handlePurchase = async () => {
     try {
       if (!selectedPremiumTemplate) return;
-      await onPurchaseTemplate(selectedPremiumTemplate);
-      addToast(`Successfully purchased ${selectedPremiumTemplate.name}!`, 'success');
-      setSelectedPremiumTemplate(null);
+      const started = await onPurchaseTemplate(selectedPremiumTemplate);
+      if (started !== false) {
+        setSelectedPremiumTemplate(null);
+      }
     } catch {
       addToast('Purchase failed. Please try again.', 'error');
     }
@@ -180,9 +181,10 @@ const TemplateGrid = ({ templates, categories, activeTab, onTabChange, onFavorit
     try {
       if (!selectedPremiumTemplate) return;
       const tier = resolveTier(selectedPremiumTemplate) === 'ELITE' ? 'elite' : 'premium';
-      await onPurchaseBundle(tier);
-      addToast(`${tier === 'elite' ? 'Elite' : 'Premium'} bundle checkout started`, 'success');
-      setSelectedPremiumTemplate(null);
+      const started = await onPurchaseBundle(tier);
+      if (started !== false) {
+        setSelectedPremiumTemplate(null);
+      }
     } catch {
       addToast('Bundle purchase failed. Please try again.', 'error');
     }
