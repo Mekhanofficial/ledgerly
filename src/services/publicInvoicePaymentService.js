@@ -10,10 +10,14 @@ export const initializePublicInvoicePayment = async (slug) => {
   return response.data?.data ?? response.data;
 };
 
-export const verifyPublicInvoicePayment = async (reference) => {
+export const verifyPublicInvoicePayment = async (reference, options = {}) => {
+  const slug = String(options?.slug || '').trim();
+  const invoiceId = String(options?.invoiceId || '').trim();
   const response = await api.get('/payments/verify', {
     params: {
       reference,
+      ...(slug ? { slug } : {}),
+      ...(invoiceId ? { invoiceId } : {}),
       mode: 'json'
     }
   });

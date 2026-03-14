@@ -18,7 +18,8 @@ import {
   updateProduct as updateProductThunk,
   deleteProduct as deleteProductThunk,
   adjustStock as adjustStockThunk,
-  fetchStockAdjustments
+  fetchStockAdjustments,
+  clearInventoryState
 } from '../store/slices/productSlide';
 import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter';
 import { getAdjustmentTimestamp } from '../utils/adjustmentDate';
@@ -48,8 +49,11 @@ export const InventoryProvider = ({ children }) => {
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
   const normalizedPlan = normalizePlanId(accountInfo?.plan);
-  const hasInventoryFeature = ['professional', 'enterprise'].includes(normalizedPlan);
-  const canAccessInventory = ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
+  const subscriptionStatus = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
+  const effectivePlan = subscriptionStatus === 'expired' ? 'starter' : normalizedPlan;
+  const canAccessInventoryRole = ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
+  const hasInventoryFeature = ['professional', 'enterprise'].includes(effectivePlan);
+  const canAccessInventory = canAccessInventoryRole && ['professional', 'enterprise'].includes(effectivePlan);
   const canAccessStockAdjustments = hasInventoryFeature && ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
   const getErrorMessage = useCallback((error, fallback) => {
     if (typeof error === 'string' && error.trim()) return error;
@@ -164,6 +168,12 @@ export const InventoryProvider = ({ children }) => {
       setLoading(false);
       setCategories([]);
       setSuppliers([]);
+      const hasCachedInventoryState =
+        (Array.isArray(rawProducts) && rawProducts.length > 0) ||
+        (Array.isArray(storeAdjustments) && storeAdjustments.length > 0);
+      if (hasCachedInventoryState) {
+        dispatch(clearInventoryState());
+      }
       return;
     }
 
@@ -190,7 +200,17 @@ export const InventoryProvider = ({ children }) => {
     };
 
     initialize();
-  }, [dispatch, loadCategories, loadSuppliers, addToast, isAuthenticated, canAccessInventory, canAccessStockAdjustments]);
+  }, [
+    dispatch,
+    loadCategories,
+    loadSuppliers,
+    addToast,
+    isAuthenticated,
+    canAccessInventory,
+    canAccessStockAdjustments,
+    rawProducts,
+    storeAdjustments
+  ]);
 
   // Helper function to parse numeric values safely
   const parseNumber = (value, defaultValue = 0) => {
@@ -586,6 +606,9 @@ export const InventoryProvider = ({ children }) => {
 
   // Get products for invoice creation (dropdown)
   const getProductsForInvoice = () => {
+    if (!canAccessInventory) {
+      return [];
+    }
     return products.map(product => {
       const { totalStock, availableStock, reservedStock } = resolveStockValues(product);
 

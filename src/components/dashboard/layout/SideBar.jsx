@@ -23,6 +23,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useTheme } from '../../../context/ThemeContext';
 import { useNotifications } from '../../../context/NotificationContext'; // Add this import
+import { useAccount } from '../../../context/AccountContext';
+import { normalizePlanId } from '../../../utils/subscription';
 import { getUserDisplayName, getUserInitials, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
 import logo from '../../../assets/icons/ledger-icon.png';
 
@@ -32,6 +34,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const mobileScrollRef = useRef(null);
   const location = useLocation();
   const { unreadCount } = useNotifications(); // Get unread notification count
+  const { accountInfo } = useAccount();
   const authUser = useSelector((state) => state.auth?.user);
   const user = resolveAuthUser(authUser);
   const normalizedRole = String(user?.role || '')
@@ -47,6 +50,13 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const canManageInventoryAdmin = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
   const canAccessSettings = ['admin', 'super_admin'].includes(normalizedRole);
   const canManageTeam = ['admin', 'super_admin'].includes(normalizedRole);
+  const subscriptionStatus = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
+  const effectivePlan = subscriptionStatus === 'expired'
+    ? 'starter'
+    : normalizePlanId(accountInfo?.plan);
+  const hasRecurringFeature = isSuperAdmin || ['professional', 'enterprise'].includes(effectivePlan);
+  const hasInventoryFeature = isSuperAdmin || ['professional', 'enterprise'].includes(effectivePlan);
+  const hasTeamFeature = isSuperAdmin || ['professional', 'enterprise'].includes(effectivePlan);
   
   useTheme();
 
@@ -67,13 +77,13 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
       submenu: [
         { label: 'All Invoices', path: '/invoices' },
         { label: 'Create Invoice', path: '/invoices/create' },
-        { label: 'Recurring', path: '/invoices/recurring' },
+        ...(hasRecurringFeature ? [{ label: 'Recurring', path: '/invoices/recurring' }] : []),
         { label: 'Templates', path: '/invoices/templates' }
       ]
     },
     ...(canAccessReceipts ? [{ icon: Receipt, label: 'Receipts', path: '/receipts' }] : []),
     { icon: FileArchive, label: 'Documents', path: '/documents' },
-    ...(canManageInventory
+    ...(canManageInventory && hasInventoryFeature
       ? [{
           icon: Package,
           label: 'Inventory',
@@ -82,7 +92,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         }]
       : []),
     { icon: Users, label: 'Customers', path: '/customers' },
-    ...(canManageTeam ? [{ icon: Mail, label: 'Team', path: '/team' }] : []),
+    ...(canManageTeam && hasTeamFeature ? [{ icon: Mail, label: 'Team', path: '/team' }] : []),
     ...(canAccessReports ? [{ icon: BarChart3, label: 'Reports', path: '/reports' }] : []),
     ...(canAccessPayments ? [{ icon: CreditCard, label: 'Payments', path: '/payments' }] : [])
   ];

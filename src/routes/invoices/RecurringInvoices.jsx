@@ -18,9 +18,11 @@ import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useAccount } from '../../context/AccountContext';
+import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import TablePagination from '../../components/ui/TablePagination';
 import { useTablePagination } from '../../hooks/usePagination';
+import { normalizePlanId } from '../../utils/subscription';
 import CountUpNumber from '../../components/ui/CountUpNumber';
 
 const RecurringInvoices = () => {
@@ -28,6 +30,9 @@ const RecurringInvoices = () => {
   const { addToast } = useToast();
   const { accountInfo } = useAccount();
   const baseCurrency = accountInfo?.currency || 'USD';
+  const subscriptionStatus = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
+  const effectivePlan = subscriptionStatus === 'expired' ? 'starter' : normalizePlanId(accountInfo?.plan);
+  const hasRecurringFeature = ['professional', 'enterprise'].includes(effectivePlan);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [recurringInvoices, setRecurringInvoices] = useState([]);
@@ -58,6 +63,11 @@ const RecurringInvoices = () => {
   }, [baseCurrency]);
 
   const loadRecurringInvoices = useCallback(async () => {
+    if (!hasRecurringFeature) {
+      setRecurringInvoices([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const response = await api.get('/invoices/recurring', {
@@ -71,11 +81,16 @@ const RecurringInvoices = () => {
     } finally {
       setLoading(false);
     }
-  }, [addToast, mapRecurringInvoice]);
+  }, [addToast, mapRecurringInvoice, hasRecurringFeature]);
 
   useEffect(() => {
+    if (!hasRecurringFeature) {
+      setRecurringInvoices([]);
+      setLoading(false);
+      return;
+    }
     loadRecurringInvoices();
-  }, [loadRecurringInvoices]);
+  }, [loadRecurringInvoices, hasRecurringFeature]);
 
   const handlePauseResume = async (invoiceId) => {
     try {
@@ -433,6 +448,25 @@ const RecurringInvoices = () => {
           <div className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
             Loading recurring invoices...
           </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!hasRecurringFeature) {
+    return (
+      <DashboardLayout>
+        <div className={`border rounded-xl p-8 text-center ${
+          isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-white border-gray-200 text-gray-700'
+        }`}>
+          <h2 className="text-xl font-semibold">Recurring Invoices Are On Professional+</h2>
+          <p className="mt-2 text-sm">Upgrade your plan to automate recurring invoice generation and lifecycle controls.</p>
+          <Link
+            to="/payments/pricing"
+            className="inline-flex mt-5 px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700"
+          >
+            View Pricing
+          </Link>
         </div>
       </DashboardLayout>
     );

@@ -31,6 +31,26 @@ const parsePositiveInt = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const resolveInvoiceId = (invoice) => String(invoice?._id || invoice?.id || '').trim();
+
+const upsertInvoiceInState = (state, payload, { prepend = false } = {}) => {
+  const payloadId = resolveInvoiceId(payload);
+  if (!payloadId) return false;
+
+  const index = state.invoices.findIndex((invoice) => resolveInvoiceId(invoice) === payloadId);
+  if (index !== -1) {
+    state.invoices[index] = payload;
+    return false;
+  }
+
+  if (prepend) {
+    state.invoices.unshift(payload);
+  } else {
+    state.invoices.push(payload);
+  }
+  return true;
+};
+
 const INVOICE_SEND_TIMEOUT_MS = parsePositiveInt(
   import.meta.env.VITE_INVOICE_SEND_TIMEOUT_MS,
   parsePositiveInt(import.meta.env.VITE_API_TIMEOUT_MS, 120000)
@@ -256,8 +276,10 @@ const invoiceSlice = createSlice({
       })
       .addCase(createInvoice.fulfilled, (state, action) => {
         state.loading = false;
-        state.invoices.unshift(action.payload);
-        state.total += 1;
+        const inserted = upsertInvoiceInState(state, action.payload, { prepend: true });
+        if (inserted) {
+          state.total += 1;
+        }
       })
       .addCase(createInvoice.rejected, (state, action) => {
         state.loading = false;
@@ -266,40 +288,36 @@ const invoiceSlice = createSlice({
       
       // Update invoice
       .addCase(updateInvoice.fulfilled, (state, action) => {
-        const index = state.invoices.findIndex(i => i._id === action.payload._id);
-        if (index !== -1) {
-          state.invoices[index] = action.payload;
-        }
-        if (state.currentInvoice?._id === action.payload._id) {
+        upsertInvoiceInState(state, action.payload);
+        if (resolveInvoiceId(state.currentInvoice) === resolveInvoiceId(action.payload)) {
           state.currentInvoice = action.payload;
         }
       })
       
       // Delete invoice
       .addCase(deleteInvoice.fulfilled, (state, action) => {
-        state.invoices = state.invoices.filter(i => i._id !== action.payload);
-        state.total -= 1;
+        const targetId = String(action.payload || '').trim();
+        const previousLength = state.invoices.length;
+        state.invoices = state.invoices.filter((invoice) => resolveInvoiceId(invoice) !== targetId);
+        if (state.invoices.length < previousLength) {
+          state.total = Math.max(0, state.total - 1);
+        }
       })
       
       // Send invoice
       .addCase(sendInvoice.fulfilled, (state, action) => {
-        const index = state.invoices.findIndex(i => i._id === action.payload._id);
-        if (index !== -1) {
-          state.invoices[index] = action.payload;
-        }
-        if (state.currentInvoice?._id === action.payload._id) {
+        upsertInvoiceInState(state, action.payload, { prepend: true });
+        if (resolveInvoiceId(state.currentInvoice) === resolveInvoiceId(action.payload)) {
           state.currentInvoice = action.payload;
         }
       })
       
       // Record payment
       .addCase(recordPayment.fulfilled, (state, action) => {
-        const index = state.invoices.findIndex(i => i._id === action.payload.invoice._id);
-        if (index !== -1) {
-          state.invoices[index] = action.payload.invoice;
-        }
-        if (state.currentInvoice?._id === action.payload.invoice._id) {
-          state.currentInvoice = action.payload.invoice;
+        const invoicePayload = action.payload?.invoice;
+        upsertInvoiceInState(state, invoicePayload);
+        if (resolveInvoiceId(state.currentInvoice) === resolveInvoiceId(invoicePayload)) {
+          state.currentInvoice = invoicePayload;
         }
       })
       

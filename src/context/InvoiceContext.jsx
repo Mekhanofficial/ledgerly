@@ -651,6 +651,8 @@ export const InvoiceProvider = ({ children }) => {
           : id;
 
       const updated = await dispatch(sendInvoiceThunk(buildPayload(normalizedEmailOptions))).unwrap();
+      // Keep list views in sync with canonical backend ordering/populates.
+      dispatch(fetchInvoices());
 
       const mapped = mapInvoiceFromApi(updated);
       addToast('Invoice sent successfully', 'success');

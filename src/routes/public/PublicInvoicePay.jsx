@@ -172,12 +172,24 @@ export default function PublicInvoicePay() {
         },
         callback: async (response) => {
           try {
-            await verifyPublicInvoicePayment(response.reference);
+            await verifyPublicInvoicePayment(response.reference, {
+              slug: invoicePayload?.publicSlug || slug,
+              invoiceId: invoicePayload?.id
+            });
             navigate(
               `/invoice/success/${invoicePayload?.publicSlug || slug}?reference=${encodeURIComponent(response.reference)}`
             );
           } catch (verifyError) {
-            window.location.href = `${serverBaseUrl}/api/v1/payments/verify?reference=${encodeURIComponent(response.reference)}`;
+            const verifyParams = new URLSearchParams({
+              reference: response.reference
+            });
+            if (invoicePayload?.publicSlug || slug) {
+              verifyParams.set('slug', invoicePayload?.publicSlug || slug);
+            }
+            if (invoicePayload?.id) {
+              verifyParams.set('invoiceId', String(invoicePayload.id));
+            }
+            window.location.href = `${serverBaseUrl}/api/v1/payments/verify?${verifyParams.toString()}`;
           }
         },
         onClose: () => {

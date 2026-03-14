@@ -18,7 +18,7 @@ import { useInvoice } from '../../context/InvoiceContext';
 import { useInventory } from '../../context/InventoryContext';
 import { useAccount } from '../../context/AccountContext';
 import { useTheme } from '../../context/ThemeContext';
-import { isMultiCurrencyPlan } from '../../utils/subscription';
+import { isMultiCurrencyPlan, normalizePlanId } from '../../utils/subscription';
 import templateStorage, { hasTemplateAccess } from '../../utils/templateStorage';
 import { resolveTemplateStyleVariant } from '../../utils/templateStyleVariants';
 import {
@@ -180,6 +180,10 @@ const CreateInvoice = () => {
   const { accountInfo } = useAccount();
   const baseCurrency = accountInfo?.currency || 'USD';
   const canUseMultiCurrency = isMultiCurrencyPlan(accountInfo?.plan, accountInfo?.subscriptionStatus);
+  const subscriptionStatus = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
+  const effectivePlan = subscriptionStatus === 'expired' ? 'starter' : normalizePlanId(accountInfo?.plan);
+  const hasRecurringFeature = ['professional', 'enterprise'].includes(effectivePlan);
+  const hasInventoryFeature = ['professional', 'enterprise'].includes(effectivePlan);
   const watermarkEnabled = useMemo(() => shouldShowWatermark(accountInfo), [accountInfo]);
   const watermarkFooterText = useMemo(() => getWatermarkFooterText(accountInfo), [accountInfo]);
   const businessLogoUrl = useMemo(() => getBusinessLogoUrl(accountInfo), [accountInfo]);
@@ -276,7 +280,7 @@ const CreateInvoice = () => {
   };
 
   const buildRecurringPayload = () => {
-    if (!isRecurring) return undefined;
+    if (!isRecurring || !hasRecurringFeature) return undefined;
 
     const issueDateIso = new Date(`${issueDate}T00:00:00`).toISOString();
     const startDateIso = recurringSettings?.startDate
@@ -395,9 +399,15 @@ const CreateInvoice = () => {
 
   // Load products from inventory
   useEffect(() => {
+    if (!hasInventoryFeature) {
+      setAvailableProducts([]);
+      setShowProductSelector(false);
+      setProductSearchTerm('');
+      return;
+    }
     const products = getProductsForInvoice();
     setAvailableProducts(products);
-  }, [getProductsForInvoice]);
+  }, [getProductsForInvoice, hasInventoryFeature]);
 
   const loadTemplate = useCallback((templateId) => {
     setLoadingTemplate(true);
@@ -521,6 +531,11 @@ const CreateInvoice = () => {
 
   // Add product from inventory
   const addProductFromInventory = (product) => {
+    if (!hasInventoryFeature) {
+      addToast('Inventory is available on Professional and Enterprise plans.', 'warning');
+      return;
+    }
+
     const availableStock = resolveProductStock(product);
 
     setLineItems((prevItems) => {
@@ -1056,6 +1071,23 @@ const CreateInvoice = () => {
     setUpgradeMessage(message || 'Upgrade to continue creating invoices.');
     setShowUpgradePrompt(true);
   };
+
+  const handleRecurringToggle = (nextChecked) => {
+    if (nextChecked && !hasRecurringFeature) {
+      const message = 'Recurring invoices are available on Professional and Enterprise plans.';
+      addToast(message, 'warning');
+      openUpgradePrompt(message);
+      setIsRecurring(false);
+      return;
+    }
+    setIsRecurring(nextChecked);
+  };
+
+  useEffect(() => {
+    if (!hasRecurringFeature && isRecurring) {
+      setIsRecurring(false);
+    }
+  }, [hasRecurringFeature, isRecurring]);
 
   const handleSendInvoice = async () => {
     try {
@@ -1620,16 +1652,31 @@ const CreateInvoice = () => {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Products from Inventory
                 </h2>
-                <button
-                  onClick={() => setShowProductSelector(true)}
-                  className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                >
-                  <Package className="w-4 h-4 mr-2" />
-                  Add from Inventory
-                </button>
+                {hasInventoryFeature && (
+                  <button
+                    onClick={() => setShowProductSelector(true)}
+                    className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  >
+                    <Package className="w-4 h-4 mr-2" />
+                    Add from Inventory
+                  </button>
+                )}
               </div>
-              
-              {availableProducts.length === 0 ? (
+
+              {!hasInventoryFeature ? (
+                <div className="text-center py-8 border border-dashed rounded-lg">
+                  <Package className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    Inventory is available on Professional and Enterprise plans.
+                  </p>
+                  <button
+                    onClick={() => navigate('/payments/pricing')}
+                    className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  >
+                    Upgrade to Unlock Inventory
+                  </button>
+                </div>
+              ) : availableProducts.length === 0 ? (
                 <div className="text-center py-8 border border-dashed rounded-lg">
                   <Package className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -1826,7 +1873,7 @@ const CreateInvoice = () => {
                     type="checkbox"
                     id="recurring"
                     checked={isRecurring}
-                    onChange={(e) => setIsRecurring(e.target.checked)}
+                    onChange={(e) => handleRecurringToggle(e.target.checked)}
                     className="h-4 w-4 text-primary-600 focus:ring-primary-500 rounded border-gray-300 dark:border-gray-600"
                   />
                   <label htmlFor="recurring" className="ml-3 flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1846,6 +1893,11 @@ const CreateInvoice = () => {
               {isRecurring && (
                 <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">
                   Will repeat {recurringSettings.frequency} starting {recurringSettings.startDate}
+                </div>
+              )}
+              {!hasRecurringFeature && (
+                <div className="mt-3 text-xs text-amber-600 dark:text-amber-300">
+                  Recurring invoices are on Professional and Enterprise plans.
                 </div>
               )}
             </div>
@@ -1873,7 +1925,7 @@ const CreateInvoice = () => {
       </div>
       
       {/* Product Selector Modal */}
-      {showProductSelector && (
+      {showProductSelector && hasInventoryFeature && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">

@@ -11,6 +11,7 @@ import { useAccount } from '../../context/AccountContext';
 import { fetchProducts } from '../../store/slices/productSlide';
 import { mapProductFromApi } from '../../utils/productAdapter';
 import { getAdjustmentDate, getAdjustmentTimestamp } from '../../utils/adjustmentDate';
+import { normalizePlanId } from '../../utils/subscription';
 import CountUpNumber from '../../components/ui/CountUpNumber';
 
 const Inventory = () => {
@@ -25,6 +26,9 @@ const Inventory = () => {
   );
   const { addToast } = useToast();
   const currencyCode = (accountInfo?.currency || 'USD').toUpperCase();
+  const subscriptionStatus = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
+  const effectivePlan = subscriptionStatus === 'expired' ? 'starter' : normalizePlanId(accountInfo?.plan);
+  const hasInventoryFeature = ['professional', 'enterprise'].includes(effectivePlan);
   const formatCurrency = (amount) => {
     const value = Number.isFinite(amount) ? amount : 0;
     try {
@@ -42,8 +46,9 @@ const Inventory = () => {
   const [recentActivity, setRecentActivity] = useState([]);
 
   useEffect(() => {
+    if (!hasInventoryFeature) return;
     dispatch(fetchProducts({ isActive: true }));
-  }, [dispatch]);
+  }, [dispatch, hasInventoryFeature]);
 
   useEffect(() => {
     try {
@@ -173,6 +178,10 @@ const Inventory = () => {
   ];
 
   const handleRefresh = () => {
+    if (!hasInventoryFeature) {
+      addToast('Upgrade to Professional or Enterprise to use inventory.', 'warning');
+      return;
+    }
     dispatch(fetchProducts({ isActive: true }))
       .unwrap()
       .then(() => {
@@ -191,6 +200,25 @@ const Inventory = () => {
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!hasInventoryFeature) {
+    return (
+      <DashboardLayout>
+        <div className={`border rounded-xl p-8 text-center ${
+          isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-white border-gray-200 text-gray-700'
+        }`}>
+          <h2 className="text-xl font-semibold">Inventory Is On Professional+</h2>
+          <p className="mt-2 text-sm">Upgrade your plan to unlock inventory, products, categories, and stock workflows.</p>
+          <Link
+            to="/payments/pricing"
+            className="inline-flex mt-5 px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700"
+          >
+            View Pricing
+          </Link>
         </div>
       </DashboardLayout>
     );

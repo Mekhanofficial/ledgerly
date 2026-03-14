@@ -141,7 +141,7 @@ const DashboardLayout = ({ children }) => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => navigate('/pricing')}
+                    onClick={() => navigate('/payments/pricing')}
                     className="px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500"
                   >
                     Upgrade
@@ -188,7 +188,7 @@ const DashboardLayout = ({ children }) => {
               <div className="mt-6 flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"
-                  onClick={() => navigate('/pricing')}
+                  onClick={() => navigate('/payments/pricing')}
                   className="flex-1 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white hover:from-cyan-500 hover:to-blue-500"
                 >
                   Upgrade Now

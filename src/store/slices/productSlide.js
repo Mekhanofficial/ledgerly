@@ -216,6 +216,7 @@ const productSlice = createSlice({
       state.currentProduct = null;
       state.currentProductTransactions = [];
     },
+    clearInventoryState: () => initialState,
   },
   extraReducers: (builder) => {
     builder
@@ -347,5 +348,5 @@ const productSlice = createSlice({
   },
 });
 
-export const { clearProductError, clearCurrentProduct } = productSlice.actions;
+export const { clearProductError, clearCurrentProduct, clearInventoryState } = productSlice.actions;
 export default productSlice.reducer;

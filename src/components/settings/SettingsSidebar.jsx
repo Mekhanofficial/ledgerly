@@ -1,16 +1,22 @@
 import React from 'react';
 import { User, Shield, Bell, CreditCard, Users, Palette, Database, Globe } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAccount } from '../../context/AccountContext';
+import { normalizePlanId } from '../../utils/subscription';
 
 const SettingsSidebar = ({ activeSection, onSectionChange }) => {
   const { isDarkMode } = useTheme();
+  const { accountInfo } = useAccount();
+  const subscriptionStatus = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
+  const effectivePlan = subscriptionStatus === 'expired' ? 'starter' : normalizePlanId(accountInfo?.plan);
+  const hasTeamFeature = ['professional', 'enterprise'].includes(effectivePlan);
   
   const sections = [
     { id: 'account', label: 'Account', icon: User },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'billing', label: 'Billing & Plan', icon: CreditCard },
-    { id: 'team', label: 'Team', icon: Users },
+    ...(hasTeamFeature ? [{ id: 'team', label: 'Team', icon: Users }] : []),
     { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'data', label: 'Data & Privacy', icon: Database },
     { id: 'integrations', label: 'Integrations', icon: Globe }
