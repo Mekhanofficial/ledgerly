@@ -1,4 +1,5 @@
 import { normalizePlanId } from './subscription';
+import { resolveServerBaseUrl } from './apiConfig';
 
 export const PLAN_FEATURES = {
   starter: {
@@ -35,6 +36,17 @@ const sanitizeDomain = (domainValue = '') => {
     .replace(/\/+$/, '');
 };
 
+const normalizeAssetUrl = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
+
+  const base = String(resolveServerBaseUrl() || '').replace(/\/+$/, '');
+  const normalizedPath = raw.replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!base) return `/${normalizedPath}`;
+  return `${base}/${normalizedPath}`;
+};
+
 export const resolveBrandingProfile = (userLike = {}) => {
   const plan = normalizePlanId(userLike?.plan);
   const incomingBranding = userLike?.brandingSettings || {};
@@ -44,9 +56,9 @@ export const resolveBrandingProfile = (userLike = {}) => {
     incomingWhiteLabel.customEmailSender || userLike?.customEmailSender || ''
   ).trim();
   const isEnterprise = plan === 'enterprise';
-  const resolvedLogoUrl = String(
+  const resolvedLogoUrl = normalizeAssetUrl(
     incomingBranding.logoUrl || userLike?.logoUrl || userLike?.business?.logo || ''
-  ).trim();
+  );
 
   const brandingSettings = {
     removeWatermark: Boolean(

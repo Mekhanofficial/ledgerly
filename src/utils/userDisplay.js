@@ -69,9 +69,9 @@ export const getUserRoleLabel = (user) => {
 
 const getServerBaseUrl = () => resolveServerBaseUrl();
 
-const resolveAssetUrl = (value) => {
+export const resolveAssetUrl = (value) => {
   if (!value) return null;
-  if (/^https?:\/\//i.test(value)) {
+  if (/^(https?:|data:|blob:)/i.test(value)) {
     return value;
   }
   const base = getServerBaseUrl();

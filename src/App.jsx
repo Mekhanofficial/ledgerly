@@ -390,15 +390,15 @@ const AppRoutes = ({
 }
 
 const App = () => {
-  const businessRoles = ['admin', 'accountant', 'staff']
+  const businessRoles = ['admin', 'accountant', 'staff', 'super_admin']
   const clientRoles = ['client']
   const appRoles = [...businessRoles, ...clientRoles]
   const paymentsRoles = ['admin', 'accountant', 'client', 'super_admin']
   const reportsRoles = ['admin', 'accountant', 'super_admin']
   const inventoryManageRoles = ['admin', 'accountant']
-  const settingsRoles = ['admin']
+  const settingsRoles = ['admin', 'super_admin']
   const teamRoles = ['admin', 'super_admin']
-  const documentsRoles = ['admin', 'accountant', 'staff']
+  const documentsRoles = ['admin', 'accountant', 'staff', 'super_admin']
 
   useEffect(() => {
     const handleNumberInputFocus = (event) => {
