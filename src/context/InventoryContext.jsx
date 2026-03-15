@@ -26,6 +26,7 @@ import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter'
 import { getAdjustmentTimestamp } from '../utils/adjustmentDate';
 import { formatCurrency } from '../utils/currency';
 import { normalizePlanId } from '../utils/subscription';
+import { hasPermission as hasUserPermission, normalizeRole } from '../utils/permissions';
 
 export const InventoryContext = createContext();
 
@@ -45,17 +46,14 @@ export const InventoryProvider = ({ children }) => {
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const authUser = useSelector((state) => state.auth?.user);
   const { products: rawProducts, stockAdjustments: storeAdjustments } = useSelector((state) => state.products);
-  const normalizedRole = String(authUser?.role || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  const normalizedRole = normalizeRole(authUser?.role);
   const normalizedPlan = normalizePlanId(accountInfo?.plan);
   const subscriptionStatus = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
   const effectivePlan = subscriptionStatus === 'expired' ? 'starter' : normalizedPlan;
-  const canAccessInventoryRole = ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
+  const canAccessInventoryRole = hasUserPermission(authUser, 'products', 'read');
   const hasInventoryFeature = ['professional', 'enterprise'].includes(effectivePlan);
   const canAccessInventory = canAccessInventoryRole && ['professional', 'enterprise'].includes(effectivePlan);
-  const canAccessStockAdjustments = hasInventoryFeature && ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canAccessStockAdjustments = hasInventoryFeature && hasUserPermission(authUser, 'products', 'update');
   const getErrorMessage = useCallback((error, fallback) => {
     if (typeof error === 'string' && error.trim()) return error;
     if (typeof error?.message === 'string' && error.message.trim()) return error.message;

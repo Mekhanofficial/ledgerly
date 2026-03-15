@@ -5,6 +5,7 @@ import { setUser } from '../store/slices/authSlice';
 import { getAvatarUrl, resolveAuthUser } from '../utils/userDisplay';
 import { isAccessDeniedError } from '../utils/accessControl';
 import { resolveBrandingProfile } from '../utils/brandingPlan';
+import { hasPermission as hasUserPermission, normalizeRole, resolvePermissions } from '../utils/permissions';
 
 const STORAGE_KEY = 'ledgerly_account_info';
 const normalizeCurrencyCode = (value) => {
@@ -160,11 +161,10 @@ export const AccountProvider = ({ children }) => {
     }
   });
   const [loading, setLoading] = useState(false);
-  const normalizedRole = String(activeUser?.role || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-  const canUpdateBusiness = ['super_admin', 'admin', 'accountant'].includes(normalizedRole);
+  const normalizedRole = normalizeRole(activeUser?.role);
+  const permissions = useMemo(() => resolvePermissions(activeUser), [activeUser]);
+  const canViewSettings = useMemo(() => hasUserPermission(activeUser, 'settings', 'view'), [activeUser]);
+  const canUpdateBusiness = useMemo(() => hasUserPermission(activeUser, 'settings', 'update'), [activeUser]);
 
   // Hydrate from storage on mount
   useEffect(() => {
@@ -407,7 +407,19 @@ export const AccountProvider = ({ children }) => {
   }, [activeUser, accountInfo, dispatch, canUpdateBusiness]);
 
   return (
-    <AccountContext.Provider value={{ accountInfo, updateAccountInfo, refreshAccountInfo, loading }}>
+    <AccountContext.Provider
+      value={{
+        accountInfo,
+        updateAccountInfo,
+        refreshAccountInfo,
+        loading,
+        normalizedRole,
+        permissions,
+        canViewSettings,
+        canUpdateBusiness,
+        hasPermission: (domain, action) => hasUserPermission(activeUser, domain, action)
+      }}
+    >
       {children}
     </AccountContext.Provider>
   );

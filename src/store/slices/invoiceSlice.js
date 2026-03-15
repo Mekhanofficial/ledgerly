@@ -365,6 +365,14 @@ const invoiceSlice = createSlice({
     clearCurrentInvoice: (state) => {
       state.currentInvoice = null;
     },
+    upsertLocalInvoice: (state, action) => {
+      const payload = action.payload;
+      if (!payload) return;
+      const inserted = upsertInvoiceInState(state, payload, { prepend: true });
+      if (inserted) {
+        state.total += 1;
+      }
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -377,7 +385,9 @@ const invoiceSlice = createSlice({
         state.loading = false;
         const payload = action.payload;
         const data = normalizeListPayload(payload);
-        state.invoices = payload?.isHydrated
+        const requestParams = action.meta?.arg || {};
+        const isFrontPageRefresh = requestParams?.prefetchAll === false;
+        state.invoices = payload?.isHydrated && !isFrontPageRefresh
           ? sortInvoicesByRecency(data)
           : mergeFrontPageWithExisting(state.invoices, data);
         state.total = payload?.total ?? data.length;
@@ -411,6 +421,7 @@ const invoiceSlice = createSlice({
       .addCase(fetchInvoiceById.fulfilled, (state, action) => {
         state.loading = false;
         state.currentInvoice = action.payload;
+        upsertInvoiceInState(state, action.payload, { prepend: true });
       })
       .addCase(fetchInvoiceById.rejected, (state, action) => {
         state.loading = false;
@@ -486,5 +497,5 @@ const invoiceSlice = createSlice({
   },
 });
 
-export const { clearInvoiceError, clearCurrentInvoice } = invoiceSlice.actions;
+export const { clearInvoiceError, clearCurrentInvoice, upsertLocalInvoice } = invoiceSlice.actions;
 export default invoiceSlice.reducer;

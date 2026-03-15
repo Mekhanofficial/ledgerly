@@ -38,6 +38,7 @@ import { useNotifications } from '../../../context/NotificationContext';
 import { useAccount } from '../../../context/AccountContext';
 import { getAvatarSeed, getAvatarUrl, getUserDisplayName, getUserEmail, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
 import { formatCurrency, getCurrencySymbol } from '../../../utils/currency';
+import { hasPermission, normalizeRole } from '../../../utils/permissions';
 import CountUpNumber from '../../ui/CountUpNumber';
 
 const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
@@ -55,18 +56,23 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   const authUser = useSelector((state) => state.auth?.user);
   const user = resolveAuthUser(authUser);
   const baseCurrency = accountInfo?.currency || user?.currencyCode || user?.currency || 'USD';
-  const normalizedRole = String(user?.role || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  const normalizedRole = normalizeRole(user?.role);
   const isClient = normalizedRole === 'client';
-  const canCreate = !isClient && normalizedRole !== 'super_admin';
-  const canAccessSettings = ['admin', 'super_admin'].includes(normalizedRole);
-  const canAccessReports = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canAccessSettings = hasPermission(user, 'settings', 'view');
+  const canAccessReports = hasPermission(user, 'reports', 'view');
   const canAccessReceipts = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
-  const canManageInventoryAdmin = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
-  const canCreateCustomer = ['admin', 'staff', 'super_admin'].includes(normalizedRole);
+  const canManageInventoryAdmin = hasPermission(user, 'products', 'create');
+  const canCreateCustomer = hasPermission(user, 'customers', 'create');
   const canRecordPayments = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canCreateInvoice = hasPermission(user, 'invoices', 'create');
+  const canCreate = !isClient && normalizedRole !== 'super_admin' && (
+    canCreateInvoice
+    || canAccessReceipts
+    || canManageInventoryAdmin
+    || canCreateCustomer
+    || canAccessReports
+    || canRecordPayments
+  );
   const dicebearAvatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${getAvatarSeed(user)}&backgroundColor=4f46e5&backgroundType=solid&hairColor=262626&mouth=smile&eyes=happy&eyebrows=raised`;
   const computedAvatarUrl = getAvatarUrl(user) || dicebearAvatarUrl;
   const [avatarLoadError, setAvatarLoadError] = useState(false);
@@ -256,7 +262,8 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       description: 'Create professional invoice',
       icon: FileText,
       color: 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300',
-      path: '/invoices/create'
+      path: '/invoices/create',
+      requiresRole: canCreateInvoice
     },
     {
       title: 'Generate Receipt',

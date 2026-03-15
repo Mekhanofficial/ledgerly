@@ -29,6 +29,7 @@ import api from '../../services/api';
 import { fetchSettings } from '../../services/settingsService';
 import { fetchDocuments } from '../../services/documentService';
 import { normalizePlanId } from '../../utils/subscription';
+import { normalizeRole } from '../../utils/permissions';
 
 const SETTINGS_SECTIONS = [
   { id: 'account', label: 'Account', icon: User },
@@ -87,10 +88,7 @@ const Settings = () => {
   const { accountInfo } = useAccount();
   const location = useLocation();
   const authUser = useSelector((state) => state.auth?.user);
-  const normalizedRole = String(authUser?.role || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  const normalizedRole = normalizeRole(authUser?.role);
   const canManageAdvancedSettings = ['admin', 'super_admin'].includes(normalizedRole);
   const [activeSection, setActiveSection] = useState('account');
   const [systemInfoLoading, setSystemInfoLoading] = useState(true);

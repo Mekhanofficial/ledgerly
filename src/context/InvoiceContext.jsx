@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import api from '../services/api';
 import { useToast } from './ToastContext';
 import { useNotifications } from './NotificationContext';
 import { useAccount } from './AccountContext';
@@ -18,7 +19,8 @@ import {
   updateInvoice as updateInvoiceThunk,
   deleteInvoice as deleteInvoiceThunk,
   sendInvoice as sendInvoiceThunk,
-  recordPayment
+  recordPayment,
+  upsertLocalInvoice
 } from '../store/slices/invoiceSlice';
 import {
   fetchCustomers,
@@ -37,6 +39,7 @@ import { mapCustomerFromApi, buildCustomerPayload } from '../utils/customerAdapt
 import { mapProductFromApi, buildProductPayload } from '../utils/productAdapter';
 import { recurringStorage } from '../utils/recurringStorage';
 import { formatCurrency } from '../utils/currency';
+import { hasPermission as hasUserPermission, normalizeRole } from '../utils/permissions';
 
 const dedupeTemplates = (templates = []) => {
   const map = new Map();
@@ -112,25 +115,20 @@ export const InvoiceProvider = ({ children }) => {
     return source.map((product) => mapProductFromApi(product));
   }, [rawProducts]);
 
-  const normalizedRole = useMemo(() => {
-    return String(authUser?.role || '')
-      .trim()
-      .toLowerCase()
-      .replace(/[\s-]+/g, '_');
-  }, [authUser]);
+  const normalizedRole = useMemo(() => normalizeRole(authUser?.role), [authUser]);
 
   const canRecordPayment = useMemo(() => {
     return ['admin', 'accountant', 'client', 'super_admin'].includes(normalizedRole);
   }, [normalizedRole]);
   const canAccessCustomers = useMemo(() => {
-    return ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
-  }, [normalizedRole]);
+    return hasUserPermission(authUser, 'customers', 'read');
+  }, [authUser]);
   const canAccessProducts = useMemo(() => {
-    return ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
-  }, [normalizedRole]);
+    return hasUserPermission(authUser, 'products', 'read');
+  }, [authUser]);
   const canAccessTemplates = useMemo(() => {
-    return ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
-  }, [normalizedRole]);
+    return hasUserPermission(authUser, 'invoices', 'read');
+  }, [authUser]);
 
   const [templates, setTemplates] = useState([]);
   const [recurringInvoices, setRecurringInvoices] = useState([]);
@@ -462,7 +460,7 @@ export const InvoiceProvider = ({ children }) => {
     try {
       const payload = buildInvoicePayload(invoiceData);
       const created = await dispatch(createInvoiceThunk(payload)).unwrap();
-      const mappedInvoice = mapInvoiceFromApi(created);
+      const mappedInvoice = await syncCanonicalInvoice(created?._id || created?.id, created);
 
       addNotification({
         type: 'new-invoice',
@@ -477,7 +475,7 @@ export const InvoiceProvider = ({ children }) => {
         invoiceId: mappedInvoice.id
       });
 
-      dispatch(fetchInvoices({ prefetchAll: false }));
+      void dispatch(fetchInvoices({ prefetchAll: false }));
 
       return mappedInvoice;
     } catch (error) {
@@ -587,6 +585,30 @@ export const InvoiceProvider = ({ children }) => {
     }
   }, [dispatch, invoices]);
 
+  const syncCanonicalInvoice = useCallback(async (id, fallbackInvoice = null) => {
+    if (fallbackInvoice) {
+      dispatch(upsertLocalInvoice(fallbackInvoice));
+    }
+
+    const resolvedId = String(id || fallbackInvoice?._id || fallbackInvoice?.id || '').trim();
+    if (!resolvedId) {
+      return fallbackInvoice ? mapInvoiceFromApi(fallbackInvoice) : null;
+    }
+
+    try {
+      const response = await api.get(`/invoices/${resolvedId}`);
+      const canonicalInvoice = response?.data?.data;
+      if (canonicalInvoice) {
+        dispatch(upsertLocalInvoice(canonicalInvoice));
+        return mapInvoiceFromApi(canonicalInvoice);
+      }
+    } catch {
+      // Preserve the fallback invoice locally if the canonical fetch is temporarily stale.
+    }
+
+    return fallbackInvoice ? mapInvoiceFromApi(fallbackInvoice) : null;
+  }, [dispatch]);
+
   const sendInvoice = async (id, emailOptions = null, options = {}) => {
     const throwOnError = options?.throwOnError === true;
     try {
@@ -653,10 +675,8 @@ export const InvoiceProvider = ({ children }) => {
           : id;
 
       const updated = await dispatch(sendInvoiceThunk(buildPayload(normalizedEmailOptions))).unwrap();
-      // Keep list views in sync with canonical backend ordering/populates.
-      dispatch(fetchInvoices({ prefetchAll: false }));
-
-      const mapped = mapInvoiceFromApi(updated);
+      const mapped = await syncCanonicalInvoice(id, updated);
+      void dispatch(fetchInvoices({ prefetchAll: false }));
       addToast('Invoice sent successfully', 'success');
       return mapped;
     } catch (error) {
@@ -761,8 +781,8 @@ export const InvoiceProvider = ({ children }) => {
         }
       })).unwrap();
 
-      const updatedInvoice = mapInvoiceFromApi(result?.invoice || result);
-      dispatch(fetchInvoices({ prefetchAll: false }));
+      const updatedInvoice = await syncCanonicalInvoice(id, result?.invoice || result);
+      void dispatch(fetchInvoices({ prefetchAll: false }));
       if (canAccessCustomers) {
         dispatch(fetchCustomers());
       }

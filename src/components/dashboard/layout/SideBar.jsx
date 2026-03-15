@@ -26,6 +26,7 @@ import { useNotifications } from '../../../context/NotificationContext'; // Add 
 import { useAccount } from '../../../context/AccountContext';
 import { normalizePlanId } from '../../../utils/subscription';
 import { getUserDisplayName, getUserInitials, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
+import { hasPermission, normalizeRole } from '../../../utils/permissions';
 import logo from '../../../assets/icons/ledger-icon.png';
 
 const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
@@ -37,18 +38,15 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   const { accountInfo } = useAccount();
   const authUser = useSelector((state) => state.auth?.user);
   const user = resolveAuthUser(authUser);
-  const normalizedRole = String(user?.role || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  const normalizedRole = normalizeRole(user?.role);
   const isSuperAdmin = normalizedRole === 'super_admin';
   const isClient = normalizedRole === 'client';
-  const canAccessReports = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canAccessReports = hasPermission(user, 'reports', 'view');
   const canAccessPayments = ['admin', 'accountant', 'client', 'super_admin'].includes(normalizedRole);
   const canAccessReceipts = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
-  const canManageInventory = ['admin', 'accountant', 'staff', 'viewer', 'super_admin'].includes(normalizedRole);
-  const canManageInventoryAdmin = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
-  const canAccessSettings = ['admin', 'super_admin'].includes(normalizedRole);
+  const canManageInventory = hasPermission(user, 'products', 'read');
+  const canManageInventoryAdmin = hasPermission(user, 'products', 'update');
+  const canAccessSettings = hasPermission(user, 'settings', 'view');
   const canManageTeam = ['admin', 'super_admin'].includes(normalizedRole);
   const subscriptionStatus = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
   const effectivePlan = subscriptionStatus === 'expired'

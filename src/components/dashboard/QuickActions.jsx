@@ -3,17 +3,16 @@ import { motion } from 'framer-motion';
 import { FileText, Receipt, Package, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { hasPermission, normalizeRole } from '../../utils/permissions';
 
 const QuickActions = () => {
   const authUser = useSelector((state) => state.auth?.user);
-  const normalizedRole = String(authUser?.role || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  const normalizedRole = normalizeRole(authUser?.role);
   const isClient = normalizedRole === 'client';
-  const canViewReports = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canViewReports = hasPermission(authUser, 'reports', 'view');
   const canAccessReceipts = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
-  const canManageInventoryAdmin = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
+  const canManageInventoryAdmin = hasPermission(authUser, 'products', 'create');
+  const canCreateInvoice = hasPermission(authUser, 'invoices', 'create');
 
   if (isClient) {
     return null;
@@ -25,7 +24,8 @@ const QuickActions = () => {
       label: 'Create Invoice',
       description: 'New invoice for customer',
       color: 'bg-gradient-to-br from-blue-500 to-cyan-500',
-      action: '/invoices/create'
+      action: '/invoices/create',
+      requiresRole: canCreateInvoice
     },
     {
       icon: Receipt,

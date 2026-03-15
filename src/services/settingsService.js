@@ -24,7 +24,7 @@ export const DEFAULT_ROLE_PERMISSION_TEMPLATES = {
     customers: { create: true, read: true, update: true, delete: true },
     products: { create: true, read: true, update: true, delete: true },
     reports: { view: true, export: true },
-    settings: { view: true, update: false }
+    settings: { view: true, update: true }
   },
   accountant: {
     invoices: { create: true, read: true, update: true, delete: false },

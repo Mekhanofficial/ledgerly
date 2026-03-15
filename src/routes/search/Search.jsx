@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useInvoice } from '../../context/InvoiceContext';
 import { useInventory } from '../../context/InventoryContext';
 import { usePayments } from '../../context/PaymentContext';
+import { hasPermission as hasUserPermission, normalizeRole } from '../../utils/permissions';
 
 const normalizeText = (value) => String(value || '').toLowerCase();
 
@@ -18,13 +19,10 @@ const SearchPage = () => {
   const [activeFilter, setActiveFilter] = useState('all');
 
   const authUser = useSelector((state) => state.auth?.user);
-  const normalizedRole = String(authUser?.role || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  const normalizedRole = normalizeRole(authUser?.role);
   const isClient = normalizedRole === 'client';
-  const canAccessInventory = ['admin', 'accountant', 'staff'].includes(normalizedRole);
-  const canAccessCustomers = ['admin', 'accountant', 'staff'].includes(normalizedRole);
+  const canAccessInventory = hasUserPermission(authUser, 'products', 'read');
+  const canAccessCustomers = hasUserPermission(authUser, 'customers', 'read');
   const canAccessReceipts = ['admin', 'accountant'].includes(normalizedRole);
 
   const { invoices, customers, products } = useInvoice();

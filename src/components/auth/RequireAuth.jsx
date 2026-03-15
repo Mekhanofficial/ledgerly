@@ -2,8 +2,9 @@ import React from 'react';
 import { useSelector } from 'react-redux';
 import { Navigate, useLocation } from 'react-router-dom';
 import { resolveAuthUser } from '../../utils/userDisplay';
+import { hasPermission, normalizeRole } from '../../utils/permissions';
 
-const RequireAuth = ({ children, allowedRoles }) => {
+const RequireAuth = ({ children, allowedRoles, requiredPermission }) => {
   const { user, isAuthenticated, loading } = useSelector((state) => state.auth || {});
   const authUser = resolveAuthUser(user);
   const location = useLocation();
@@ -30,8 +31,18 @@ const RequireAuth = ({ children, allowedRoles }) => {
     );
   }
 
-  if (allowedRoles && !allowedRoles.includes(authUser.role)) {
-    const fallback = authUser.role === 'super_admin' ? '/super-admin' : '/dashboard';
+  const normalizedRole = normalizeRole(authUser?.role);
+
+  if (allowedRoles) {
+    const normalizedAllowedRoles = allowedRoles.map((role) => normalizeRole(role));
+    if (!normalizedAllowedRoles.includes(normalizedRole)) {
+      const fallback = normalizedRole === 'super_admin' ? '/super-admin' : '/dashboard';
+      return <Navigate to={fallback} replace />;
+    }
+  }
+
+  if (requiredPermission && !hasPermission(authUser, requiredPermission.domain, requiredPermission.action)) {
+    const fallback = normalizedRole === 'super_admin' ? '/super-admin' : '/dashboard';
     return <Navigate to={fallback} replace />;
   }
 

@@ -123,7 +123,7 @@ const AppRoutes = ({
             <Route
               path="/invoices"
               element={
-                <RequireAuth allowedRoles={appRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'invoices', action: 'read' }}>
                   <InvoiceList />
                 </RequireAuth>
               }
@@ -131,7 +131,7 @@ const AppRoutes = ({
             <Route
               path="/invoices/create"
               element={
-                <RequireAuth allowedRoles={businessRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'invoices', action: 'create' }}>
                   <CreateInvoice />
                 </RequireAuth>
               }
@@ -139,7 +139,7 @@ const AppRoutes = ({
             <Route
               path="/invoices/view/:id"
               element={
-                <RequireAuth allowedRoles={appRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'invoices', action: 'read' }}>
                   <ViewInvoice />
                 </RequireAuth>
               }
@@ -147,7 +147,7 @@ const AppRoutes = ({
             <Route
               path="/invoices/drafts"
               element={
-                <RequireAuth allowedRoles={businessRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'invoices', action: 'update' }}>
                   <Drafts />
                 </RequireAuth>
               }
@@ -155,7 +155,7 @@ const AppRoutes = ({
             <Route
               path="/invoices/edit/:id"
               element={
-                <RequireAuth allowedRoles={businessRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'invoices', action: 'update' }}>
                   <EditInvoice />
                 </RequireAuth>
               }
@@ -163,7 +163,7 @@ const AppRoutes = ({
             <Route
               path="/invoices/recurring"
               element={
-                <RequireAuth allowedRoles={businessRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'invoices', action: 'read' }}>
                   <RecurringInvoices />
                 </RequireAuth>
               }
@@ -171,7 +171,7 @@ const AppRoutes = ({
             <Route
               path="/invoices/templates"
               element={
-                <RequireAuth allowedRoles={businessRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'invoices', action: 'read' }}>
                   <InvoiceTemplates />
                 </RequireAuth>
               }
@@ -189,7 +189,7 @@ const AppRoutes = ({
             <Route
               path="/inventory"
               element={
-                <RequireAuth allowedRoles={businessRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'products', action: 'read' }}>
                   <Inventory />
                 </RequireAuth>
               }
@@ -197,7 +197,7 @@ const AppRoutes = ({
             <Route
               path="/inventory/products"
               element={
-                <RequireAuth allowedRoles={businessRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'products', action: 'read' }}>
                   <Products />
                 </RequireAuth>
               }
@@ -205,7 +205,7 @@ const AppRoutes = ({
             <Route
               path="/inventory/products/edit/:id"
               element={
-                <RequireAuth allowedRoles={inventoryManageRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'products', action: 'update' }}>
                   <EditProduct />
                 </RequireAuth>
               }
@@ -213,7 +213,7 @@ const AppRoutes = ({
             <Route
               path="/inventory/products/new"
               element={
-                <RequireAuth allowedRoles={inventoryManageRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'products', action: 'create' }}>
                   <NewProduct />
                 </RequireAuth>
               }
@@ -221,7 +221,7 @@ const AppRoutes = ({
             <Route
               path="/inventory/categories"
               element={
-                <RequireAuth allowedRoles={businessRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'products', action: 'read' }}>
                   <Categories />
                 </RequireAuth>
               }
@@ -229,7 +229,7 @@ const AppRoutes = ({
             <Route
               path="/inventory/categories/new"
               element={
-                <RequireAuth allowedRoles={inventoryManageRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'products', action: 'create' }}>
                   <NewCategory />
                 </RequireAuth>
               }
@@ -237,7 +237,7 @@ const AppRoutes = ({
             <Route
               path="/inventory/stock-adjustments"
               element={
-                <RequireAuth allowedRoles={inventoryManageRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'products', action: 'update' }}>
                   <StockAdjustments />
                 </RequireAuth>
               }
@@ -245,7 +245,7 @@ const AppRoutes = ({
             <Route
               path="/inventory/suppliers"
               element={
-                <RequireAuth allowedRoles={businessRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'products', action: 'read' }}>
                   <Suppliers />
                 </RequireAuth>
               }
@@ -253,7 +253,7 @@ const AppRoutes = ({
             <Route
               path="/inventory/suppliers/new"
               element={
-                <RequireAuth allowedRoles={inventoryManageRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'products', action: 'create' }}>
                   <NewSupplier />
                 </RequireAuth>
               }
@@ -261,7 +261,7 @@ const AppRoutes = ({
             <Route
               path="/inventory/stock-adjustments/new"
               element={
-                <RequireAuth allowedRoles={inventoryManageRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'products', action: 'update' }}>
                   <NewStockAdjustment />
                 </RequireAuth>
               }
@@ -270,7 +270,7 @@ const AppRoutes = ({
             <Route
               path="/customers"
               element={
-                <RequireAuth allowedRoles={businessRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'customers', action: 'read' }}>
                   <Customers />
                 </RequireAuth>
               }
@@ -278,7 +278,7 @@ const AppRoutes = ({
             <Route
               path="/customers/:id"
               element={
-                <RequireAuth allowedRoles={businessRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'customers', action: 'read' }}>
                   <CustomerProfile />
                 </RequireAuth>
               }
@@ -320,7 +320,7 @@ const AppRoutes = ({
             <Route
               path="/reports"
               element={
-                <RequireAuth allowedRoles={reportsRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'reports', action: 'view' }}>
                   <Reports />
                 </RequireAuth>
               }
@@ -336,7 +336,7 @@ const AppRoutes = ({
             <Route
               path="/settings"
               element={
-                <RequireAuth allowedRoles={settingsRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'settings', action: 'view' }}>
                   <Settings />
                 </RequireAuth>
               }
@@ -360,7 +360,7 @@ const AppRoutes = ({
             <Route
               path="/search"
               element={
-                <RequireAuth allowedRoles={appRoles}>
+                <RequireAuth allowedRoles={appRoles} requiredPermission={{ domain: 'invoices', action: 'read' }}>
                   <SearchPage />
                 </RequireAuth>
               }
@@ -390,7 +390,7 @@ const AppRoutes = ({
 }
 
 const App = () => {
-  const businessRoles = ['admin', 'accountant', 'staff', 'super_admin']
+  const businessRoles = ['admin', 'accountant', 'staff', 'viewer', 'super_admin']
   const clientRoles = ['client']
   const appRoles = [...businessRoles, ...clientRoles]
   const paymentsRoles = ['admin', 'accountant', 'client', 'super_admin']

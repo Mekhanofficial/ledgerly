@@ -21,13 +21,14 @@ import { useInvoice } from '../../context/InvoiceContext';
 import { useAccount } from '../../context/AccountContext';
 import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { formatCurrency, getCurrencySymbol } from '../../utils/currency';
 import { downloadInvoicePdfWithTemplate } from '../../utils/invoicePdfDownload';
 import TablePagination from '../../components/ui/TablePagination';
 import { useTablePagination } from '../../hooks/usePagination';
 import CountUpNumber from '../../components/ui/CountUpNumber';
 import InvoiceTemplateDownloadModal from '../../components/invoices/InvoiceTemplateDownloadModal';
+import { fetchInvoices } from '../../store/slices/invoiceSlice';
 
 const dedupeTemplates = (templates = []) => {
   const map = new Map();
@@ -40,6 +41,7 @@ const dedupeTemplates = (templates = []) => {
 };
 
 const InvoiceList = () => {
+  const dispatch = useDispatch();
   const { isDarkMode } = useTheme();
   const { addToast } = useToast();
   const { accountInfo } = useAccount();
@@ -73,7 +75,6 @@ const InvoiceList = () => {
   const [amountRange, setAmountRange] = useState({ min: '', max: '' });
   const [selectedInvoices, setSelectedInvoices] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(null); // Track which invoice's actions are open
   const [invoiceToDownload, setInvoiceToDownload] = useState(null);
@@ -84,17 +85,20 @@ const InvoiceList = () => {
     [getAvailableTemplates]
   );
 
-  // Update filtered invoices when filters change
-  useEffect(() => {
-    const filtered = filterInvoices({
+  const filteredInvoices = useMemo(
+    () => filterInvoices({
       status: statusFilter,
-      dateRange: dateRange,
+      dateRange,
       minAmount: amountRange.min ? parseFloat(amountRange.min) : null,
       maxAmount: amountRange.max ? parseFloat(amountRange.max) : null,
       search: searchTerm
-    });
-    setFilteredInvoices(filtered);
-  }, [statusFilter, dateRange, amountRange, searchTerm, invoices]);
+    }),
+    [statusFilter, dateRange, amountRange, searchTerm, filterInvoices]
+  );
+
+  useEffect(() => {
+    dispatch(fetchInvoices({ prefetchAll: false }));
+  }, [dispatch]);
 
   // Get real-time stats
   const statsData = getInvoiceStats();
