@@ -129,7 +129,7 @@ const Settings = () => {
         const [businessResult, settingsResult, documentsResult] = await Promise.allSettled([
           api.get('/business'),
           fetchSettings(),
-          fetchDocuments()
+          fetchDocuments({ includeArchived: true })
         ]);
 
         if (!isActive) return;

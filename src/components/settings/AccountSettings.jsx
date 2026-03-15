@@ -31,6 +31,7 @@ const AccountSettings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [profilePreviewUrl, setProfilePreviewUrl] = useState('');
+  const [profileImageRemoved, setProfileImageRemoved] = useState(false);
   const [businessLogoFile, setBusinessLogoFile] = useState(null);
   const [businessLogoPreviewUrl, setBusinessLogoPreviewUrl] = useState('');
   const [businessLogoRemoved, setBusinessLogoRemoved] = useState(false);
@@ -78,6 +79,7 @@ const AccountSettings = () => {
       ...EMPTY_FORM_STATE,
       ...accountInfo
     });
+    setProfileImageRemoved(false);
     setBusinessLogoRemoved(false);
   }, [accountInfo]);
 
@@ -104,10 +106,10 @@ const AccountSettings = () => {
     }
   }, [accountInfo.brandingSettings?.logoUrl, businessLogoFile]);
 
-  const rawAvatarUrl = profilePreviewUrl || accountInfo.avatarUrl || '';
+  const rawAvatarUrl = profilePreviewUrl || (profileImageRemoved ? '' : (accountInfo.avatarUrl || ''));
   const resolvedAvatarUrl = avatarLoadError ? '' : rawAvatarUrl;
   const hasAvatar = Boolean(resolvedAvatarUrl);
-  const canRemovePhoto = Boolean(profileImageFile || accountInfo.avatarUrl);
+  const canRemovePhoto = Boolean(profileImageFile || (!profileImageRemoved && accountInfo.avatarUrl));
   const rawBusinessLogoUrl = businessLogoPreviewUrl || formData.brandingSettings?.logoUrl || accountInfo.brandingSettings?.logoUrl || '';
   const resolvedBusinessLogoUrl = businessLogoLoadError ? '' : rawBusinessLogoUrl;
   const hasBusinessLogo = Boolean(resolvedBusinessLogoUrl);
@@ -121,16 +123,22 @@ const AccountSettings = () => {
     setBusinessLogoLoadError(false);
   }, [businessLogoPreviewUrl, formData.brandingSettings?.logoUrl, accountInfo.brandingSettings?.logoUrl]);
 
-  const handleRemovePhoto = () => {
+  const resetProfileImageSelection = () => {
     if (previewRef.current) {
       URL.revokeObjectURL(previewRef.current);
       previewRef.current = null;
     }
     setProfileImageFile(null);
     setProfilePreviewUrl('');
+    setProfileImageRemoved(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const handleRemovePhoto = () => {
+    resetProfileImageSelection();
+    setProfileImageRemoved(true);
   };
 
   const resetBusinessLogoSelection = () => {
@@ -149,7 +157,6 @@ const AccountSettings = () => {
   const handleProfileImageChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) {
-      handleRemovePhoto();
       return;
     }
 
@@ -167,6 +174,7 @@ const AccountSettings = () => {
     previewRef.current = objectUrl;
     setProfilePreviewUrl(objectUrl);
     setProfileImageFile(file);
+    setProfileImageRemoved(false);
   };
 
   const handleBusinessLogoChange = (event) => {
@@ -231,12 +239,13 @@ const AccountSettings = () => {
     try {
       await updateAccountInfo(formData, {
         profileImageFile,
+        removeProfileImage: profileImageRemoved,
         businessLogoFile,
         removeBusinessLogo: businessLogoRemoved
       });
       await refreshAccountInfo({ silent: true });
       addToast('Account settings saved', 'success');
-      handleRemovePhoto();
+      resetProfileImageSelection();
       resetBusinessLogoSelection();
     } catch (error) {
       addToast(error?.message || 'Failed to save account settings', 'error');

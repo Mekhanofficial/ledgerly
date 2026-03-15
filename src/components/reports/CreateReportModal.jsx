@@ -5,7 +5,6 @@ import { useTheme } from '../../context/ThemeContext';
 
 const CreateReportModal = ({ isOpen, onClose, onSave }) => {
   const { isDarkMode } = useTheme();
-  const [animateIn, setAnimateIn] = useState(false);
   const [reportData, setReportData] = useState({
     title: '',
     description: '',
@@ -66,30 +65,35 @@ const CreateReportModal = ({ isOpen, onClose, onSave }) => {
   };
 
   useEffect(() => {
-    if (!isOpen) {
-      setAnimateIn(false);
+    if (!isOpen || typeof window === 'undefined') {
       return undefined;
     }
 
-    const frame = window.requestAnimationFrame(() => {
-      setAnimateIn(true);
-    });
+    const { body, documentElement } = document;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyPaddingRight = body.style.paddingRight;
+    const previousDocumentOverflow = documentElement.style.overflow;
+
+    const scrollbarWidth = window.innerWidth - documentElement.clientWidth;
+    body.style.overflow = 'hidden';
+    documentElement.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${scrollbarWidth}px`;
+    }
 
     return () => {
-      window.cancelAnimationFrame(frame);
+      body.style.overflow = previousBodyOverflow;
+      body.style.paddingRight = previousBodyPaddingRight;
+      documentElement.style.overflow = previousDocumentOverflow;
     };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-[1px] transition-opacity duration-200 ${
-      animateIn ? 'opacity-100' : 'opacity-0'
-    }`}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-[1px]">
       <div className="flex min-h-full items-start justify-center p-4 md:p-8">
-        <div className={`w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-xl flex flex-col transform-gpu transition-all duration-200 ease-out ${
-        animateIn ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.985]'
-      } ${
+        <div className={`w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-xl flex flex-col ${
         isDarkMode ? 'bg-gray-800' : 'bg-white'
       }`}>
         {/* Header */}

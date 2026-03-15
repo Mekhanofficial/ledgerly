@@ -275,6 +275,7 @@ export const AccountProvider = ({ children }) => {
     const {
       profileImageFile = null,
       businessLogoFile = null,
+      removeProfileImage = false,
       removeBusinessLogo = false
     } = normalizedUploadOptions;
 
@@ -299,6 +300,7 @@ export const AccountProvider = ({ children }) => {
     }
     if (removeBusinessLogo) {
       businessPayload.logo = '';
+      businessPayload.removeLogo = true;
     }
 
     const addressFields = {
@@ -325,7 +327,8 @@ export const AccountProvider = ({ children }) => {
     }
 
     let updatedUser = null;
-    if (profileImageFile || Object.keys(userPayload).length) {
+    const hasUserChanges = Boolean(profileImageFile || removeProfileImage || Object.keys(userPayload).length);
+    if (hasUserChanges) {
       try {
         if (profileImageFile) {
           const formData = new FormData();
@@ -337,7 +340,11 @@ export const AccountProvider = ({ children }) => {
           const userResponse = await api.put('/auth/updatedetails', formData);
           updatedUser = userResponse.data.data;
         } else {
-          const userResponse = await api.put('/auth/updatedetails', userPayload);
+          const requestPayload = { ...userPayload };
+          if (removeProfileImage) {
+            requestPayload.removeProfileImage = true;
+          }
+          const userResponse = await api.put('/auth/updatedetails', requestPayload);
           updatedUser = userResponse.data.data;
         }
 
@@ -401,6 +408,10 @@ export const AccountProvider = ({ children }) => {
     }
     if (updatedUser?.avatarUrl) {
       fallback.avatarUrl = updatedUser.avatarUrl;
+    }
+    if (removeProfileImage) {
+      fallback.profileImage = '';
+      fallback.avatarUrl = '';
     }
     setAccountInfo(fallback);
     return fallback;
