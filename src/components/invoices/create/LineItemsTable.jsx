@@ -14,7 +14,7 @@ const LineItemsTable = ({
     updateLineItem(id, field, value);
   };
 
-  const inputClassName = 'mt-1 w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 placeholder:text-slate-400 caret-slate-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 dark:caret-white';
+  const inputClassName = 'mt-1 w-full min-h-[48px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-medium text-slate-900 placeholder:text-slate-400 caret-slate-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 dark:caret-white';
   const labelClassName = 'text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400';
 
   return (
@@ -121,11 +121,11 @@ const LineItemsTable = ({
         <div className="overflow-x-auto">
           <table className="min-w-full table-fixed divide-y divide-slate-200 dark:divide-slate-700">
             <colgroup>
-              <col className="w-[40%]" />
-              <col className="w-[12%]" />
+              <col className="w-[36%]" />
               <col className="w-[16%]" />
+              <col className="w-[18%]" />
               <col className="w-[14%]" />
-              <col className="w-[12%]" />
+              <col className="w-[10%]" />
               <col className="w-[6%]" />
             </colgroup>
             <thead className="bg-slate-50 dark:bg-slate-800/80">
@@ -168,7 +168,7 @@ const LineItemsTable = ({
                       type="number"
                       value={item.quantity}
                       onChange={(e) => handleUpdate(item.id, 'quantity', e.target.value)}
-                      className={`${inputClassName} mt-0 min-h-[42px]`}
+                      className={`${inputClassName} mt-0 min-h-[48px] min-w-[112px]`}
                       inputMode="numeric"
                       min="1"
                     />
@@ -178,7 +178,7 @@ const LineItemsTable = ({
                       type="number"
                       value={item.rate}
                       onChange={(e) => handleUpdate(item.id, 'rate', e.target.value)}
-                      className={`${inputClassName} mt-0 min-h-[42px]`}
+                      className={`${inputClassName} mt-0 min-h-[48px] min-w-[128px]`}
                       inputMode="decimal"
                       step="0.01"
                       min="0"
