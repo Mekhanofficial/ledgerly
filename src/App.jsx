@@ -5,6 +5,7 @@ import RequireAuth from './components/auth/RequireAuth'
 import { ThemeProvider } from './context/ThemeContext'
 import { ToastProvider } from './context/ToastContext'
 import RouteLoadingSpinner from './components/ui/RouteLoadingSpinner'
+import { subscribeToApiActivity } from './services/api'
 import HomePage from './routes/home'
 
 const ReduxLayout = lazy(() => import('./routes/ReduxLayout'))
@@ -65,6 +66,7 @@ const AppRoutes = ({
   const routeKey = `${location.pathname}${location.search}`
   const hasMountedRef = useRef(false)
   const [showRouteSpinner, setShowRouteSpinner] = useState(false)
+  const [showActionSpinner, setShowActionSpinner] = useState(false)
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
@@ -86,9 +88,58 @@ const AppRoutes = ({
     return () => window.clearTimeout(timeoutId)
   }, [routeKey])
 
+  useEffect(() => {
+    let showTimeoutId = null
+    let hideTimeoutId = null
+
+    const clearTimers = () => {
+      if (showTimeoutId) {
+        window.clearTimeout(showTimeoutId)
+        showTimeoutId = null
+      }
+      if (hideTimeoutId) {
+        window.clearTimeout(hideTimeoutId)
+        hideTimeoutId = null
+      }
+    }
+
+    const unsubscribe = subscribeToApiActivity(({ isLoading }) => {
+      if (isLoading) {
+        if (hideTimeoutId) {
+          window.clearTimeout(hideTimeoutId)
+          hideTimeoutId = null
+        }
+        if (!showActionSpinner && !showTimeoutId) {
+          showTimeoutId = window.setTimeout(() => {
+            setShowActionSpinner(true)
+            showTimeoutId = null
+          }, 120)
+        }
+        return
+      }
+
+      if (showTimeoutId) {
+        window.clearTimeout(showTimeoutId)
+        showTimeoutId = null
+      }
+
+      if (showActionSpinner && !hideTimeoutId) {
+        hideTimeoutId = window.setTimeout(() => {
+          setShowActionSpinner(false)
+          hideTimeoutId = null
+        }, 120)
+      }
+    })
+
+    return () => {
+      clearTimers()
+      unsubscribe()
+    }
+  }, [showActionSpinner])
+
   return (
     <>
-      <RouteLoadingSpinner show={showRouteSpinner} />
+      <RouteLoadingSpinner show={showRouteSpinner || showActionSpinner} />
       <Suspense fallback={<RouteLoadingSpinner show />}>
         <Routes location={location}>
           <Route path="/" element={<HomePage />} />

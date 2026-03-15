@@ -207,6 +207,7 @@ const CreateInvoice = () => {
   const [dueDate, setDueDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
   const [paymentTerms, setPaymentTerms] = useState('net-30');
   const [currency, setCurrency] = useState(baseCurrency);
+  const [hasUserEditedCurrency, setHasUserEditedCurrency] = useState(false);
   const [notes, setNotes] = useState('Payment due within 30 days. Late payments subject to 1.5% monthly interest.');
   const [terms, setTerms] = useState('All services are subject to our terms and conditions. For any questions, please contact our billing department.');
   const [attachments, setAttachments] = useState([]);
@@ -332,12 +333,13 @@ const CreateInvoice = () => {
   useEffect(() => {
     if (!canUseMultiCurrency) {
       setCurrency(baseCurrency);
+      setHasUserEditedCurrency(false);
       return;
     }
-    if (!currency) {
+    if (!hasUserEditedCurrency) {
       setCurrency(baseCurrency);
     }
-  }, [baseCurrency, canUseMultiCurrency, currency]);
+  }, [baseCurrency, canUseMultiCurrency, hasUserEditedCurrency]);
 // Load templates
   useEffect(() => {
     const templates = dedupeTemplates(getAvailableTemplates());
@@ -351,10 +353,9 @@ const CreateInvoice = () => {
       setTerms(defaultTemplate.terms || '');
       setEmailSubject(defaultTemplate.emailSubject || 'Invoice for Services Rendered');
       setEmailMessage(defaultTemplate.emailMessage || 'Dear valued customer,\n\nPlease find attached your invoice for services rendered.\n\nThank you for your business.\n\nBest regards,');
-      setCurrency(canUseMultiCurrency ? (defaultTemplate.currency || baseCurrency) : baseCurrency);
       setPaymentTerms(defaultTemplate.paymentTerms || 'net-30');
     }
-  }, [getAvailableTemplates, canUseMultiCurrency, baseCurrency]);
+  }, [getAvailableTemplates]);
 
   // Load tax settings
   useEffect(() => {
@@ -434,7 +435,6 @@ const CreateInvoice = () => {
         if (template.terms) setTerms(template.terms);
         if (template.emailSubject) setEmailSubject(template.emailSubject);
         if (template.emailMessage) setEmailMessage(template.emailMessage);
-        if (template.currency && canUseMultiCurrency) setCurrency(template.currency);
         if (template.paymentTerms) setPaymentTerms(template.paymentTerms);
         if (template.templateStyle) setSelectedTemplate(template.templateStyle);
         
@@ -448,7 +448,12 @@ const CreateInvoice = () => {
     } finally {
       setLoadingTemplate(false);
     }
-  }, [addToast, canUseMultiCurrency, getAvailableTemplates]);
+  }, [addToast, getAvailableTemplates]);
+
+  const handleCurrencyChange = useCallback((nextCurrency) => {
+    setHasUserEditedCurrency(true);
+    setCurrency(nextCurrency);
+  }, []);
 
   // Load specific template if provided in URL
   useEffect(() => {
@@ -1635,7 +1640,7 @@ const CreateInvoice = () => {
               invoiceNumber={invoiceNumber}
               setInvoiceNumber={setInvoiceNumber}
               currency={resolvedCurrency}
-              setCurrency={setCurrency}
+              setCurrency={handleCurrencyChange}
               isMultiCurrencyAllowed={canUseMultiCurrency}
               baseCurrency={baseCurrency}
               issueDate={issueDate}

@@ -1,17 +1,22 @@
 ﻿import React from 'react';
-import { motion } from 'framer-motion';
 import { FileText, Receipt, Package, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { useAccount } from '../../context/AccountContext';
 import { hasPermission, normalizeRole } from '../../utils/permissions';
+import { normalizePlanId } from '../../utils/subscription';
 
 const QuickActions = () => {
+  const { accountInfo } = useAccount();
   const authUser = useSelector((state) => state.auth?.user);
   const normalizedRole = normalizeRole(authUser?.role);
+  const subscriptionStatus = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
+  const effectivePlan = subscriptionStatus === 'expired' ? 'starter' : normalizePlanId(accountInfo?.plan);
+  const hasInventoryFeature = ['professional', 'enterprise'].includes(effectivePlan);
   const isClient = normalizedRole === 'client';
   const canViewReports = hasPermission(authUser, 'reports', 'view');
   const canAccessReceipts = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
-  const canManageInventoryAdmin = hasPermission(authUser, 'products', 'create');
+  const canManageInventoryAdmin = hasPermission(authUser, 'products', 'create') && hasInventoryFeature;
   const canCreateInvoice = hasPermission(authUser, 'invoices', 'create');
 
   if (isClient) {
@@ -65,13 +70,9 @@ const QuickActions = () => {
           {actions.map((action, index) => {
             const Icon = action.icon;
             return (
-              <motion.div
+              <div
                 key={index}
-                initial={{ opacity: 0, y: 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.35 }}
-                transition={{ duration: 0.28, delay: index * 0.05 }}
-                whileHover={{ y: -4 }}
+                className="transition-transform duration-200 hover:-translate-y-1"
               >
                 <Link
                   to={action.action}
@@ -96,7 +97,7 @@ const QuickActions = () => {
                     {action.description}
                   </span>
                 </Link>
-              </motion.div>
+              </div>
           );
         })}
       </div>

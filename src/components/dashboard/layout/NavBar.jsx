@@ -37,6 +37,7 @@ import { useAccount } from '../../../context/AccountContext';
 import { getAvatarSeed, getAvatarUrl, getUserDisplayName, getUserEmail, getUserRoleLabel, resolveAuthUser } from '../../../utils/userDisplay';
 import { formatCurrency, getCurrencySymbol } from '../../../utils/currency';
 import { hasPermission, normalizeRole } from '../../../utils/permissions';
+import { normalizePlanId } from '../../../utils/subscription';
 import CountUpNumber from '../../ui/CountUpNumber';
 
 const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
@@ -55,11 +56,14 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   const user = resolveAuthUser(authUser);
   const baseCurrency = accountInfo?.currency || user?.currencyCode || user?.currency || 'USD';
   const normalizedRole = normalizeRole(user?.role);
+  const subscriptionStatus = String(accountInfo?.subscriptionStatus || 'active').toLowerCase();
+  const effectivePlan = subscriptionStatus === 'expired' ? 'starter' : normalizePlanId(accountInfo?.plan);
+  const hasInventoryFeature = ['professional', 'enterprise'].includes(effectivePlan);
   const isClient = normalizedRole === 'client';
   const canAccessSettings = hasPermission(user, 'settings', 'view');
   const canAccessReports = hasPermission(user, 'reports', 'view');
   const canAccessReceipts = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
-  const canManageInventoryAdmin = hasPermission(user, 'products', 'create');
+  const canManageInventoryAdmin = hasPermission(user, 'products', 'create') && hasInventoryFeature;
   const canCreateCustomer = hasPermission(user, 'customers', 'create');
   const canRecordPayments = ['admin', 'accountant', 'super_admin'].includes(normalizedRole);
   const canCreateInvoice = hasPermission(user, 'invoices', 'create');
