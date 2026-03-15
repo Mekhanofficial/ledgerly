@@ -165,7 +165,7 @@ export const InvoiceProvider = ({ children }) => {
     if (!isAuthenticated) return undefined;
 
     const refreshInvoices = () => {
-      dispatch(fetchInvoices());
+      dispatch(fetchInvoices({ prefetchAll: false }));
     };
 
     const intervalId = setInterval(refreshInvoices, 60000);
@@ -477,7 +477,7 @@ export const InvoiceProvider = ({ children }) => {
         invoiceId: mappedInvoice.id
       });
 
-      dispatch(fetchInvoices());
+      dispatch(fetchInvoices({ prefetchAll: false }));
 
       return mappedInvoice;
     } catch (error) {
@@ -654,7 +654,7 @@ export const InvoiceProvider = ({ children }) => {
 
       const updated = await dispatch(sendInvoiceThunk(buildPayload(normalizedEmailOptions))).unwrap();
       // Keep list views in sync with canonical backend ordering/populates.
-      dispatch(fetchInvoices());
+      dispatch(fetchInvoices({ prefetchAll: false }));
 
       const mapped = mapInvoiceFromApi(updated);
       addToast('Invoice sent successfully', 'success');
@@ -762,7 +762,7 @@ export const InvoiceProvider = ({ children }) => {
       })).unwrap();
 
       const updatedInvoice = mapInvoiceFromApi(result?.invoice || result);
-      dispatch(fetchInvoices());
+      dispatch(fetchInvoices({ prefetchAll: false }));
       if (canAccessCustomers) {
         dispatch(fetchCustomers());
       }

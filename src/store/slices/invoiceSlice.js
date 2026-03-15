@@ -33,6 +33,26 @@ const parsePositiveInt = (value, fallback) => {
 
 const resolveInvoiceId = (invoice) => String(invoice?._id || invoice?.id || '').trim();
 
+const resolveInvoiceTimestamp = (invoice) => {
+  const rawValue =
+    invoice?.createdAt
+    || invoice?.updatedAt
+    || invoice?.sentDate
+    || invoice?.date
+    || invoice?.issueDate
+    || invoice?.dueDate;
+  const timestamp = new Date(rawValue || 0).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
+const sortInvoicesByRecency = (invoices = []) => {
+  return [...invoices].sort((left, right) => {
+    const timestampDiff = resolveInvoiceTimestamp(right) - resolveInvoiceTimestamp(left);
+    if (timestampDiff !== 0) return timestampDiff;
+    return String(resolveInvoiceId(right)).localeCompare(String(resolveInvoiceId(left)));
+  });
+};
+
 const upsertInvoiceInState = (state, payload, { prepend = false } = {}) => {
   const payloadId = resolveInvoiceId(payload);
   if (!payloadId) return false;
@@ -40,6 +60,7 @@ const upsertInvoiceInState = (state, payload, { prepend = false } = {}) => {
   const index = state.invoices.findIndex((invoice) => resolveInvoiceId(invoice) === payloadId);
   if (index !== -1) {
     state.invoices[index] = payload;
+    state.invoices = sortInvoicesByRecency(state.invoices);
     return false;
   }
 
@@ -48,6 +69,7 @@ const upsertInvoiceInState = (state, payload, { prepend = false } = {}) => {
   } else {
     state.invoices.push(payload);
   }
+  state.invoices = sortInvoicesByRecency(state.invoices);
   return true;
 };
 
@@ -55,6 +77,27 @@ const INVOICE_SEND_TIMEOUT_MS = parsePositiveInt(
   import.meta.env.VITE_INVOICE_SEND_TIMEOUT_MS,
   parsePositiveInt(import.meta.env.VITE_API_TIMEOUT_MS, 120000)
 );
+
+const INVOICE_PAGE_SIZE = parsePositiveInt(
+  import.meta.env.VITE_INVOICE_PAGE_SIZE,
+  50
+);
+
+const mergeInvoiceLists = (primary = [], secondary = []) => {
+  const map = new Map();
+  [...primary, ...secondary].forEach((invoice) => {
+    const id = resolveInvoiceId(invoice);
+    if (!id || map.has(id)) return;
+    map.set(id, invoice);
+  });
+  return sortInvoicesByRecency(Array.from(map.values()));
+};
+
+const mergeFrontPageWithExisting = (existing = [], latestPage = []) => {
+  const latestIds = new Set(latestPage.map(resolveInvoiceId).filter(Boolean));
+  const tail = existing.filter((invoice) => !latestIds.has(resolveInvoiceId(invoice)));
+  return sortInvoicesByRecency([...latestPage, ...tail]);
+};
 
 const fetchAllPages = async (path, params = {}, pageSize = 200) => {
   const limit = params.limit ?? pageSize;
@@ -100,16 +143,104 @@ const fetchAllPages = async (path, params = {}, pageSize = 200) => {
   };
 };
 
+export const hydrateInvoices = createAsyncThunk(
+  'invoices/hydrateRemaining',
+  async ({ params = {}, startPage = 2, limit = INVOICE_PAGE_SIZE }, { rejectWithValue }) => {
+    try {
+      const requestParams = { ...params };
+      delete requestParams.prefetchAll;
+      requestParams.includeSummary = false;
+
+      let page = startPage;
+      let combined = [];
+      let lastPayload = null;
+      let resolvedPages = startPage - 1;
+
+      for (let guard = 0; guard < 200; guard += 1) {
+        const response = await api.get('/invoices', { params: { ...requestParams, page, limit } });
+        const payload = response.data;
+        lastPayload = payload;
+        const data = normalizeListPayload(payload);
+        combined = combined.concat(data);
+
+        const hasPagination = payload?.pages !== undefined || payload?.total !== undefined;
+        if (!hasPagination) {
+          return payload;
+        }
+
+        resolvedPages = payload?.pages ?? Math.ceil((payload?.total ?? combined.length) / limit);
+        if (data.length === 0 || page >= resolvedPages) {
+          return {
+            ...payload,
+            data: combined,
+            count: combined.length,
+            total: payload?.total ?? combined.length,
+            pages: resolvedPages
+          };
+        }
+
+        page += 1;
+      }
+
+      return {
+        ...lastPayload,
+        data: combined,
+        count: combined.length,
+        total: lastPayload?.total ?? combined.length,
+        pages: resolvedPages
+      };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to load remaining invoices');
+    }
+  },
+  {
+    condition: (_, { getState }) => !getState()?.invoices?.hydrating
+  }
+);
+
 // Async thunks for invoices
 export const fetchInvoices = createAsyncThunk(
   'invoices/fetchAll',
-  async (params = {}, { rejectWithValue }) => {
+  async (params = {}, { rejectWithValue, dispatch }) => {
     try {
-      const payload = await fetchAllPages('/invoices', params, 200);
-      return payload;
+      const requestParams = { ...params };
+      delete requestParams.prefetchAll;
+      requestParams.includeSummary = false;
+
+      const limit = requestParams.limit ?? INVOICE_PAGE_SIZE;
+      const response = await api.get('/invoices', {
+        params: {
+          ...requestParams,
+          page: requestParams.page ?? 1,
+          limit
+        }
+      });
+      const payload = response.data;
+      const data = normalizeListPayload(payload);
+      const pages = payload?.pages ?? Math.ceil((payload?.total ?? data.length) / limit);
+      const shouldHydrateRemaining = pages > 1 && params.prefetchAll !== false;
+
+      if (shouldHydrateRemaining) {
+        dispatch(hydrateInvoices({
+          params: requestParams,
+          startPage: (requestParams.page ?? 1) + 1,
+          limit
+        }));
+      }
+
+      return {
+        ...payload,
+        data,
+        total: payload?.total ?? data.length,
+        pages,
+        isHydrated: !shouldHydrateRemaining
+      };
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || 'Failed to fetch invoices');
     }
+  },
+  {
+    condition: (_, { getState }) => !getState()?.invoices?.loading
   }
 );
 
@@ -212,6 +343,7 @@ const initialState = {
   currentInvoice: null,
   outstandingInvoices: [],
   loading: false,
+  hydrating: false,
   error: null,
   total: 0,
   pages: 1,
@@ -245,7 +377,9 @@ const invoiceSlice = createSlice({
         state.loading = false;
         const payload = action.payload;
         const data = normalizeListPayload(payload);
-        state.invoices = data;
+        state.invoices = payload?.isHydrated
+          ? sortInvoicesByRecency(data)
+          : mergeFrontPageWithExisting(state.invoices, data);
         state.total = payload?.total ?? data.length;
         state.pages = payload?.pages ?? 1;
         state.summary = payload?.summary || state.summary;
@@ -253,6 +387,20 @@ const invoiceSlice = createSlice({
       .addCase(fetchInvoices.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(hydrateInvoices.pending, (state) => {
+        state.hydrating = true;
+      })
+      .addCase(hydrateInvoices.fulfilled, (state, action) => {
+        state.hydrating = false;
+        const data = normalizeListPayload(action.payload);
+        state.invoices = mergeInvoiceLists(state.invoices, data);
+        state.total = action.payload?.total ?? state.total;
+        state.pages = action.payload?.pages ?? state.pages;
+        state.summary = action.payload?.summary || state.summary;
+      })
+      .addCase(hydrateInvoices.rejected, (state) => {
+        state.hydrating = false;
       })
       
       // Fetch invoice by ID

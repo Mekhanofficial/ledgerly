@@ -88,12 +88,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1764,
+                      "duration": 4686,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-14T09:28:27.176Z",
+                      "startTime": "2026-03-15T04:07:27.569Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -122,12 +122,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 5665,
+                      "duration": 5580,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-14T09:28:29.204Z",
+                      "startTime": "2026-03-15T04:07:33.456Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -156,12 +156,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 4528,
+                      "duration": 4069,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-14T09:28:34.895Z",
+                      "startTime": "2026-03-15T04:07:39.065Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -190,12 +190,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 5735,
+                      "duration": 5156,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-14T09:28:39.454Z",
+                      "startTime": "2026-03-15T04:07:43.164Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -241,12 +241,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 6445,
+                      "duration": 5972,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-14T09:28:45.268Z",
+                      "startTime": "2026-03-15T04:07:48.392Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -261,7 +261,7 @@
             },
             {
               "title": "creates draft, edits, sends, downloads PDF, deletes invoice, and logs out",
-              "ok": true,
+              "ok": false,
               "tags": [],
               "tests": [
                 {
@@ -274,18 +274,63 @@
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 36138,
-                      "errors": [],
+                      "status": "failed",
+                      "duration": 19714,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('combobox').first()\nExpected substring: \u001b[32m\"PW API Customer 1773547674945\"\u001b[39m\nReceived string:    \u001b[31m\"Select a customerPw Api Customer 1773547674945martha stuadmekhan keta\"\u001b[39m\nTimeout: 15000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('combobox').first()\u001b[22m\n\u001b[2m    4 × locator resolved to <select class=\"w-full min-h-[44px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white\">…</select>\u001b[22m\n\u001b[2m      - unexpected value \"Select a customer\"\u001b[22m\n\u001b[2m    14 × locator resolved to <select class=\"w-full min-h-[44px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white\">…</select>\u001b[22m\n\u001b[2m       - unexpected value \"Select a customerPw Api Customer 1773547674945martha stuadmekhan keta\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('combobox').first()\nExpected substring: \u001b[32m\"PW API Customer 1773547674945\"\u001b[39m\nReceived string:    \u001b[31m\"Select a customerPw Api Customer 1773547674945martha stuadmekhan keta\"\u001b[39m\nTimeout: 15000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('combobox').first()\u001b[22m\n\u001b[2m    4 × locator resolved to <select class=\"w-full min-h-[44px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white\">…</select>\u001b[22m\n\u001b[2m      - unexpected value \"Select a customer\"\u001b[22m\n\u001b[2m    14 × locator resolved to <select class=\"w-full min-h-[44px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white\">…</select>\u001b[22m\n\u001b[2m       - unexpected value \"Select a customerPw Api Customer 1773547674945martha stuadmekhan keta\"\u001b[22m\n\n    at C:\\Users\\ADMIN\\Desktop\\ledgerly\\ledgerly-website\\tests\\e2e\\invoice-flow.spec.js:106:34",
+                        "location": {
+                          "file": "C:\\Users\\ADMIN\\Desktop\\ledgerly\\ledgerly-website\\tests\\e2e\\invoice-flow.spec.js",
+                          "column": 34,
+                          "line": 106
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 104 |\u001b[39m\n \u001b[90m 105 |\u001b[39m     \u001b[36mconst\u001b[39m customerSelect \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'combobox'\u001b[39m)\u001b[33m.\u001b[39mfirst()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 106 |\u001b[39m     \u001b[36mawait\u001b[39m expect(customerSelect)\u001b[33m.\u001b[39mtoContainText(customerName)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                  \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 107 |\u001b[39m     \u001b[36mawait\u001b[39m customerSelect\u001b[33m.\u001b[39mselectOption({ label\u001b[33m:\u001b[39m customerName })\u001b[33m;\u001b[39m\n \u001b[90m 108 |\u001b[39m     \u001b[36mawait\u001b[39m expect(customerSelect)\u001b[33m.\u001b[39mtoHaveValue(\u001b[35m/.+/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 109 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\ADMIN\\Desktop\\ledgerly\\ledgerly-website\\tests\\e2e\\invoice-flow.spec.js",
+                            "column": 34,
+                            "line": 106
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('combobox').first()\nExpected substring: \u001b[32m\"PW API Customer 1773547674945\"\u001b[39m\nReceived string:    \u001b[31m\"Select a customerPw Api Customer 1773547674945martha stuadmekhan keta\"\u001b[39m\nTimeout: 15000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('combobox').first()\u001b[22m\n\u001b[2m    4 × locator resolved to <select class=\"w-full min-h-[44px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white\">…</select>\u001b[22m\n\u001b[2m      - unexpected value \"Select a customer\"\u001b[22m\n\u001b[2m    14 × locator resolved to <select class=\"w-full min-h-[44px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white\">…</select>\u001b[22m\n\u001b[2m       - unexpected value \"Select a customerPw Api Customer 1773547674945martha stuadmekhan keta\"\u001b[22m\n\n\n  104 |\n  105 |     const customerSelect = page.getByRole('combobox').first();\n> 106 |     await expect(customerSelect).toContainText(customerName);\n      |                                  ^\n  107 |     await customerSelect.selectOption({ label: customerName });\n  108 |     await expect(customerSelect).toHaveValue(/.+/);\n  109 |\n    at C:\\Users\\ADMIN\\Desktop\\ledgerly\\ledgerly-website\\tests\\e2e\\invoice-flow.spec.js:106:34"
+                        }
+                      ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-14T09:28:51.740Z",
+                      "startTime": "2026-03-15T04:07:54.392Z",
                       "annotations": [],
-                      "attachments": []
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\ADMIN\\Desktop\\ledgerly\\ledgerly-website\\test-results\\invoice-flow-Invoice-Lifec-d3e2f-eletes-invoice-and-logs-out-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\ADMIN\\Desktop\\ledgerly\\ledgerly-website\\test-results\\invoice-flow-Invoice-Lifec-d3e2f-eletes-invoice-and-logs-out-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\ADMIN\\Desktop\\ledgerly\\ledgerly-website\\test-results\\invoice-flow-Invoice-Lifec-d3e2f-eletes-invoice-and-logs-out-chromium\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\ADMIN\\Desktop\\ledgerly\\ledgerly-website\\test-results\\invoice-flow-Invoice-Lifec-d3e2f-eletes-invoice-and-logs-out-chromium\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\ADMIN\\Desktop\\ledgerly\\ledgerly-website\\tests\\e2e\\invoice-flow.spec.js",
+                        "column": 34,
+                        "line": 106
+                      }
                     }
                   ],
-                  "status": "expected"
+                  "status": "unexpected"
                 }
               ],
               "id": "a8fc5d2ac041183b5007-d2bcc3af3bf1fde5c6ec",
@@ -300,11 +345,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-03-14T09:28:23.414Z",
-    "duration": 64766.39399999999,
-    "expected": 6,
+    "startTime": "2026-03-15T04:07:24.874Z",
+    "duration": 50646.441,
+    "expected": 5,
     "skipped": 0,
-    "unexpected": 0,
+    "unexpected": 1,
     "flaky": 0
   }
 }

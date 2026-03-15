@@ -1,0 +1,341 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - img "Ledgerly" [ref=e6]
+    - navigation [ref=e8]:
+      - link "Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e11]
+        - generic [ref=e16]: Dashboard
+      - generic [ref=e17]:
+        - button "Invoices" [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]:
+            - img [ref=e20]
+            - generic [ref=e23]: Invoices
+          - img [ref=e24]
+        - generic [ref=e26]:
+          - link "All Invoices" [ref=e27] [cursor=pointer]:
+            - /url: /invoices
+          - link "Create Invoice" [ref=e28] [cursor=pointer]:
+            - /url: /invoices/create
+          - link "Recurring" [ref=e29] [cursor=pointer]:
+            - /url: /invoices/recurring
+          - link "Templates" [ref=e30] [cursor=pointer]:
+            - /url: /invoices/templates
+      - link "Receipts" [ref=e31] [cursor=pointer]:
+        - /url: /receipts
+        - img [ref=e33]
+        - generic [ref=e36]: Receipts
+      - link "Documents" [ref=e37] [cursor=pointer]:
+        - /url: /documents
+        - img [ref=e39]
+        - generic [ref=e43]: Documents
+      - button "Inventory" [ref=e45] [cursor=pointer]:
+        - generic [ref=e46]:
+          - img [ref=e47]
+          - generic [ref=e51]: Inventory
+        - img [ref=e52]
+      - link "Customers" [ref=e54] [cursor=pointer]:
+        - /url: /customers
+        - img [ref=e56]
+        - generic [ref=e61]: Customers
+      - link "Team" [ref=e62] [cursor=pointer]:
+        - /url: /team
+        - img [ref=e64]
+        - generic [ref=e67]: Team
+      - link "Reports" [ref=e68] [cursor=pointer]:
+        - /url: /reports
+        - img [ref=e70]
+        - generic [ref=e72]: Reports
+      - link "Payments" [ref=e73] [cursor=pointer]:
+        - /url: /payments
+        - img [ref=e75]
+        - generic [ref=e77]: Payments
+    - generic [ref=e78]:
+      - navigation [ref=e79]:
+        - link "Help & Support" [ref=e80] [cursor=pointer]:
+          - /url: /support
+          - img [ref=e82]
+          - generic [ref=e85]: Help & Support
+        - link "Settings" [ref=e86] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e88]
+          - generic [ref=e91]: Settings
+        - link "Pricing & Plans" [ref=e92] [cursor=pointer]:
+          - /url: /payments/pricing
+          - img [ref=e94]
+          - generic [ref=e96]: Pricing & Plans
+        - link "Notifications" [ref=e97] [cursor=pointer]:
+          - /url: /notifications
+          - img [ref=e99]
+          - generic [ref=e102]: Notifications
+      - generic [ref=e103]:
+        - generic [ref=e104]:
+          - generic [ref=e105]: ML
+          - generic [ref=e106]:
+            - paragraph [ref=e107]: Maya Lu
+            - paragraph [ref=e108]: Admin
+        - button "Sign Out" [ref=e109] [cursor=pointer]:
+          - img [ref=e110]
+          - text: Sign Out
+  - generic [ref=e113]:
+    - banner [ref=e114]:
+      - generic [ref=e116]:
+        - generic [ref=e117]:
+          - button "Toggle sidebar" [ref=e118] [cursor=pointer]:
+            - img [ref=e119]
+          - generic [ref=e120]:
+            - img [ref=e121]
+            - searchbox "Search" [ref=e124]
+        - generic [ref=e125]:
+          - button "Switch to dark mode" [ref=e126] [cursor=pointer]:
+            - img [ref=e127]
+          - button "Create new" [ref=e130] [cursor=pointer]:
+            - img [ref=e131]
+            - generic [ref=e132]: Create
+            - img [ref=e133]
+          - button "Notifications" [ref=e136] [cursor=pointer]:
+            - img [ref=e137]
+          - button "User menu" [ref=e141] [cursor=pointer]:
+            - img "User avatar" [ref=e143]
+            - img [ref=e144]
+    - main [ref=e146]:
+      - generic [ref=e150]:
+        - generic [ref=e151]:
+          - generic [ref=e152]:
+            - heading "Create Invoice" [level=1] [ref=e153]
+            - paragraph [ref=e154]: Create and send professional invoices to your customers
+          - generic [ref=e155]:
+            - button "Preview" [ref=e156] [cursor=pointer]:
+              - img [ref=e157]
+              - text: Preview
+            - button "Save Draft" [ref=e160] [cursor=pointer]:
+              - img [ref=e161]
+              - text: Save Draft
+            - button "Send Invoice" [ref=e165] [cursor=pointer]:
+              - img [ref=e166]
+              - text: Send Invoice
+        - generic [ref=e169]:
+          - generic [ref=e170]:
+            - generic [ref=e171]:
+              - heading "Customer Information" [level=2] [ref=e172]
+              - generic [ref=e173]:
+                - generic [ref=e174]:
+                  - generic [ref=e175]: Select Customer
+                  - combobox [ref=e176]:
+                    - option "Select a customer" [selected]
+                    - option "Pw Api Customer 1773547674945"
+                    - option "martha stuad"
+                    - option "mekhan keta"
+                - generic [ref=e177]:
+                  - heading "Quick Add Customer" [level=3] [ref=e178]
+                  - generic [ref=e179]:
+                    - textbox "Customer Name" [ref=e180]
+                    - textbox "Email" [ref=e181]
+                    - textbox "Phone" [ref=e182]
+                    - textbox "Address" [ref=e183]
+                  - button "Add Customer" [ref=e184] [cursor=pointer]
+            - generic [ref=e185]:
+              - heading "Template Selection" [level=2] [ref=e186]
+              - generic [ref=e187]:
+                - generic [ref=e188]: Choose Template Style
+                - combobox [ref=e189]:
+                  - option "Standard" [selected]
+                  - option "Minimal"
+                  - option "Tech Modern"
+                  - option "Elegant"
+                  - option "Startup"
+                  - option "Consultant"
+                  - option "Retail"
+                  - option "Professional Classic"
+                  - option "Modern Corporate"
+                  - option "Clean Billing"
+                  - option "Retail Receipt"
+                  - option "Simple Elegant"
+                  - option "Urban Edge"
+                  - option "Creative Flow"
+                  - option "Medical"
+                  - option "Legal"
+                - button "View more templates" [ref=e191] [cursor=pointer]
+                - generic [ref=e192]:
+                  - button "standard Default" [ref=e193] [cursor=pointer]:
+                    - generic [ref=e194]:
+                      - generic [ref=e196]: standard
+                      - generic [ref=e197]: Default
+                  - button "minimal" [ref=e198] [cursor=pointer]:
+                    - generic [ref=e201]: minimal
+                  - button "techModern" [ref=e202] [cursor=pointer]:
+                    - generic [ref=e205]: techModern
+                  - button "elegant" [ref=e206] [cursor=pointer]:
+                    - generic [ref=e209]: elegant
+                  - button "startup" [ref=e210] [cursor=pointer]:
+                    - generic [ref=e213]: startup
+                  - button "consultant" [ref=e214] [cursor=pointer]:
+                    - generic [ref=e217]: consultant
+                  - button "retail" [ref=e218] [cursor=pointer]:
+                    - generic [ref=e221]: retail
+                  - button "professionalClassic" [ref=e222] [cursor=pointer]:
+                    - generic [ref=e225]: professionalClassic
+                  - button "modernCorporate" [ref=e226] [cursor=pointer]:
+                    - generic [ref=e229]: modernCorporate
+                  - button "cleanBilling" [ref=e230] [cursor=pointer]:
+                    - generic [ref=e233]: cleanBilling
+                  - button "retailReceipt" [ref=e234] [cursor=pointer]:
+                    - generic [ref=e237]: retailReceipt
+                  - button "simpleElegant" [ref=e238] [cursor=pointer]:
+                    - generic [ref=e241]: simpleElegant
+                  - button "urbanEdge" [ref=e242] [cursor=pointer]:
+                    - generic [ref=e245]: urbanEdge
+                  - button "creativeFlow" [ref=e246] [cursor=pointer]:
+                    - generic [ref=e249]: creativeFlow
+                  - button "medical" [ref=e250] [cursor=pointer]:
+                    - generic [ref=e253]: medical
+                  - button "legal" [ref=e254] [cursor=pointer]:
+                    - generic [ref=e257]: legal
+                - generic [ref=e258]:
+                  - paragraph [ref=e259]: "Selected: STANDARD template"
+                  - paragraph [ref=e260]: This template will be used for PDF generation and printing
+            - generic [ref=e261]:
+              - heading "Invoice Details" [level=2] [ref=e262]
+              - generic [ref=e263]:
+                - generic [ref=e264]:
+                  - generic [ref=e265]: Invoice Number
+                  - textbox [ref=e266]: INV-2026-677311
+                - generic [ref=e267]:
+                  - generic [ref=e268]: Currency
+                  - combobox [ref=e269]:
+                    - option "USD ($)" [selected]
+                    - option "EUR (€)"
+                    - option "GBP (£)"
+                    - option "CAD (C$)"
+                    - option "AUD (A$)"
+                - generic [ref=e270]:
+                  - generic [ref=e271]: Issue Date
+                  - generic [ref=e272]:
+                    - img [ref=e273]
+                    - textbox [ref=e275]: 2026-03-15
+                - generic [ref=e276]:
+                  - generic [ref=e277]: Due Date
+                  - generic [ref=e278]:
+                    - img [ref=e279]
+                    - textbox [ref=e281]: 2026-04-14
+                - generic [ref=e282]:
+                  - generic [ref=e283]: Payment Terms
+                  - combobox [ref=e284]:
+                    - option "Net 15"
+                    - option "Net 30" [selected]
+                    - option "Net 45"
+                    - option "Net 60"
+                    - option "Due on Receipt"
+            - generic [ref=e285]:
+              - generic [ref=e286]:
+                - heading "Products from Inventory" [level=2] [ref=e287]
+                - button "Add from Inventory" [ref=e288] [cursor=pointer]:
+                  - img [ref=e289]
+                  - text: Add from Inventory
+              - generic [ref=e294] [cursor=pointer]:
+                - generic [ref=e295]:
+                  - generic [ref=e296]:
+                    - heading "Smart Watch" [level=4] [ref=e297]
+                    - paragraph [ref=e298]: SMA-899743
+                  - generic [ref=e299]: $550.00
+                - generic [ref=e300]:
+                  - generic [ref=e301]: 18 in stock
+                  - button "Add to Invoice" [ref=e302]
+            - generic [ref=e303]:
+              - generic [ref=e304]:
+                - generic [ref=e305]:
+                  - heading "Line Items" [level=3] [ref=e306]
+                  - paragraph [ref=e307]: Add clear item descriptions and keep charges easy to review on any screen.
+                - button "Add Item" [ref=e308] [cursor=pointer]:
+                  - img [ref=e309]
+                  - text: Add Item
+              - table [ref=e312]:
+                - rowgroup [ref=e320]:
+                  - row "Description Qty Rate Tax Amount Actions" [ref=e321]:
+                    - columnheader "Description" [ref=e322]
+                    - columnheader "Qty" [ref=e323]
+                    - columnheader "Rate" [ref=e324]
+                    - columnheader "Tax" [ref=e325]
+                    - columnheader "Amount" [ref=e326]
+                    - columnheader "Actions" [ref=e327]
+                - rowgroup [ref=e328]:
+                  - row "1 0 Global rate NGN 0.00 Remove line item 1" [ref=e329]:
+                    - cell [ref=e330]:
+                      - textbox "Description for line item 1" [ref=e331]:
+                        - /placeholder: Item description
+                    - cell "1" [ref=e332]:
+                      - spinbutton [ref=e333]: "1"
+                    - cell "0" [ref=e334]:
+                      - spinbutton [ref=e335]: "0"
+                    - cell "Global rate" [ref=e336]:
+                      - generic [ref=e337]: Global rate
+                    - cell "NGN 0.00" [ref=e338]:
+                      - generic [ref=e339]: NGN 0.00
+                    - cell "Remove line item 1" [ref=e340]:
+                      - button "Remove line item 1" [disabled] [ref=e341]:
+                        - img [ref=e342]
+            - generic [ref=e346]:
+              - generic [ref=e347]:
+                - generic [ref=e348]: Notes
+                - textbox "Additional notes..." [ref=e349]
+              - generic [ref=e350]:
+                - generic [ref=e351]: Terms & Conditions
+                - textbox "Terms and conditions..." [ref=e352]
+          - generic [ref=e353]:
+            - generic [ref=e354]:
+              - heading "Summary" [level=2] [ref=e355]
+              - generic [ref=e356]:
+                - generic [ref=e357]:
+                  - generic [ref=e358]: "Subtotal:"
+                  - generic [ref=e359]: NGN 0.00
+                - generic [ref=e360]:
+                  - generic [ref=e361]: "VAT (8.2%):"
+                  - generic [ref=e362]: NGN 0.00
+                - generic [ref=e364]:
+                  - generic [ref=e365]: "Total:"
+                  - generic [ref=e366]: NGN 0.00
+            - generic [ref=e367]:
+              - heading "Tax Settings" [level=3] [ref=e368]
+              - generic [ref=e369]:
+                - generic [ref=e370]: "Tax Name: VAT"
+                - generic [ref=e371]: "Default Rate: 8.2%"
+              - generic [ref=e373]:
+                - checkbox "Override tax for this invoice" [ref=e374]
+                - text: Override tax for this invoice
+            - generic [ref=e377]:
+              - checkbox "Set as Recurring Invoice" [ref=e378]
+              - generic [ref=e379]:
+                - img [ref=e380]
+                - text: Set as Recurring Invoice
+            - generic [ref=e385]:
+              - heading "Attachments" [level=2] [ref=e386]
+              - generic [ref=e387] [cursor=pointer]:
+                - img [ref=e388]
+                - paragraph [ref=e391]: Drag & drop files or click to upload
+                - paragraph [ref=e392]: "Supports: PDF, JPG, PNG, DOC, DOCX"
+            - generic [ref=e393]:
+              - heading "Email Template" [level=2] [ref=e394]
+              - generic [ref=e395]:
+                - generic [ref=e396]:
+                  - generic [ref=e397]: Subject
+                  - textbox [ref=e398]: Invoice for Services Rendered
+                - generic [ref=e399]:
+                  - generic [ref=e400]: Message
+                  - textbox [ref=e401]: Dear valued customer, Please find attached your invoice for services rendered. Thank you for your business. Best regards,
+                - button "Customize Email Template" [ref=e402] [cursor=pointer]
+            - generic [ref=e403]:
+              - heading "Quick Actions" [level=2] [ref=e404]
+              - generic [ref=e405]:
+                - button "Download PDF" [ref=e406] [cursor=pointer]:
+                  - img [ref=e407]
+                  - text: Download PDF
+                - button "Save Draft" [ref=e410] [cursor=pointer]:
+                  - img [ref=e411]
+                  - text: Save Draft
+                - button "Print Invoice" [ref=e415] [cursor=pointer]:
+                  - img [ref=e416]
+                  - text: Print Invoice
+```

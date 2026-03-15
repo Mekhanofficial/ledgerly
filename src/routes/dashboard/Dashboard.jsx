@@ -1,14 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
 import StatsCards from '../../components/dashboard/StatsCards';
 import QuickActions from '../../components/dashboard/QuickActions';
 import RecentInvoices from '../../components/dashboard/RecentInvoices';
 import AlertsNotifications from '../../components/dashboard/AlertsNotifications';
-import { fetchInvoices } from '../../store/slices/invoiceSlice';
-import { fetchCustomers } from '../../store/slices/customerSlice';
 import { useInvoice } from '../../context/InvoiceContext';
 import { usePayments } from '../../context/PaymentContext';
 import { useToast } from '../../context/ToastContext';
@@ -16,7 +14,6 @@ import { useAccount } from '../../context/AccountContext';
 import { formatCurrency } from '../../utils/currency';
 
 const Dashboard = () => {
-  const dispatch = useDispatch();
   const authUser = useSelector((state) => state.auth?.user);
   const invoices = useSelector((state) => state.invoices?.invoices || []);
   const isClient = authUser?.role === 'client';
@@ -39,11 +36,6 @@ const Dashboard = () => {
   if (authUser?.role === 'super_admin') {
     return <Navigate to="/super-admin" replace />;
   }
-
-  useEffect(() => {
-    dispatch(fetchInvoices());
-    dispatch(fetchCustomers());
-  }, [dispatch]);
 
   const parseDateInput = useCallback((value) => {
     if (!value) return null;
