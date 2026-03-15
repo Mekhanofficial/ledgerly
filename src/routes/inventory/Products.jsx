@@ -54,11 +54,17 @@ const Products = () => {
 
     // Filter by search term
     if (searchTerm) {
-      filteredProducts = filteredProducts.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
+      const normalizedSearch = String(searchTerm || '').trim().toLowerCase();
+      filteredProducts = filteredProducts.filter((product) => {
+        const name = String(product?.name || '').toLowerCase();
+        const sku = String(product?.sku || '').toLowerCase();
+        const description = String(product?.description || '').toLowerCase();
+        return (
+          name.includes(normalizedSearch)
+          || sku.includes(normalizedSearch)
+          || description.includes(normalizedSearch)
+        );
+      });
     }
 
     // Filter by status

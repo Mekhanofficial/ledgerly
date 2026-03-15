@@ -100,12 +100,21 @@ const Customers = () => {
   }, [error, addToast]);
 
   // Filter customers based on search
-  const filteredCustomers = customers.filter(customer => 
-    !searchTerm || 
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone.includes(searchTerm)
-  );
+  const filteredCustomers = useMemo(() => {
+    const normalizedQuery = String(searchTerm || '').trim().toLowerCase();
+    if (!normalizedQuery) return customers;
+
+    return customers.filter((customer) => {
+      const name = String(customer?.name || '').toLowerCase();
+      const email = String(customer?.email || '').toLowerCase();
+      const phone = String(customer?.phone || '');
+      return (
+        name.includes(normalizedQuery)
+        || email.includes(normalizedQuery)
+        || phone.includes(normalizedQuery)
+      );
+    });
+  }, [customers, searchTerm]);
 
   const handleAddCustomer = async () => {
     if (!newCustomer.name || !newCustomer.email) {

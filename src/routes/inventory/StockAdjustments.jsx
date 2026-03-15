@@ -69,10 +69,12 @@ const StockAdjustments = () => {
     const productSku = getProductSku(adj.productId);
     const adjustmentId = (adj.id || adj._id || '').toString();
     const normalizedType = adj.type?.startsWith('Adjustment') ? 'Adjustment' : adj.type;
-    
-    const matchesSearch = productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         productSku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         adjustmentId.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const normalizedSearch = String(searchTerm || '').trim().toLowerCase();
+    const matchesSearch = !normalizedSearch
+      || String(productName || '').toLowerCase().includes(normalizedSearch)
+      || String(productSku || '').toLowerCase().includes(normalizedSearch)
+      || adjustmentId.toLowerCase().includes(normalizedSearch);
     const matchesFilter = filter === 'all' || normalizedType?.toLowerCase() === filter.toLowerCase();
     return matchesSearch && matchesFilter;
   });

@@ -73,7 +73,13 @@ export const fetchCustomers = createAsyncThunk(
   'customers/fetchAll',
   async (params = {}, { rejectWithValue }) => {
     try {
-      const payload = await fetchAllPages('/customers', params, 200);
+      const requestParams = { ...params };
+      if (requestParams.disableCache !== false) {
+        requestParams._ts = Date.now();
+      }
+      delete requestParams.disableCache;
+
+      const payload = await fetchAllPages('/customers', requestParams, 200);
       return payload;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || 'Failed to fetch customers');

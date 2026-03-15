@@ -45,6 +45,8 @@ const CustomerTable = ({
 
   // Filter customers based on search and status
   const filteredCustomers = customers.filter(customer => {
+    const outstandingAmount = Number(customer?.outstanding);
+    const normalizedOutstanding = Number.isFinite(outstandingAmount) ? outstandingAmount : 0;
     const email = customer.email || '';
     const phone = customer.phone || '';
     const name = customer.name || '';
@@ -58,10 +60,10 @@ const CustomerTable = ({
     let matchesStatus = true;
     switch (statusFilter) {
       case 'no-balance':
-        matchesStatus = customer.outstanding === 0;
+        matchesStatus = normalizedOutstanding <= 0;
         break;
       case 'has-balance':
-        matchesStatus = customer.outstanding > 0 && !isCustomerOverdue(customer);
+        matchesStatus = normalizedOutstanding > 0 && !isCustomerOverdue(customer);
         break;
       case 'overdue':
         matchesStatus = isCustomerOverdue(customer);
@@ -121,8 +123,14 @@ const CustomerTable = ({
   const getFilteredCustomerCount = () => {
     return {
       all: customers.length,
-      'no-balance': customers.filter(c => c.outstanding === 0).length,
-      'has-balance': customers.filter(c => c.outstanding > 0 && !isCustomerOverdue(c)).length,
+      'no-balance': customers.filter((c) => {
+        const amount = Number(c?.outstanding);
+        return (Number.isFinite(amount) ? amount : 0) <= 0;
+      }).length,
+      'has-balance': customers.filter((c) => {
+        const amount = Number(c?.outstanding);
+        return (Number.isFinite(amount) ? amount : 0) > 0 && !isCustomerOverdue(c);
+      }).length,
       overdue: customers.filter(c => isCustomerOverdue(c)).length
     };
   };

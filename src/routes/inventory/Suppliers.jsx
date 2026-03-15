@@ -53,12 +53,18 @@ const Suppliers = () => {
         </span>;
   };
 
-  const filteredSuppliers = suppliers.filter(supplier => {
-    const status = getSupplierStatus(supplier);
-    const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         (supplier.email && supplier.email.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === 'all' || status === statusFilter;
+  const filteredSuppliers = suppliers.filter((supplier) => {
+    const status = String(getSupplierStatus(supplier) || '').trim().toLowerCase();
+    const normalizedSearch = String(searchTerm || '').trim().toLowerCase();
+    const supplierName = String(supplier?.name || '').toLowerCase();
+    const supplierContact = String(supplier?.contact || '').toLowerCase();
+    const supplierEmail = String(supplier?.email || '').toLowerCase();
+    const matchesSearch = !normalizedSearch
+      || supplierName.includes(normalizedSearch)
+      || supplierContact.includes(normalizedSearch)
+      || supplierEmail.includes(normalizedSearch);
+    const targetStatus = String(statusFilter || 'all').trim().toLowerCase();
+    const matchesStatus = targetStatus === 'all' || status === targetStatus;
     return matchesSearch && matchesStatus;
   });
 

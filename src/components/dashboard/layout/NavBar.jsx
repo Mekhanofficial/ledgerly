@@ -22,8 +22,6 @@ import {
   Award,
   Briefcase,
   CreditCard,
-  FileCheck,
-  ShoppingCart,
   BarChart,
   XCircle,
   Clock,
@@ -87,7 +85,8 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const userMenuRef = useRef(null);
-  const createMenuRef = useRef(null);
+  const desktopCreateMenuRef = useRef(null);
+  const mobileCreateMenuRef = useRef(null);
   const notificationsRef = useRef(null);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
@@ -99,7 +98,13 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false);
       }
-      if (createMenuRef.current && !createMenuRef.current.contains(event.target)) {
+      const insideDesktopCreateMenu = Boolean(
+        desktopCreateMenuRef.current && desktopCreateMenuRef.current.contains(event.target)
+      );
+      const insideMobileCreateMenu = Boolean(
+        mobileCreateMenuRef.current && mobileCreateMenuRef.current.contains(event.target)
+      );
+      if (!insideDesktopCreateMenu && !insideMobileCreateMenu) {
         setCreateMenuOpen(false);
       }
       if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
@@ -280,14 +285,6 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       color: 'bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300',
       path: '/inventory/products/new',
       requiresRole: canManageInventoryAdmin
-    },
-    {
-      title: 'Add Customer',
-      description: 'New customer record',
-      icon: Users,
-      color: 'bg-amber-100 dark:bg-amber-900 text-amber-600 dark:text-amber-300',
-      path: '/customers',
-      requiresRole: canCreateCustomer
     }
   ].filter((item) => item.requiresRole !== false);
 
@@ -302,28 +299,23 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       requiresRole: canAccessReports
     },
     {
-      title: 'Create Quote',
-      description: 'Create sales quote',
-      icon: FileCheck,
-      color: 'bg-cyan-100 dark:bg-cyan-900 text-cyan-600 dark:text-cyan-300',
-      path: '/quotes/create'
-    },
-    {
-      title: 'New Order',
-      description: 'Create sales order',
-      icon: ShoppingCart,
-      color: 'bg-pink-100 dark:bg-pink-900 text-pink-600 dark:text-pink-300',
-      path: '/orders/new'
-    },
-    {
       title: 'Record Payment',
       description: 'Record received payment',
       icon: CreditCard,
       color: 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300',
       path: '/payments/process',
       requiresRole: canRecordPayments
+    },
+    {
+      title: 'Add Customer',
+      description: 'New customer record',
+      icon: Users,
+      color: 'bg-amber-100 dark:bg-amber-900 text-amber-600 dark:text-amber-300',
+      path: '/customers',
+      requiresRole: canCreateCustomer
     }
   ].filter((item) => item.requiresRole !== false);
+  const createItemsMobile = [...createItems, ...createItemsColumn2];
 
   // User menu items
   const userMenuItems = [
@@ -460,7 +452,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
 
             {/* Create Button with Dropdown - Hide text on mobile */}
             {canCreate && (
-              <div className="relative hidden sm:block" ref={createMenuRef}>
+              <div className="relative hidden sm:block" ref={desktopCreateMenuRef}>
                 <button
                   onClick={() => setCreateMenuOpen(!createMenuOpen)}
                   className="flex items-center px-3 sm:px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
@@ -483,7 +475,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                     {/* Responsive grid for create items */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
                       {/* First Column */}
-                      <div className="sm:border-r border-gray-200 dark:border-gray-700">
+                      <div className={`${createItemsColumn2.length > 0 ? 'sm:border-r border-gray-200 dark:border-gray-700' : ''}`}>
                         {createItems.map((item, index) => (
                           <button
                             key={index}
@@ -502,34 +494,37 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                       </div>
                       
                       {/* Second Column - Hidden on mobile */}
-                      <div className="hidden sm:block">
-                        {createItemsColumn2.map((item, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleCreateItemClick(item.path)}
-                            className="flex items-center w-full px-6 py-4 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
-                          >
-                            <div className={`w-12 h-12 rounded-xl ${item.color} flex items-center justify-center mr-4`}>
-                              <item.icon className="w-6 h-6" />
-                            </div>
-                            <div className="text-left flex-1">
-                              <div className="font-medium dark:text-white">{item.title}</div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{item.description}</div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
+                      {createItemsColumn2.length > 0 && (
+                        <div className="hidden sm:block">
+                          {createItemsColumn2.map((item, index) => (
+                            <button
+                              key={index}
+                              onClick={() => handleCreateItemClick(item.path)}
+                              className="flex items-center w-full px-6 py-4 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                            >
+                              <div className={`w-12 h-12 rounded-xl ${item.color} flex items-center justify-center mr-4`}>
+                                <item.icon className="w-6 h-6" />
+                              </div>
+                              <div className="text-left flex-1">
+                                <div className="font-medium dark:text-white">{item.title}</div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{item.description}</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     
                     {/* Footer */}
                     <div className="px-4 sm:px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                      <Link
-                        to="/templates"
+                      <button
+                        type="button"
+                        onClick={() => handleCreateItemClick('/invoices/templates')}
                         className="flex items-center justify-center w-full px-4 py-2 text-sm text-primary-600 dark:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
                       >
                         <FileText className="w-4 h-4 mr-2" />
                         View all templates
-                      </Link>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -538,7 +533,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
 
             {/* Mobile Create Button - Icon only */}
             {canCreate && (
-              <div className="relative sm:hidden" ref={createMenuRef}>
+              <div className="relative sm:hidden" ref={mobileCreateMenuRef}>
                 <button
                   onClick={() => setCreateMenuOpen(!createMenuOpen)}
                   className="p-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg transition-colors shadow-sm"
@@ -552,7 +547,7 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                     <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                       <h3 className="font-semibold text-gray-900 dark:text-white">Create New</h3>
                     </div>
-                    {createItems.map((item, index) => (
+                    {createItemsMobile.map((item, index) => (
                       <button
                         key={index}
                         onClick={() => handleCreateItemClick(item.path)}

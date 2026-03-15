@@ -61,11 +61,17 @@ const ProductGrid = ({ onAddToCart, cartItems = [] }) => {
 
     // Filter by search term
     if (searchTerm) {
-      result = result.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        normalizeCategory(product.category).toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const normalizedSearch = String(searchTerm || '').trim().toLowerCase();
+      result = result.filter((product) => {
+        const name = String(product?.name || '').toLowerCase();
+        const sku = String(product?.sku || '').toLowerCase();
+        const category = normalizeCategory(product?.category).toLowerCase();
+        return (
+          name.includes(normalizedSearch)
+          || sku.includes(normalizedSearch)
+          || category.includes(normalizedSearch)
+        );
+      });
     }
 
     // Filter by category
