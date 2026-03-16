@@ -100,7 +100,7 @@ const MobileAppSection = () => {
                   <h2 className="mt-4 max-w-2xl text-3xl font-bold leading-tight text-slate-900 dark:text-white md:text-4xl">
                     Business control that travels with you.
                   </h2>
-                  <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300 md:text-lg">
+                  <p className="mt-4 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300 md:text-lg lg:max-w-[33rem]">
                     A clean mobile workspace for handling invoices, receipts, and daily business activity while you are away from your desk.
                   </p>
                 </div>
