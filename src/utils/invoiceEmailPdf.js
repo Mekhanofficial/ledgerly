@@ -10,6 +10,7 @@ const DEFAULT_ENCODING = 'base64';
 const BASE64_CHUNK_SIZE = 0x8000;
 const MIN_MEANINGFUL_PDF_BYTES = 2048;
 const HTML2CANVAS_SCALE = 1.5;
+const HTML_RENDER_TIMEOUT_MS = 15000;
 const MIN_BREAK_MARGIN_PX = 14;
 const MIN_SEGMENT_HEIGHT_PX = 120;
 
@@ -39,6 +40,29 @@ const sanitizeFileName = (value, fallback = 'invoice.pdf') => {
   const candidate = toSafeString(value).replace(/[<>:"/\\|?*]/g, '');
   if (!candidate) return fallback;
   return candidate.toLowerCase().endsWith('.pdf') ? candidate : `${candidate}.pdf`;
+};
+
+const withTimeout = (promise, timeoutMs, label) => {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise;
+
+  let timerId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timerId = window.setTimeout(() => {
+      reject(new Error(label || 'Operation timed out'));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timerId) {
+      window.clearTimeout(timerId);
+    }
+  });
+};
+
+const isMobileBrowser = () => {
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = String(navigator.userAgent || '').toLowerCase();
+  return /android|iphone|ipad|ipod|mobile|iemobile|opera mini/.test(userAgent);
 };
 
 const arrayBufferToBase64 = (buffer) => {
@@ -797,12 +821,16 @@ const renderInvoiceHtmlToPdf = async (htmlContent) => {
 
     const invoiceElement = pdfContainer.querySelector('#invoice-content') || pdfContainer;
 
-    const canvas = await html2canvas(invoiceElement, {
-      scale: HTML2CANVAS_SCALE,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff'
-    });
+    const canvas = await withTimeout(
+      html2canvas(invoiceElement, {
+        scale: HTML2CANVAS_SCALE,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      }),
+      HTML_RENDER_TIMEOUT_MS,
+      `Invoice HTML renderer timed out after ${Math.round(HTML_RENDER_TIMEOUT_MS / 1000)}s`
+    );
 
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -889,8 +917,9 @@ export const buildInvoiceEmailPdfAttachment = async ({
     resolveInvoiceFileName(invoiceData, fallbackInvoiceId),
     'invoice.pdf'
   );
+  const mobileBrowser = isMobileBrowser();
 
-  try {
+  const buildHtmlAttachment = async () => {
     const html = buildInvoiceHtml({
       invoiceData,
       templateStyle: resolvedTemplateStyle,
@@ -898,12 +927,46 @@ export const buildInvoiceEmailPdfAttachment = async ({
     });
     const pdfDoc = await renderInvoiceHtmlToPdf(html);
     const htmlBuffer = pdfDoc.output('arraybuffer');
-    const htmlAttachment = buildAttachmentFromArrayBuffer(htmlBuffer, fileName, 'frontend-html2canvas');
+    return buildAttachmentFromArrayBuffer(htmlBuffer, fileName, 'frontend-html2canvas');
+  };
+
+  const buildLegacyAttachment = async () => {
+    const legacyPdfDoc = await LEGACY_generateInvoicePdfDocument({
+      invoiceData,
+      templateStyle: resolvedTemplateStyle,
+      companyData: companyData || {}
+    });
+    const legacyBuffer = legacyPdfDoc.output('arraybuffer');
+    return buildAttachmentFromArrayBuffer(legacyBuffer, fileName, 'frontend-jspdf-legacy');
+  };
+
+  if (mobileBrowser) {
+    try {
+      const legacyAttachment = await buildLegacyAttachment();
+      if (legacyAttachment) {
+        return legacyAttachment;
+      }
+    } catch (error) {
+      logPdfRendererFailure('Legacy renderer failed for invoice email PDF', error);
+    }
+  }
+
+  try {
+    const htmlAttachment = await buildHtmlAttachment();
     if (htmlAttachment) {
       return htmlAttachment;
     }
   } catch (error) {
     logPdfRendererFailure('HTML renderer failed for invoice email PDF', error);
+  }
+
+  try {
+    const legacyAttachment = await buildLegacyAttachment();
+    if (legacyAttachment) {
+      return legacyAttachment;
+    }
+  } catch (error) {
+    logPdfRendererFailure('Legacy renderer failed for invoice email PDF', error);
   }
 
   return null;
