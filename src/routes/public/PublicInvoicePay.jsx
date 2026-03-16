@@ -231,7 +231,6 @@ export default function PublicInvoicePay() {
   }
 
   const canPayOnline = Boolean(invoice?.payment?.canPayOnline);
-  const paymentAvailabilityReason = String(invoice?.payment?.availabilityReason || '').trim();
   const isPaid = String(invoice?.status || '').toLowerCase() === 'paid' || Number(invoice?.amountDue || 0) <= 0;
 
   return (
@@ -316,7 +315,7 @@ export default function PublicInvoicePay() {
           </button>
           {!canPayOnline && !isPaid && (
             <div style={{ color: '#475569', fontSize: 13, alignSelf: 'center' }}>
-              {paymentAvailabilityReason || 'Online payment is not available for this invoice yet.'}
+              Online payment is not available for this invoice yet.
             </div>
           )}
         </div>

@@ -1,34 +1,19 @@
 import api from './api';
 
-const requestPublic = (config) =>
-  api.request({
-    __skipAuth: true,
-    ...config
-  });
-
 export const fetchPublicInvoice = async (slug) => {
-  const response = await requestPublic({
-    method: 'get',
-    url: `/invoices/public/${slug}`
-  });
+  const response = await api.get(`/invoices/public/${slug}`);
   return response.data?.data ?? response.data;
 };
 
 export const initializePublicInvoicePayment = async (slug) => {
-  const response = await requestPublic({
-    method: 'post',
-    url: `/invoices/public/${slug}/paystack/initialize`,
-    data: {}
-  });
+  const response = await api.post(`/invoices/public/${slug}/paystack/initialize`, {});
   return response.data?.data ?? response.data;
 };
 
 export const verifyPublicInvoicePayment = async (reference, options = {}) => {
   const slug = String(options?.slug || '').trim();
   const invoiceId = String(options?.invoiceId || '').trim();
-  const response = await requestPublic({
-    method: 'get',
-    url: '/payments/verify',
+  const response = await api.get('/payments/verify', {
     params: {
       reference,
       ...(slug ? { slug } : {}),
@@ -44,14 +29,10 @@ export const sendPublicInvoiceReceiptEmail = async ({
   pdfAttachment,
   templateStyle
 } = {}) => {
-  const response = await requestPublic({
-    method: 'post',
-    url: '/payments/public-receipt/email',
-    data: {
-      reference,
-      pdfAttachment,
-      templateStyle
-    }
+  const response = await api.post('/payments/public-receipt/email', {
+    reference,
+    pdfAttachment,
+    templateStyle
   });
   return response.data?.data ?? response.data;
 };
