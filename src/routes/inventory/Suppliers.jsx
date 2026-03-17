@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Truck, Plus, Search, Phone, Mail, CheckCircle, Clock, Edit, Star, Package, Users, Award } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
 import { Link } from 'react-router-dom';
@@ -8,16 +8,34 @@ import CountUpNumber from '../../components/ui/CountUpNumber';
 
 const Suppliers = () => {
   const { isDarkMode } = useTheme();
-  const { suppliers, products } = useInventory();
+  const { suppliers, products, loading } = useInventory();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const getSupplierProductsCount = (supplierId) => {
-    return products.filter(p => p.supplierId === supplierId).length;
+  const supplierProductCounts = useMemo(() => (
+    products.reduce((counts, product) => {
+      if (!product?.supplierId) {
+        return counts;
+      }
+
+      counts[product.supplierId] = (counts[product.supplierId] || 0) + 1;
+      return counts;
+    }, {})
+  ), [products]);
+
+  const getSupplierProductsCount = (supplier) => {
+    const supplierId = supplier?.id || supplier?._id || '';
+    const liveCount = supplierId ? (supplierProductCounts[supplierId] || 0) : 0;
+    const fallbackCount = Number(
+      supplier?.productCount
+      ?? (Array.isArray(supplier?.products) ? supplier.products.length : 0)
+    ) || 0;
+
+    return loading ? fallbackCount : liveCount;
   };
 
   const getSupplierStatus = (supplier) => {
-    // You can implement your own logic here based on supplier data
+    if (supplier?.isActive === false) return 'Inactive';
     return supplier.status || 'Active';
   };
 
@@ -236,11 +254,12 @@ const Suppliers = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredSuppliers.map((supplier) => {
+              const supplierId = supplier.id || supplier._id;
               const status = getSupplierStatus(supplier);
-              const productsCount = getSupplierProductsCount(supplier.id);
+              const productsCount = getSupplierProductsCount(supplier);
               
               return (
-                <div key={supplier.id} className={`border rounded-xl overflow-hidden hover:shadow-lg transition-shadow ${
+                <div key={supplierId || supplier.name} className={`border rounded-xl overflow-hidden hover:shadow-lg transition-shadow ${
                   isDarkMode 
                     ? 'bg-gray-800 border-gray-700 hover:border-primary-500' 
                     : 'bg-white border-gray-200 hover:border-primary-300'
@@ -274,7 +293,7 @@ const Suppliers = () => {
                         </div>
                       </div>
                       <Link
-                        to={`/inventory/suppliers/edit/${supplier.id}`}
+                        to={`/inventory/suppliers/edit/${supplierId}`}
                         className={`p-1.5 rounded-lg ${
                           isDarkMode 
                             ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700' 
@@ -362,7 +381,7 @@ const Suppliers = () => {
 
                     <div className="mt-6">
                       <Link
-                        to={`/inventory/products?supplier=${supplier.id}`}
+                        to={`/inventory/products?supplier=${supplierId}`}
                         className={`block text-center w-full py-2 border rounded-lg font-medium transition-colors ${
                           isDarkMode
                             ? 'border-primary-500 text-primary-400 hover:bg-primary-900/20'

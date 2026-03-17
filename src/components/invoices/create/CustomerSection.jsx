@@ -1,5 +1,6 @@
 // src/components/invoices/create/CustomerSection.jsx
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, Search } from 'lucide-react';
 
 const CustomerSection = ({
   selectedCustomer,
@@ -21,6 +22,89 @@ const CustomerSection = ({
 
   const selectedCustomerData = getSelectedCustomer();
   const inputClassName = 'w-full min-h-[44px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white';
+  const customerPickerRef = useRef(null);
+  const [isCustomerPickerOpen, setIsCustomerPickerOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+
+  const customerOptions = useMemo(() => (
+    customers
+      .map((customer) => {
+        const customerId = resolveCustomerId(customer);
+        if (!customerId) return null;
+        return {
+          id: customerId,
+          name: customer?.name || '',
+          email: customer?.email || '',
+          phone: customer?.phone || '',
+          address: customer?.address || ''
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  ), [customers]);
+
+  const filteredCustomerOptions = useMemo(() => {
+    const normalizedSearch = String(customerSearch || '').trim().toLowerCase();
+    if (!normalizedSearch) return customerOptions;
+
+    return customerOptions.filter((customer) => {
+      const name = String(customer.name || '').toLowerCase();
+      const email = String(customer.email || '').toLowerCase();
+      const phone = String(customer.phone || '').toLowerCase();
+      const address = String(customer.address || '').toLowerCase();
+
+      return (
+        name.includes(normalizedSearch)
+        || email.includes(normalizedSearch)
+        || phone.includes(normalizedSearch)
+        || address.includes(normalizedSearch)
+      );
+    });
+  }, [customerOptions, customerSearch]);
+
+  useEffect(() => {
+    setCustomerSearch(selectedCustomerData?.name || '');
+  }, [selectedCustomerData?.id, selectedCustomerData?.name]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (customerPickerRef.current && !customerPickerRef.current.contains(event.target)) {
+        setIsCustomerPickerOpen(false);
+        setCustomerSearch(selectedCustomerData?.name || '');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [selectedCustomerData?.name]);
+
+  const handleCustomerSearchFocus = () => {
+    setIsCustomerPickerOpen(true);
+    setCustomerSearch((currentValue) => currentValue || selectedCustomerData?.name || '');
+  };
+
+  const handleCustomerSearchChange = (event) => {
+    const nextValue = event.target.value;
+    setCustomerSearch(nextValue);
+    setIsCustomerPickerOpen(true);
+
+    if (!nextValue.trim()) {
+      setSelectedCustomer('');
+    }
+  };
+
+  const handleCustomerSelect = (customerId) => {
+    setSelectedCustomer(customerId);
+    const matchedCustomer = customerOptions.find((customer) => customer.id === customerId);
+    setCustomerSearch(matchedCustomer?.name || '');
+    setIsCustomerPickerOpen(false);
+  };
+
+  const handleCustomerClear = () => {
+    setSelectedCustomer('');
+    setCustomerSearch('');
+    setIsCustomerPickerOpen(false);
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
@@ -33,22 +117,70 @@ const CustomerSection = ({
           <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
             Select Customer
           </label>
-          <select
-            value={String(selectedCustomer || '')}
-            onChange={(e) => setSelectedCustomer(e.target.value)}
-            className={inputClassName}
-          >
-            <option value="">Select a customer</option>
-            {customers.map((customer) => {
-              const customerId = resolveCustomerId(customer);
-              if (!customerId) return null;
-              return (
-                <option key={customerId} value={customerId}>
-                  {customer.name}
-                </option>
-              );
-            })}
-          </select>
+
+          <div className="relative" ref={customerPickerRef}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={customerSearch}
+              onFocus={handleCustomerSearchFocus}
+              onChange={handleCustomerSearchChange}
+              placeholder="Search customer by name, email, phone..."
+              className={`${inputClassName} pl-10 pr-10`}
+            />
+            <button
+              type="button"
+              onClick={() => setIsCustomerPickerOpen((currentValue) => !currentValue)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-500"
+              aria-label="Toggle customer list"
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform ${isCustomerPickerOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isCustomerPickerOpen && (
+              <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <button
+                  type="button"
+                  onClick={handleCustomerClear}
+                  className="w-full border-b border-gray-100 px-4 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Select a customer
+                </button>
+
+                <div className="max-h-64 overflow-y-auto">
+                  {filteredCustomerOptions.length === 0 ? (
+                    <div className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">
+                      No customers found for "{customerSearch}"
+                    </div>
+                  ) : (
+                    filteredCustomerOptions.map((customer) => {
+                      const isSelected = customer.id === String(selectedCustomer || '').trim();
+
+                      return (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          onClick={() => handleCustomerSelect(customer.id)}
+                          className={`w-full px-4 py-3 text-left transition-colors ${
+                            isSelected
+                              ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
+                              : 'hover:bg-gray-50 text-gray-900 dark:text-white dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          <div className="font-medium">{customer.name}</div>
+                          {(customer.email || customer.phone) && (
+                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              {[customer.email, customer.phone].filter(Boolean).join(' • ')}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Quick Add Customer */}

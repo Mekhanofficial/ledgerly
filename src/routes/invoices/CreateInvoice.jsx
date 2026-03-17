@@ -19,6 +19,7 @@ import { useInventory } from '../../context/InventoryContext';
 import { useAccount } from '../../context/AccountContext';
 import { useTheme } from '../../context/ThemeContext';
 import { isMultiCurrencyPlan, normalizePlanId } from '../../utils/subscription';
+import { formatCurrency } from '../../utils/currency';
 import templateStorage, { hasTemplateAccess } from '../../utils/templateStorage';
 import { resolveTemplateStyleVariant } from '../../utils/templateStyleVariants';
 import {
@@ -328,6 +329,10 @@ const CreateInvoice = () => {
   const resolvedCurrency = canUseMultiCurrency ? currency : baseCurrency;
   const isTaxOverridden = taxEnabled && allowManualOverride && useTaxOverride && (hasOverrideRate || hasOverrideAmount);
   const inputClassName = 'w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-slate-600 dark:bg-slate-800 dark:text-white';
+  const formatMoney = useCallback(
+    (value, currencyCode = resolvedCurrency) => formatCurrency(value, currencyCode),
+    [resolvedCurrency]
+  );
 
   
   useEffect(() => {
@@ -340,6 +345,31 @@ const CreateInvoice = () => {
       setCurrency(baseCurrency);
     }
   }, [baseCurrency, canUseMultiCurrency, hasUserEditedCurrency]);
+
+  useEffect(() => {
+    if (!showProductSelector) {
+      return undefined;
+    }
+
+    const { body, documentElement } = document;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyPaddingRight = body.style.paddingRight;
+    const previousDocumentOverflow = documentElement.style.overflow;
+    const scrollbarWidth = window.innerWidth - documentElement.clientWidth;
+
+    body.style.overflow = 'hidden';
+    documentElement.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      body.style.overflow = previousBodyOverflow;
+      body.style.paddingRight = previousBodyPaddingRight;
+      documentElement.style.overflow = previousDocumentOverflow;
+    };
+  }, [showProductSelector]);
+
 // Load templates
   useEffect(() => {
     const templates = dedupeTemplates(getAvailableTemplates());
@@ -561,7 +591,6 @@ const CreateInvoice = () => {
     });
 
     // Keep selector open so users can add multiple products in one pass.
-    addToast(`Product "${product.name}" added to invoice`, 'success');
   };
 
   // Filter products for selector
@@ -889,28 +918,30 @@ const CreateInvoice = () => {
           <div style="position: relative; z-index: 2; padding: ${paddingTop}px 40px ${paddingBottom}px 40px;">
           <!-- Header -->
           <div style="border-bottom: 3px solid ${colors.primary}; padding-bottom: 30px; margin-bottom: 30px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <div>
-                <h1 style="font-size: 32px; font-weight: bold; color: ${colors.primary}; margin: 0 0 10px 0;">INVOICE</h1>
-                <div style="color: #6c757d; font-size: 14px; margin-top: 15px;">
-                  <div><strong>Invoice #:</strong> ${invoiceNumber}</div>
-                  <div><strong>Issue Date:</strong> ${new Date(issueDate).toLocaleDateString()}</div>
-                  <div><strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString()}</div>
-                  <div><strong>Payment Terms:</strong> ${paymentTerms}</div>
-                </div>
-              </div>
-              <div style="text-align: right;">
-                ${businessLogoMarkup}
-                <div style="font-size: 18px; font-weight: bold; color: ${colors.primary}; margin-bottom: 10px;">
-                  ${companyName}
-                </div>
-                <div style="color: #6c757d; font-size: 13px; line-height: 1.4;">
-                  ${contactTitle ? `<div>${contactTitle}</div>` : ''}
-                  ${companyLinesHtml}
-                  ${contactDetailsHtml}
-                </div>
-              </div>
-            </div>
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
+              <tr>
+                <td style="vertical-align: top; padding-right: 24px;">
+                  <h1 style="font-size: 32px; font-weight: bold; color: ${colors.primary}; margin: 0 0 10px 0;">INVOICE</h1>
+                  <div style="color: #6c757d; font-size: 14px; margin-top: 15px;">
+                    <div><strong>Invoice #:</strong> ${invoiceNumber}</div>
+                    <div><strong>Issue Date:</strong> ${new Date(issueDate).toLocaleDateString()}</div>
+                    <div><strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString()}</div>
+                    <div><strong>Payment Terms:</strong> ${paymentTerms}</div>
+                  </div>
+                </td>
+                <td style="width: 200px; vertical-align: top; text-align: right;">
+                  ${businessLogoMarkup}
+                  <div style="font-size: 18px; font-weight: bold; color: ${colors.primary}; margin-bottom: 10px;">
+                    ${companyName}
+                  </div>
+                  <div style="color: #6c757d; font-size: 13px; line-height: 1.4;">
+                    ${contactTitle ? `<div>${contactTitle}</div>` : ''}
+                    ${companyLinesHtml}
+                    ${contactDetailsHtml}
+                  </div>
+                </td>
+              </tr>
+            </table>
           </div>
           
           <!-- Customer Info -->
@@ -1352,26 +1383,28 @@ const CreateInvoice = () => {
             ${footerHtml}
             <div style="position: relative; z-index: 2; padding: ${paddingTop}px 30px ${paddingBottom}px 30px;">
             <div style="border-bottom: 3px solid ${printColors.primary}; padding-bottom: 30px; margin-bottom: 30px;">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                  <h1 style="font-size: 32px; font-weight: bold; color: ${printColors.primary}; margin: 0 0 10px 0;">INVOICE</h1>
-                  <div style="color: #6c757d; font-size: 14px; margin-top: 15px;">
-                    <div><strong>Invoice #:</strong> ${invoiceNumber}</div>
-                    <div><strong>Issue Date:</strong> ${new Date(issueDate).toLocaleDateString()}</div>
-                    <div><strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString()}</div>
-                    <div><strong>Payment Terms:</strong> ${paymentTerms}</div>
-                  </div>
-                </div>
-                <div style="text-align: right;">
-                  ${printBusinessLogoMarkup}
-                  <div style="font-size: 18px; font-weight: bold; color: ${printColors.primary}; margin-bottom: 10px;">${printCompanyName}</div>
-                  <div style="color: #6c757d; font-size: 14px;">
-                    ${printContactTitle ? `${printContactTitle}<br>` : ''}
-                    ${printCompanyLinesHtml}
-                    ${printContactLinesHtml}
-                  </div>
-                </div>
-              </div>
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
+                <tr>
+                  <td style="vertical-align: top; padding-right: 24px;">
+                    <h1 style="font-size: 32px; font-weight: bold; color: ${printColors.primary}; margin: 0 0 10px 0;">INVOICE</h1>
+                    <div style="color: #6c757d; font-size: 14px; margin-top: 15px;">
+                      <div><strong>Invoice #:</strong> ${invoiceNumber}</div>
+                      <div><strong>Issue Date:</strong> ${new Date(issueDate).toLocaleDateString()}</div>
+                      <div><strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString()}</div>
+                      <div><strong>Payment Terms:</strong> ${paymentTerms}</div>
+                    </div>
+                  </td>
+                  <td style="width: 200px; vertical-align: top; text-align: right;">
+                    ${printBusinessLogoMarkup}
+                    <div style="font-size: 18px; font-weight: bold; color: ${printColors.primary}; margin-bottom: 10px;">${printCompanyName}</div>
+                    <div style="color: #6c757d; font-size: 14px;">
+                      ${printContactTitle ? `${printContactTitle}<br>` : ''}
+                      ${printCompanyLinesHtml}
+                      ${printContactLinesHtml}
+                    </div>
+                  </td>
+                </tr>
+              </table>
             </div>
             
             ${customer ? `
@@ -1704,10 +1737,10 @@ const CreateInvoice = () => {
                     return (
                       <div
                         key={product.id}
-                        className={`border rounded-lg p-4 transition-colors ${
+                        className={`border rounded-lg p-4 ${
                           isOutOfStock
                             ? 'opacity-50 cursor-not-allowed'
-                            : 'cursor-pointer hover:border-primary-500 hover:shadow-md'
+                            : 'cursor-pointer border-gray-200 dark:border-gray-700 hover:border-primary-500'
                         }`}
                         onClick={() => !isOutOfStock && addProductFromInventory(product)}
                       >
@@ -1717,7 +1750,7 @@ const CreateInvoice = () => {
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{product.sku}</p>
                           </div>
                           <span className="font-bold text-gray-900 dark:text-white whitespace-nowrap">
-                            ${product.price.toFixed(2)}
+                            {formatMoney(product.price || 0, resolvedCurrency)}
                           </span>
                         </div>
                         <div className="mt-3 flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
@@ -1853,7 +1886,7 @@ const CreateInvoice = () => {
                             className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                             min="0"
                             step="0.01"
-                            placeholder={`${currency} ${totalTax.toFixed(2)}`}
+                            placeholder={formatMoney(totalTax, resolvedCurrency)}
                           />
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -1931,111 +1964,113 @@ const CreateInvoice = () => {
       
       {/* Product Selector Modal */}
       {showProductSelector && hasInventoryFeature && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Select Products from Inventory
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowProductSelector(false);
-                    setProductSearchTerm('');
-                  }}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              <div className="mt-4 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={productSearchTerm}
-                  onChange={(e) => setProductSearchTerm(e.target.value)}
-                  placeholder="Search products by name, SKU, or description..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              {filteredProducts.length === 0 ? (
-                <div className="text-center py-8">
-                  <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    No products found matching "{productSearchTerm}"
-                  </p>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 p-4">
+          <div className="flex min-h-full items-center justify-center">
+            <div className="my-auto flex w-full max-w-4xl max-h-[calc(100dvh-2rem)] min-h-0 flex-col overflow-hidden rounded-xl bg-white dark:bg-gray-800">
+              <div className="flex-none border-b border-gray-200 p-4 dark:border-gray-700 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Select Products from Inventory
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowProductSelector(false);
+                      setProductSearchTerm('');
+                    }}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredProducts.map(product => {
-                    const productStock = resolveProductStock(product);
-                    const isOutOfStock = productStock <= 0;
 
-                    return (
-                      <div
-                        key={product.id}
-                        className={`border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
-                          isOutOfStock
-                            ? 'opacity-50 cursor-not-allowed'
-                            : 'hover:border-primary-500'
-                        }`}
-                        onClick={() => !isOutOfStock && addProductFromInventory(product)}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <h4 className="font-medium text-gray-900 dark:text-white">{product.name}</h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{product.sku}</p>
-                            {product.description && (
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
-                                {product.description}
-                              </p>
+                <div className="mt-4 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={productSearchTerm}
+                    onChange={(e) => setProductSearchTerm(e.target.value)}
+                    placeholder="Search products by name, SKU, or description..."
+                    className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
+                {filteredProducts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      No products found matching "{productSearchTerm}"
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredProducts.map(product => {
+                      const productStock = resolveProductStock(product);
+                      const isOutOfStock = productStock <= 0;
+
+                      return (
+                        <div
+                          key={product.id}
+                          className={`border rounded-lg p-4 ${
+                            isOutOfStock
+                              ? 'opacity-50 cursor-not-allowed'
+                              : 'cursor-pointer border-gray-200 dark:border-gray-700 hover:border-primary-500'
+                          }`}
+                          onClick={() => !isOutOfStock && addProductFromInventory(product)}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h4 className="font-medium text-gray-900 dark:text-white">{product.name}</h4>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{product.sku}</p>
+                              {product.description && (
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
+                                  {product.description}
+                                </p>
+                              )}
+                            </div>
+                            <span className="font-bold text-gray-900 dark:text-white whitespace-nowrap">
+                              {formatMoney(product.price || 0, resolvedCurrency)}
+                            </span>
+                          </div>
+                          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              isOutOfStock
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                : productStock <= 10
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                                : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                            }`}>
+                              {isOutOfStock ? 'Out of Stock' : `${productStock} in stock`}
+                            </span>
+                            {!isOutOfStock && (
+                              <button className="text-left text-primary-600 hover:text-primary-700 sm:text-right">
+                                Add
+                              </button>
                             )}
                           </div>
-                          <span className="font-bold text-gray-900 dark:text-white whitespace-nowrap">
-                            ${product.price.toFixed(2)}
-                          </span>
                         </div>
-                        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            isOutOfStock
-                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                              : productStock <= 10
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
-                          }`}>
-                            {isOutOfStock ? 'Out of Stock' : `${productStock} in stock`}
-                          </span>
-                          {!isOutOfStock && (
-                            <button className="text-primary-600 hover:text-primary-700 text-left sm:text-right">
-                              Add
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-none border-t border-gray-200 p-4 dark:border-gray-700 sm:p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {filteredProducts.length} products found
+                  </span>
+                  <button
+                    onClick={() => {
+                      setShowProductSelector(false);
+                      setProductSearchTerm('');
+                    }}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                  >
+                    Close
+                  </button>
                 </div>
-              )}
-            </div>
-            
-            <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {filteredProducts.length} products found
-                </span>
-                <button
-                  onClick={() => {
-                    setShowProductSelector(false);
-                    setProductSearchTerm('');
-                  }}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                >
-                  Close
-                </button>
               </div>
             </div>
           </div>

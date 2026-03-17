@@ -183,9 +183,20 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
       return formatCurrency(0, baseCurrency, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
 
-    if (numeric >= 1000) {
-      const symbol = getCurrencySymbol(baseCurrency);
-      return `${symbol}${(numeric / 1000).toFixed(1)}k`;
+    const absoluteValue = Math.abs(numeric);
+    const symbol = getCurrencySymbol(baseCurrency);
+    const formatCompact = (divisor, suffix) => `${symbol}${(numeric / divisor).toFixed(1).replace(/\.0$/, '')}${suffix}`;
+
+    if (absoluteValue >= 1000000000) {
+      return formatCompact(1000000000, 'B');
+    }
+
+    if (absoluteValue >= 1000000) {
+      return formatCompact(1000000, 'M');
+    }
+
+    if (absoluteValue >= 1000) {
+      return formatCompact(1000, 'K');
     }
 
     return formatCurrency(numeric, baseCurrency, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -703,11 +714,11 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-64 sm:w-80 bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-xl border border-slate-200/80 dark:border-slate-700/80 py-2 z-50 overflow-hidden backdrop-blur-sm">
+                <div className="absolute right-0 mt-2 w-72 sm:w-80 md:w-[22rem] bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-xl border border-slate-200/80 dark:border-slate-700/80 py-2 z-50 overflow-hidden backdrop-blur-sm">
                   {/* User Info Section */}
                   <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center space-x-3 sm:space-x-4">
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-slate-800">
+                    <div className="flex items-start space-x-3 sm:space-x-4">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-full flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-slate-800">
                           {showAvatarImage ? (
                             <img loading="lazy" decoding="async" 
                               src={computedAvatarUrl}
@@ -722,13 +733,16 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                           )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-900 dark:text-white truncate text-sm sm:text-base">
+                        <h4 className="font-semibold text-gray-900 dark:text-white truncate whitespace-nowrap text-sm sm:text-base">
                           {getUserDisplayName(user)}
                         </h4>
-                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
+                        <p
+                          title={getUserEmail(user)}
+                          className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 overflow-hidden text-ellipsis whitespace-nowrap"
+                        >
                           {getUserEmail(user)}
                         </p>
-                        <div className="flex items-center mt-1">
+                        <div className="flex items-center mt-1 min-w-0">
                           {['Admin', 'Super Admin'].includes(getUserRoleLabel(user)) ? (
                             <Shield className="w-3 h-3 text-green-500 dark:text-green-400 mr-1" />
                           ) : (
@@ -748,16 +762,27 @@ const Navbar = ({ onMenuClick, sidebarOpen, onSidebarToggle }) => {
                     </div>
                     
                     {/* User Stats - RESTORED SECTION */}
-                    <div className="grid grid-cols-3 gap-2 mt-4">
+                    <div className="grid grid-cols-3 gap-2.5 mt-4">
                       {userStats.map((stat, index) => (
-                        <div key={index} className="text-center">
-                          <div className="flex items-center justify-center space-x-1">
-                            <stat.icon className="w-3 h-3 text-gray-400 dark:text-gray-500" />
-                            <span className="text-sm font-semibold text-gray-900 dark:text-white stat-value-safe">
-                              <CountUpNumber value={stat.value} />
+                        <div key={index} className="text-center min-w-0">
+                          <div className="flex items-center justify-center gap-1 min-w-0">
+                            <stat.icon className="w-3 h-3 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                            <span
+                              title={stat.value}
+                              className="min-w-0 text-[13px] sm:text-sm font-semibold text-gray-900 dark:text-white stat-value-safe"
+                            >
+                              <CountUpNumber
+                                value={stat.value}
+                                className="block truncate whitespace-nowrap"
+                              />
                             </span>
                           </div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</span>
+                          <span
+                            title={stat.label}
+                            className="block mt-1 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 truncate whitespace-nowrap"
+                          >
+                            {stat.label}
+                          </span>
                         </div>
                       ))}
                     </div>

@@ -645,28 +645,30 @@ const buildInvoiceHtml = ({ invoiceData, templateStyle, companyData }) => {
       ${footerHtml}
       <div style="position: relative; z-index: 2; padding: ${paddingTop}px 40px ${paddingBottom}px 40px;">
         <div style="border-bottom: 3px solid ${colors.primary}; padding-bottom: 30px; margin-bottom: 30px;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <h1 style="font-size: 32px; font-weight: bold; color: ${colors.primary}; margin: 0 0 10px 0;">INVOICE</h1>
-              <div style="color: #6c757d; font-size: 14px; margin-top: 15px;">
-                <div><strong>Invoice #:</strong> ${escapeHtml(invoiceData?.invoiceNumber || invoiceData?.number || 'INV')}</div>
-                <div><strong>Issue Date:</strong> ${escapeHtml(formatDisplayDate(invoiceData?.issueDate || invoiceData?.date || invoiceData?.createdAt))}</div>
-                <div><strong>Due Date:</strong> ${escapeHtml(formatDisplayDate(invoiceData?.dueDate || invoiceData?.due))}</div>
-                <div><strong>Payment Terms:</strong> ${escapeHtml(invoiceData?.paymentTerms || '')}</div>
-              </div>
-            </div>
-            <div style="text-align: right;">
-              ${logoMarkup}
-              <div style="font-size: 18px; font-weight: bold; color: ${colors.primary}; margin-bottom: 10px;">
-                ${escapeHtml(company.companyName)}
-              </div>
-              <div style="color: #6c757d; font-size: 13px; line-height: 1.4;">
-                ${company.contactTitle ? `<div>${escapeHtml(company.contactTitle)}</div>` : ''}
-                ${company.companyLinesHtml}
-                ${company.contactDetailsHtml}
-              </div>
-            </div>
-          </div>
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
+            <tr>
+              <td style="vertical-align: top; padding-right: 24px;">
+                <h1 style="font-size: 32px; font-weight: bold; color: ${colors.primary}; margin: 0 0 10px 0;">INVOICE</h1>
+                <div style="color: #6c757d; font-size: 14px; margin-top: 15px;">
+                  <div><strong>Invoice #:</strong> ${escapeHtml(invoiceData?.invoiceNumber || invoiceData?.number || 'INV')}</div>
+                  <div><strong>Issue Date:</strong> ${escapeHtml(formatDisplayDate(invoiceData?.issueDate || invoiceData?.date || invoiceData?.createdAt))}</div>
+                  <div><strong>Due Date:</strong> ${escapeHtml(formatDisplayDate(invoiceData?.dueDate || invoiceData?.due))}</div>
+                  <div><strong>Payment Terms:</strong> ${escapeHtml(invoiceData?.paymentTerms || '')}</div>
+                </div>
+              </td>
+              <td style="width: 200px; vertical-align: top; text-align: right;">
+                ${logoMarkup}
+                <div style="font-size: 18px; font-weight: bold; color: ${colors.primary}; margin-bottom: 10px;">
+                  ${escapeHtml(company.companyName)}
+                </div>
+                <div style="color: #6c757d; font-size: 13px; line-height: 1.4;">
+                  ${company.contactTitle ? `<div>${escapeHtml(company.contactTitle)}</div>` : ''}
+                  ${company.companyLinesHtml}
+                  ${company.contactDetailsHtml}
+                </div>
+              </td>
+            </tr>
+          </table>
         </div>
 
         ${customer?.name ? `

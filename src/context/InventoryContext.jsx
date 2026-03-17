@@ -126,6 +126,34 @@ export const InventoryProvider = ({ children }) => {
     };
   }, []);
 
+  const normalizeSupplier = useCallback((supplier = {}) => {
+    if (!supplier || typeof supplier !== 'object') return supplier;
+    const id = supplier.id || supplier._id || supplier.value || supplier.supplierId || '';
+    const linkedProducts = Array.isArray(supplier.products)
+      ? supplier.products
+        .map((product) => {
+          if (typeof product === 'string') return product;
+          if (product && typeof product === 'object') {
+            return product.id || product._id || '';
+          }
+          return '';
+        })
+        .filter(Boolean)
+      : [];
+
+    return {
+      ...supplier,
+      id,
+      products: linkedProducts,
+      productCount: Number.isFinite(Number(supplier.productCount))
+        ? Number(supplier.productCount)
+        : linkedProducts.length,
+      orderCount: Number.isFinite(Number(supplier.orderCount))
+        ? Number(supplier.orderCount)
+        : 0
+    };
+  }, []);
+
   const loadCategories = useCallback(async () => {
     if (!canAccessInventory) {
       setCategories([]);
@@ -154,14 +182,18 @@ export const InventoryProvider = ({ children }) => {
     }
     try {
       const data = await fetchAllPages('/suppliers', { limit: 200, _ts: Date.now() }, 200);
-      setSuppliers(Array.isArray(data) ? data : []);
+      setSuppliers(Array.isArray(data) ? data.map(normalizeSupplier) : []);
     } catch (error) {
       console.error('Error loading suppliers:', error);
       if (![401, 403].includes(error?.response?.status)) {
         addToast('Failed to load suppliers', 'error');
       }
     }
-  }, [addToast, canAccessInventory, fetchAllPages]);
+  }, [addToast, canAccessInventory, fetchAllPages, normalizeSupplier]);
+
+  const refreshSuppliersInBackground = useCallback(() => {
+    void loadSuppliers();
+  }, [loadSuppliers]);
 
   useEffect(() => {
     if (isAuthenticated && canAccessInventory) {
@@ -356,6 +388,7 @@ export const InventoryProvider = ({ children }) => {
       if (productData.categoryId) {
         updateCategoryProductCount(productData.categoryId, 1);
       }
+      refreshSuppliersInBackground();
 
       addToast(`Product "${newProduct.name}" added successfully!`, 'success');
       addNotification({
@@ -408,7 +441,7 @@ export const InventoryProvider = ({ children }) => {
       const mapped = mapProductFromApi(updated);
 
       addToast(`Product "${mapped.name}" updated successfully!`, 'success');
-      await loadCategories();
+      await Promise.all([loadCategories(), loadSuppliers()]);
       return mapped;
     } catch (error) {
       console.error('Error updating product:', error);
@@ -423,7 +456,7 @@ export const InventoryProvider = ({ children }) => {
     try {
       await dispatch(deleteProductThunk(id)).unwrap();
       addToast('Product deleted successfully!', 'success');
-      await loadCategories();
+      await Promise.all([loadCategories(), loadSuppliers()]);
       return true;
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -804,7 +837,7 @@ export const InventoryProvider = ({ children }) => {
   const addSupplier = async (supplierData) => {
     try {
       const response = await api.post('/suppliers', supplierData);
-      const newSupplier = response.data.data;
+      const newSupplier = normalizeSupplier(response.data.data);
       setSuppliers(prev => [newSupplier, ...prev]);
       addToast(`Supplier "${newSupplier.name}" created successfully!`, 'success');
       addNotification({

@@ -1,6 +1,29 @@
 // src/components/invoices/create/InvoiceDetailsSection.jsx
 import React from 'react';
 import { Calendar } from 'lucide-react';
+import { getCurrencySymbol } from '../../../utils/currency';
+
+const buildCurrencyOption = (currencyCode) => {
+  const code = String(currencyCode || '').trim().toUpperCase();
+  if (!code) return null;
+
+  return {
+    value: code,
+    label: `${code} (${getCurrencySymbol(code)})`
+  };
+};
+
+const normalizeCurrencyOption = (option) => {
+  if (!option) return null;
+
+  const code = String(option.value || '').trim().toUpperCase();
+  if (!code) return null;
+
+  return {
+    value: code,
+    label: option.label || `${code} (${getCurrencySymbol(code)})`
+  };
+};
 
 const InvoiceDetailsSection = ({
   invoiceNumber,
@@ -25,26 +48,33 @@ const InvoiceDetailsSection = ({
     { id: 'due-on-receipt', label: 'Due on Receipt' }
   ];
 
-  const defaultCurrencyOptions = [
-    { value: 'USD', label: 'USD ($)' },
-    { value: 'EUR', label: 'EUR (€)' },
-    { value: 'GBP', label: 'GBP (£)' },
-    { value: 'CAD', label: 'CAD (C$)' },
-    { value: 'AUD', label: 'AUD (A$)' }
-  ];
+  const defaultCurrencyOptions = ['USD', 'NGN', 'EUR', 'GBP', 'CAD', 'AUD']
+    .map(buildCurrencyOption)
+    .filter(Boolean);
 
   const resolvedCurrencyOptions = (customCurrencyOptions && customCurrencyOptions.length > 0)
-    ? customCurrencyOptions
+    ? customCurrencyOptions.map(normalizeCurrencyOption).filter(Boolean)
     : defaultCurrencyOptions;
 
+  const mergedCurrencyOptionsMap = new Map();
+
+  [baseCurrency, currency].forEach((currencyCode) => {
+    const option = buildCurrencyOption(currencyCode);
+    if (option) {
+      mergedCurrencyOptionsMap.set(option.value, option);
+    }
+  });
+
+  resolvedCurrencyOptions.forEach((option) => {
+    if (option?.value) {
+      mergedCurrencyOptionsMap.set(option.value, option);
+    }
+  });
+
   const availableCurrencyOptions = isMultiCurrencyAllowed
-    ? resolvedCurrencyOptions
-    : [
-        {
-          value: baseCurrency,
-          label: baseCurrency
-        }
-      ];
+    ? Array.from(mergedCurrencyOptionsMap.values())
+    : [buildCurrencyOption(baseCurrency)].filter(Boolean);
+
   const inputClassName = 'w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white';
 
   return (
@@ -65,18 +95,18 @@ const InvoiceDetailsSection = ({
             className={inputClassName}
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
             Currency
           </label>
           <select
-            value={currency}
+            value={String(currency || '').toUpperCase()}
             onChange={(e) => setCurrency(e.target.value)}
             disabled={!isMultiCurrencyAllowed}
             className={inputClassName}
           >
-            {availableCurrencyOptions.map(option => (
+            {availableCurrencyOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -88,7 +118,7 @@ const InvoiceDetailsSection = ({
             </p>
           )}
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
             Issue Date
@@ -103,7 +133,7 @@ const InvoiceDetailsSection = ({
             />
           </div>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
             Due Date
@@ -118,7 +148,7 @@ const InvoiceDetailsSection = ({
             />
           </div>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
             Payment Terms
@@ -128,7 +158,7 @@ const InvoiceDetailsSection = ({
             onChange={(e) => setPaymentTerms(e.target.value)}
             className={inputClassName}
           >
-            {paymentTermsOptions.map(option => (
+            {paymentTermsOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}
               </option>
@@ -141,4 +171,3 @@ const InvoiceDetailsSection = ({
 };
 
 export default InvoiceDetailsSection;
-

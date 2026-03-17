@@ -76,7 +76,7 @@ const QuickActions = () => {
               >
                 <Link
                   to={action.action}
-                  className="group flex h-full min-h-[170px] flex-col items-center justify-start p-3 md:p-4 rounded-xl border border-gray-200 dark:border-gray-700 
+                  className="group flex h-full min-h-[170px] flex-col items-center justify-center gap-2 p-3 text-center md:justify-start md:gap-0 md:p-4 rounded-xl border border-gray-200 dark:border-gray-700 
                        hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md 
                        dark:hover:shadow-lg dark:hover:shadow-primary-900/20 hover:shadow-primary-100 
                        transition-all duration-200 bg-white dark:bg-gray-800 hover:scale-[1.02] 
@@ -84,13 +84,13 @@ const QuickActions = () => {
                 >
                   <div
                     className={`${action.color} w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl 
-                          flex items-center justify-center mb-2 md:mb-3 
+                          flex items-center justify-center md:mb-3 
                           group-hover:scale-110 transition-transform duration-300 
                           shadow-md group-hover:shadow-lg`}
                   >
                     <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   </div>
-                  <span className="mb-1 w-full truncate whitespace-nowrap text-center text-xs font-medium text-gray-900 dark:text-white sm:text-sm md:text-base">
+                  <span className="w-full text-center text-xs font-medium text-gray-900 dark:text-white sm:text-sm md:mb-1 md:text-base">
                     {action.label}
                   </span>
                   <span className="hidden w-full truncate whitespace-nowrap text-center text-xs leading-tight text-gray-500 dark:text-gray-400 sm:block">

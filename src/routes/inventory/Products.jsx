@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Package, Plus, Filter, Download, Search, Edit, Trash2, MoreVertical, Eye, AlertCircle, CheckCircle, X, ChevronDown } from 'lucide-react';
 import DashboardLayout from '../../components/dashboard/layout/DashboardLayout';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
 import { useInventory } from '../../context/InventoryContext';
@@ -14,12 +14,13 @@ import { useTablePagination } from '../../hooks/usePagination';
 
 const Products = () => {
   const { isDarkMode } = useTheme();
-  const { categories } = useInventory();
+  const { categories, suppliers } = useInventory();
   const { addToast } = useToast();
   const { accountInfo } = useAccount();
   const dispatch = useDispatch();
   const { products: rawProducts } = useSelector((state) => state.products);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const currencyCode = (accountInfo?.currency || 'USD').toUpperCase();
   const formatCurrency = (amount) => {
     const value = Number.isFinite(amount) ? amount : 0;
@@ -39,6 +40,17 @@ const Products = () => {
     () => rawProducts.map((product) => mapProductFromApi(product)),
     [rawProducts]
   );
+  const categoryFilter = String(searchParams.get('category') || '').trim();
+  const supplierFilter = String(searchParams.get('supplier') || '').trim();
+  const hasScopedFilter = Boolean(categoryFilter || supplierFilter);
+  const activeCategory = useMemo(
+    () => categories.find((category) => (category.id || category._id) === categoryFilter) || null,
+    [categories, categoryFilter]
+  );
+  const activeSupplier = useMemo(
+    () => suppliers.find((supplier) => (supplier.id || supplier._id) === supplierFilter) || null,
+    [suppliers, supplierFilter]
+  );
   
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,9 +60,30 @@ const Products = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(null);
 
+  const clearUrlFilter = (key) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete(key);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const clearScopedFilters = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('category');
+    nextParams.delete('supplier');
+    setSearchParams(nextParams, { replace: true });
+  };
+
   // Calculate product statistics
   const calculateProductStats = () => {
     let filteredProducts = [...products];
+
+    if (categoryFilter) {
+      filteredProducts = filteredProducts.filter((product) => product.categoryId === categoryFilter);
+    }
+
+    if (supplierFilter) {
+      filteredProducts = filteredProducts.filter((product) => product.supplierId === supplierFilter);
+    }
 
     // Filter by search term
     if (searchTerm) {
@@ -615,9 +648,92 @@ const Products = () => {
           )}
         </div>
 
+        {hasScopedFilter && (
+          <div className={`border rounded-lg md:rounded-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 ${
+            isDarkMode
+              ? 'bg-primary-900/10 border-primary-800'
+              : 'bg-primary-50 border-primary-200'
+          }`}>
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <span className={`text-sm font-medium ${
+                isDarkMode ? 'text-primary-200' : 'text-primary-900'
+              }`}>
+                Active product scope:
+              </span>
+
+              {activeSupplier && (
+                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm whitespace-nowrap ${
+                  isDarkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900'
+                }`}>
+                  Supplier: {activeSupplier.name}
+                  <button
+                    type="button"
+                    onClick={() => clearUrlFilter('supplier')}
+                    className={`rounded-full p-0.5 ${
+                      isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                    }`}
+                    aria-label="Clear supplier filter"
+                    title="Clear supplier filter"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              )}
+
+              {supplierFilter && !activeSupplier && (
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm whitespace-nowrap ${
+                  isDarkMode ? 'bg-red-900/30 text-red-200' : 'bg-red-100 text-red-700'
+                }`}>
+                  Supplier filter active
+                </span>
+              )}
+
+              {activeCategory && (
+                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm whitespace-nowrap ${
+                  isDarkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900'
+                }`}>
+                  Category: {activeCategory.name}
+                  <button
+                    type="button"
+                    onClick={() => clearUrlFilter('category')}
+                    className={`rounded-full p-0.5 ${
+                      isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                    }`}
+                    aria-label="Clear category filter"
+                    title="Clear category filter"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              )}
+
+              {categoryFilter && !activeCategory && (
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm whitespace-nowrap ${
+                  isDarkMode ? 'bg-red-900/30 text-red-200' : 'bg-red-100 text-red-700'
+                }`}>
+                  Category filter active
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={clearScopedFilters}
+              className={`inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
+                isDarkMode
+                  ? 'bg-gray-800 text-gray-100 hover:bg-gray-700 border border-gray-700'
+                  : 'bg-white text-gray-900 hover:bg-gray-50 border border-gray-200'
+              }`}
+            >
+              Show All Products
+            </button>
+          </div>
+        )}
+
         {/* Count Display */}
         <div className={`text-sm md:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
           Showing {filteredProducts.length} of {products.length} products
+          {hasScopedFilter ? ' in the current scope' : ''}
         </div>
 
         {/* Desktop Table */}
@@ -627,10 +743,10 @@ const Products = () => {
             : 'bg-white border-gray-200'
         }`}>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <table className="min-w-max w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
                 <tr>
-                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length}
@@ -642,42 +758,42 @@ const Products = () => {
                       }`}
                     />
                   </th>
-                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-500'
                   }`}>
                     Product
                   </th>
-                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-500'
                   }`}>
                     SKU
                   </th>
-                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-500'
                   }`}>
                     Category
                   </th>
-                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-500'
                   }`}>
                     Stock
                   </th>
-                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-500'
                   }`}>
                     Unit Price
                   </th>
-                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-500'
                   }`}>
                     Total Value
                   </th>
-                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-500'
                   }`}>
                     Status
                   </th>
-                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  <th className={`px-4 md:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-500'
                   }`}>
                     Actions
@@ -691,7 +807,26 @@ const Products = () => {
                   <tr>
                     <td colSpan="9" className="px-4 md:px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                       <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                      <p>{products.length === 0 ? 'No products added yet' : 'No products match your search'}</p>
+                      <p>
+                        {products.length === 0
+                          ? 'No products added yet'
+                          : hasScopedFilter
+                            ? 'No products match the active supplier or category filter'
+                            : 'No products match your search'}
+                      </p>
+                      {hasScopedFilter && (
+                        <button
+                          type="button"
+                          onClick={clearScopedFilters}
+                          className={`mt-4 inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium ${
+                            isDarkMode
+                              ? 'bg-gray-700 text-white hover:bg-gray-600'
+                              : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                          }`}
+                        >
+                          Show All Products
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -719,7 +854,7 @@ const Products = () => {
                             }`}
                           />
                         </td>
-                        <td className="px-4 md:px-6 py-4">
+                        <td className="px-4 md:px-6 py-4 min-w-[280px]">
                           <div className="flex items-center">
                             <div className={`h-10 w-10 rounded-lg flex items-center justify-center mr-3 flex-shrink-0 ${
                               isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
@@ -736,8 +871,8 @@ const Products = () => {
                                 }`} />
                               )}
                             </div>
-                            <div className="min-w-0">
-                              <div className={`font-medium truncate ${
+                            <div className="min-w-0 max-w-[18rem]">
+                              <div title={product.name} className={`font-medium truncate whitespace-nowrap ${
                                 isDarkMode ? 'text-white' : 'text-gray-900'
                               }`}>
                                 {product.name}
@@ -752,15 +887,15 @@ const Products = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 md:px-6 py-4">
-                          <div className={`text-sm font-mono truncate max-w-xs ${
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                          <div className={`text-sm font-mono whitespace-nowrap ${
                             isDarkMode ? 'text-gray-300' : 'text-gray-900'
                           }`}>
                             {product.sku}
                           </div>
                         </td>
-                        <td className="px-4 md:px-6 py-4">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                          <span title={getCategoryName(product)} className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
                             isDarkMode 
                               ? 'bg-gray-700 text-gray-300' 
                               : 'bg-gray-100 text-gray-800'
@@ -768,31 +903,31 @@ const Products = () => {
                             {getCategoryName(product)}
                           </span>
                         </td>
-                        <td className="px-4 md:px-6 py-4">
-                          <div className={`font-medium ${
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                          <div className={`font-medium whitespace-nowrap ${
                             isDarkMode ? 'text-white' : 'text-gray-900'
                           }`}>
                             {stock}
                           </div>
                         </td>
-                        <td className="px-4 md:px-6 py-4">
-                          <div className={`font-medium ${
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                          <div className={`font-medium whitespace-nowrap ${
                             isDarkMode ? 'text-white' : 'text-gray-900'
                           }`}>
                             {formatCurrency(product.price || 0)}
                           </div>
                         </td>
-                        <td className="px-4 md:px-6 py-4">
-                          <div className={`font-bold ${
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                          <div className={`font-bold whitespace-nowrap ${
                             isDarkMode ? 'text-white' : 'text-gray-900'
                           }`}>
                             {formatCurrency(totalValue)}
                           </div>
                         </td>
-                        <td className="px-4 md:px-6 py-4">
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                           {getStatusBadge(product)}
                         </td>
-                        <td className="px-4 md:px-6 py-4">
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-1 md:space-x-2">
                             <button
                               onClick={() => handleEditProduct(product.id)}
@@ -837,8 +972,25 @@ const Products = () => {
             }`}>
               <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
               <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
-                {products.length === 0 ? 'No products added yet' : 'No products match your search'}
+                {products.length === 0
+                  ? 'No products added yet'
+                  : hasScopedFilter
+                    ? 'No products match the active supplier or category filter'
+                    : 'No products match your search'}
               </p>
+              {hasScopedFilter && (
+                <button
+                  type="button"
+                  onClick={clearScopedFilters}
+                  className={`mt-4 inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium ${
+                    isDarkMode
+                      ? 'bg-gray-700 text-white hover:bg-gray-600'
+                      : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  }`}
+                >
+                  Show All Products
+                </button>
+              )}
             </div>
           ) : (
             paginatedProducts.map((product) => (
