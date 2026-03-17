@@ -11,7 +11,7 @@ import { StaggerEntrance } from '../../motion';
 import { resolveAuthUser } from '../../../utils/userDisplay';
 import GlowingBorderTrail from '../../ui/GlowingBorderTrail';
 
-const DashboardLayout = ({ children }) => {
+const DashboardLayout = ({ children, disableContentLayoutAnimation = false }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { isDarkMode } = useTheme();
@@ -77,6 +77,53 @@ const DashboardLayout = ({ children }) => {
     }
   };
 
+  const contentClassName = `flex flex-col transition-[padding] duration-300 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`;
+  const content = (
+    <>
+      <NavBar
+        onMenuClick={() => setMobileSidebarOpen(true)}
+        sidebarOpen={sidebarOpen}
+        onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
+
+      <main className="flex-1">
+        <div className="py-6 px-4 sm:px-6 lg:px-8 bg-transparent min-h-screen space-y-4">
+          <AnimatePresence initial={false}>
+            {subscriptionBanner && (
+              <motion.div
+                className={`rounded-xl border px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 ${
+                  subscriptionBanner.tone === 'error'
+                    ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200'
+                    : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200'
+                }`}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.25 }}
+              >
+                <div>
+                  <div className="font-semibold">{subscriptionBanner.title}</div>
+                  <div className="text-sm">{subscriptionBanner.message}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/payments/pricing')}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500"
+                >
+                  Upgrade
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <StaggerEntrance className="space-y-4">
+            {children}
+          </StaggerEntrance>
+        </div>
+      </main>
+    </>
+  );
+
   return (
     <div className={`dashboard-shell min-h-screen ${isDarkMode ? 'dark' : ''}`}>
       {/* Glowing Border Animation */}
@@ -110,52 +157,18 @@ const DashboardLayout = ({ children }) => {
       />
 
       {/* Main Content */}
-      <motion.div
-        layout
-        className={`flex flex-col transition-all duration-300 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}
-      >
-        <NavBar
-          onMenuClick={() => setMobileSidebarOpen(true)}
-          sidebarOpen={sidebarOpen}
-          onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
-        />
-
-        <main className="flex-1">
-          <div className="py-6 px-4 sm:px-6 lg:px-8 bg-transparent min-h-screen space-y-4">
-            <AnimatePresence initial={false}>
-              {subscriptionBanner && (
-                <motion.div
-                  className={`rounded-xl border px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 ${
-                    subscriptionBanner.tone === 'error'
-                      ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200'
-                      : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200'
-                  }`}
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.25 }}
-                >
-                  <div>
-                    <div className="font-semibold">{subscriptionBanner.title}</div>
-                    <div className="text-sm">{subscriptionBanner.message}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/payments/pricing')}
-                    className="px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500"
-                  >
-                    Upgrade
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <StaggerEntrance className="space-y-4">
-              {children}
-            </StaggerEntrance>
-          </div>
-        </main>
-      </motion.div>
+      {disableContentLayoutAnimation ? (
+        <div className={contentClassName}>
+          {content}
+        </div>
+      ) : (
+        <motion.div
+          layout
+          className={contentClassName}
+        >
+          {content}
+        </motion.div>
+      )}
 
       <AnimatePresence>
         {showUpgradeModal && (

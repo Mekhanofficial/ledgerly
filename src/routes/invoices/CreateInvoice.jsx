@@ -591,6 +591,7 @@ const CreateInvoice = () => {
     });
 
     // Keep selector open so users can add multiple products in one pass.
+    addToast(`Product "${product.name}" added to invoice`, 'success');
   };
 
   // Filter products for selector
@@ -1520,7 +1521,7 @@ const CreateInvoice = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout disableContentLayoutAnimation>
       <div className="space-y-6 p-4 md:p-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
