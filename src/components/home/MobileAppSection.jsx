@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight, PlayCircle, ShieldCheck, Smartphone } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-const MOBILE_APP_URL = 'https://expo.dev/accounts/mekhanofficial/projects/ledgerly-mobile/builds/d0adab6c-33f9-4975-aead-4cc85fd82f3e';
+const MOBILE_APP_URL = 'https://expo.dev/accounts/mekhanofficial/projects/ledgerly-mobile/builds/3872508b-4d73-4735-bb46-cba51c30a1b2';
 const LIGHT_MODE_PREVIEW = '/bglightmode.png';
 const DARK_MODE_PREVIEW = '/bgdarkmode.png';
 const MotionSection = motion.section;
