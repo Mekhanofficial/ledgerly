@@ -13,6 +13,10 @@ const LineItemsTable = ({
     if (field === 'tax') return;
     updateLineItem(id, field, value);
   };
+  const formatAmount = (value) => {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+  };
 
   const inputClassName = 'mt-1 w-full min-h-[48px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-medium text-slate-900 placeholder:text-slate-400 caret-slate-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 dark:caret-white';
   const labelClassName = 'text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400';
@@ -109,7 +113,7 @@ const LineItemsTable = ({
               <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 dark:border-primary-500/20 dark:bg-primary-500/10">
                 <p className={labelClassName}>Amount</p>
                 <p className="mt-2 text-base font-semibold text-slate-900 dark:text-white">
-                  {currency} {item.amount.toFixed(2)}
+                  {currency} {formatAmount(item.amount)}
                 </p>
               </div>
             </div>
@@ -191,7 +195,7 @@ const LineItemsTable = ({
                   </td>
                   <td className="min-w-0 px-4 py-4">
                     <span className="block whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white">
-                      {currency} {item.amount.toFixed(2)}
+                      {currency} {formatAmount(item.amount)}
                     </span>
                   </td>
                   <td className="min-w-0 px-4 py-4">

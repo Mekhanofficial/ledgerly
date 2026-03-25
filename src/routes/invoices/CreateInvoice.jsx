@@ -42,6 +42,9 @@ const TEMPLATE_COLOR_FALLBACK = {
   text: '#2c3e50'
 };
 
+const INVOICE_RENDER_WIDTH_PX = 800;
+const INVOICE_PAGE_MIN_HEIGHT_PX = Math.round((INVOICE_RENDER_WIDTH_PX * 297) / 210);
+
 const toCssColor = (colorValue, fallback) => {
   if (Array.isArray(colorValue)) {
     return `rgb(${colorValue.join(',')})`;
@@ -163,6 +166,30 @@ const generateInvoiceNumber = () => {
   const timestampSuffix = now.getTime().toString().slice(-6);
   return `INV-${year}-${timestampSuffix}`;
 };
+
+const toFiniteNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const sanitizeInvoiceLineItem = (item = {}) => {
+  const quantity = toFiniteNumber(item.quantity, 0);
+  const rate = toFiniteNumber(item.rate, 0);
+  const tax = toFiniteNumber(item.tax, 0);
+  const parsedAmount = Number(item.amount);
+
+  return {
+    ...item,
+    quantity,
+    rate,
+    tax,
+    amount: Number.isFinite(parsedAmount) ? parsedAmount : quantity * rate
+  };
+};
+
+const sanitizeInvoiceLineItems = (items = []) => (
+  Array.isArray(items) ? items.map((item) => sanitizeInvoiceLineItem(item)) : []
+);
 
 const CreateInvoice = () => {
   const { addToast } = useToast();
@@ -307,7 +334,8 @@ const CreateInvoice = () => {
   };
 
   // Calculate totals
-  const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+  const sanitizedLineItems = useMemo(() => sanitizeInvoiceLineItems(lineItems), [lineItems]);
+  const subtotal = sanitizedLineItems.reduce((sum, item) => sum + item.amount, 0);
   const taxEnabled = taxSettings.taxEnabled ?? true;
   const allowManualOverride = taxSettings.allowManualOverride ?? true;
   const taxName = taxSettings.taxName || 'VAT';
@@ -454,11 +482,10 @@ const CreateInvoice = () => {
         }
         // Apply template settings
         if (template.lineItems && template.lineItems.length > 0) {
-          setLineItems(template.lineItems.map(item => ({
+          setLineItems(template.lineItems.map((item) => sanitizeInvoiceLineItem({
             ...item,
             tax: 0,
-            id: Date.now() + Math.random(),
-            amount: item.quantity * item.rate
+            id: createLineItemId()
           })));
         }
         if (template.notes) setNotes(template.notes);
@@ -574,7 +601,7 @@ const CreateInvoice = () => {
     const availableStock = resolveProductStock(product);
 
     setLineItems((prevItems) => {
-      const newItem = {
+      const newItem = sanitizeInvoiceLineItem({
         id: createLineItemId(),
         description: product.name,
         quantity: 1,
@@ -585,7 +612,7 @@ const CreateInvoice = () => {
         sku: product.sku,
         stock: availableStock,
         availableStock
-      };
+      });
 
       return [...prevItems, newItem];
     });
@@ -811,14 +838,24 @@ const CreateInvoice = () => {
   const generatePDF = async (download = true, overrideLineItems = null) => {
     try {
       const customer = getSelectedCustomer() || newCustomer;
-      const pdfLineItems = (overrideLineItems && overrideLineItems.length > 0) ? overrideLineItems : lineItems;
+      const sourceLineItems = (overrideLineItems && overrideLineItems.length > 0) ? overrideLineItems : lineItems;
+      const pdfLineItems = sanitizeInvoiceLineItems(sourceLineItems);
+      const pdfSubtotal = roundMoney(pdfLineItems.reduce((sum, item) => sum + item.amount, 0));
+      const pdfTaxAmount = taxEnabled
+        ? roundMoney(
+            hasOverrideAmount
+              ? Math.max(0, Number(taxAmountOverride) || 0)
+              : pdfSubtotal * (effectiveTaxRate / 100)
+          )
+        : 0;
+      const pdfTotalAmount = roundMoney(pdfSubtotal + pdfTaxAmount);
       
       // Create a hidden div for PDF generation
       const pdfContainer = document.createElement('div');
       pdfContainer.style.position = 'absolute';
       pdfContainer.style.left = '-9999px';
       pdfContainer.style.top = '-9999px';
-      pdfContainer.style.width = '800px';
+      pdfContainer.style.width = `${INVOICE_RENDER_WIDTH_PX}px`;
       pdfContainer.style.backgroundColor = 'white';
       pdfContainer.style.padding = '0px';
       pdfContainer.style.fontFamily = 'Arial, sans-serif';
@@ -828,6 +865,8 @@ const CreateInvoice = () => {
         || templateStorage.getTemplate(selectedTemplate);
       const templateVariant = resolveTemplateStyleVariant(selectedTemplate, templateMeta);
       const { headerHtml, footerHtml, paddingTop, paddingBottom } = buildTemplateDecorations(templateVariant, colors);
+      const invoiceShellStyle = `max-width:${INVOICE_RENDER_WIDTH_PX}px; min-height:${INVOICE_PAGE_MIN_HEIGHT_PX}px; margin:0 auto; position:relative; overflow:hidden; background:white; border-radius:12px; box-sizing:border-box;`;
+      const invoiceContentStyle = `position:relative; z-index:2; min-height:${INVOICE_PAGE_MIN_HEIGHT_PX}px; padding:${paddingTop}px 40px ${paddingBottom}px 40px; display:flex; flex-direction:column; box-sizing:border-box;`;
       
       const companyName = accountInfo?.companyName || 'Your Business';
       const businessLogoMarkup = businessLogoUrl
@@ -907,16 +946,16 @@ const CreateInvoice = () => {
         ? `
             <div style="margin-bottom: 20px;">
               <span style="color: #6c757d; font-size: 14px;">${taxName} (${effectiveTaxRate}%):</span>
-              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${totalTax.toFixed(2)}</span>
+              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${pdfTaxAmount.toFixed(2)}</span>
             </div>
           `
         : '';
       
       const htmlContent = `
-        <div id="invoice-content" style="max-width: 800px; margin: 0 auto; position: relative; overflow: hidden; background: white; border-radius: 12px;">
+        <div id="invoice-content" style="${invoiceShellStyle}">
           ${headerHtml}
           ${footerHtml}
-          <div style="position: relative; z-index: 2; padding: ${paddingTop}px 40px ${paddingBottom}px 40px;">
+          <div style="${invoiceContentStyle}">
           <!-- Header -->
           <div style="border-bottom: 3px solid ${colors.primary}; padding-bottom: 30px; margin-bottom: 30px;">
             <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
@@ -989,12 +1028,12 @@ const CreateInvoice = () => {
           <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid ${colors.primary}; text-align: right;">
             <div style="margin-bottom: 10px;">
               <span style="color: #6c757d; font-size: 14px;">Subtotal:</span>
-              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${subtotal.toFixed(2)}</span>
+              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${pdfSubtotal.toFixed(2)}</span>
             </div>
             ${taxSummaryHtml}
             <div>
               <span style="color: ${colors.primary}; font-weight: bold; font-size: 20px;">Total:</span>
-              <span style="color: ${colors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${totalAmount.toFixed(2)}</span>
+              <span style="color: ${colors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${pdfTotalAmount.toFixed(2)}</span>
             </div>
           </div>
           
@@ -1022,7 +1061,7 @@ const CreateInvoice = () => {
           ` : ''}
           
           <!-- Footer -->
-          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #dee2e6; text-align: center; color: #6c757d; font-size: 12px;">
+          <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid #dee2e6; text-align: center; color: #6c757d; font-size: 12px;">
             <div>Thank you for your business!</div>
             ${watermarkEnabled && watermarkFooterText
               ? `<div style="margin-top: 8px; font-size: 11px; color: #9ca3af; opacity: 0.6;">${watermarkFooterText}</div>`
@@ -1303,16 +1342,28 @@ const CreateInvoice = () => {
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
     const customer = getSelectedCustomer() || newCustomer;
+    const printLineItems = sanitizeInvoiceLineItems(lineItems);
+    const printSubtotal = roundMoney(printLineItems.reduce((sum, item) => sum + item.amount, 0));
+    const printTaxAmount = taxEnabled
+      ? roundMoney(
+          hasOverrideAmount
+            ? Math.max(0, Number(taxAmountOverride) || 0)
+            : printSubtotal * (effectiveTaxRate / 100)
+        )
+      : 0;
+    const printTotalAmount = roundMoney(printSubtotal + printTaxAmount);
     const printColors = resolveTemplateColors(selectedTemplate, availableTemplates);
     const templateMeta = availableTemplates.find((item) => item.id === selectedTemplate)
       || templateStorage.getTemplate(selectedTemplate);
     const templateVariant = resolveTemplateStyleVariant(selectedTemplate, templateMeta);
     const { headerHtml, footerHtml, paddingTop, paddingBottom } = buildTemplateDecorations(templateVariant, printColors);
+    const printInvoiceShellStyle = `max-width:${INVOICE_RENDER_WIDTH_PX}px; min-height:${INVOICE_PAGE_MIN_HEIGHT_PX}px; margin:0 auto; position:relative; overflow:hidden; border:1px solid #ddd; border-radius:12px; background:white; box-sizing:border-box;`;
+    const printInvoiceContentStyle = `position:relative; z-index:2; min-height:${INVOICE_PAGE_MIN_HEIGHT_PX}px; padding:${paddingTop}px 30px ${paddingBottom}px 30px; display:flex; flex-direction:column; box-sizing:border-box;`;
     const printTaxSummaryHtml = taxEnabled
       ? `
           <div style="margin-bottom: 20px;">
             <span style="color: #6c757d; font-size: 14px;">${taxName} (${effectiveTaxRate}%):</span>
-            <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${totalTax.toFixed(2)}</span>
+            <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${printTaxAmount.toFixed(2)}</span>
           </div>
         `
       : '';
@@ -1379,10 +1430,10 @@ const CreateInvoice = () => {
           </style>
         </head>
         <body>
-          <div class="invoice-container" style="max-width: 800px; margin: 0 auto; position: relative; overflow: hidden; border: 1px solid #ddd; border-radius: 12px; background: white;">
+          <div class="invoice-container" style="${printInvoiceShellStyle}">
             ${headerHtml}
             ${footerHtml}
-            <div style="position: relative; z-index: 2; padding: ${paddingTop}px 30px ${paddingBottom}px 30px;">
+            <div style="${printInvoiceContentStyle}">
             <div style="border-bottom: 3px solid ${printColors.primary}; padding-bottom: 30px; margin-bottom: 30px;">
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
                 <tr>
@@ -1432,7 +1483,7 @@ const CreateInvoice = () => {
                 </tr>
               </thead>
               <tbody>
-                ${lineItems.map((item, index) => `
+                ${printLineItems.map((item, index) => `
                 <tr class="no-break" style="${index % 2 === 0 ? `background: ${printColors.accent};` : ''} border-bottom: 1px solid #e9ecef;">
                     <td style="padding: 15px; font-size: 14px; color: #495057;">
                       ${item.description || 'Item'}
@@ -1451,12 +1502,12 @@ const CreateInvoice = () => {
           <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid ${printColors.primary}; text-align: right;">
               <div style="margin-bottom: 20px;">
                 <span style="color: #6c757d; font-size: 14px;">Subtotal:</span>
-                <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${subtotal.toFixed(2)}</span>
+                <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${printSubtotal.toFixed(2)}</span>
               </div>
               ${printTaxSummaryHtml}
               <div>
               <span style="color: ${printColors.primary}; font-weight: bold; font-size: 20px;">Total:</span>
-              <span style="color: ${printColors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${totalAmount.toFixed(2)}</span>
+              <span style="color: ${printColors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${printTotalAmount.toFixed(2)}</span>
               </div>
             </div>
             
@@ -1474,9 +1525,12 @@ const CreateInvoice = () => {
                 <div style="color: #495057; line-height: 1.6; font-size: 13px; white-space: pre-line;">${terms}</div>
               </div>
             ` : ''}
-            ${printWatermarkHtml}
-            
-            <div class="no-print" style="margin-top: 50px; text-align: center; padding-top: 20px; border-top: 1px solid #ddd;">
+            <div style="margin-top: auto; text-align: center; padding-top: 20px; border-top: 1px solid #ddd; color: #6c757d; font-size: 12px;">
+              <div>Thank you for your business!</div>
+              ${printWatermarkHtml}
+            </div>
+
+            <div class="no-print" style="margin-top: 24px; text-align: center;">
               <button onclick="window.print()" style="padding: 12px 24px; background: ${printColors.primary}; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
                 Print Invoice
               </button>
@@ -2087,7 +2141,7 @@ const CreateInvoice = () => {
             dueDate,
             paymentTerms,
             customer: getSelectedCustomer() || newCustomer,
-            lineItems,
+            lineItems: sanitizedLineItems,
             subtotal,
             totalTax,
             totalAmount,

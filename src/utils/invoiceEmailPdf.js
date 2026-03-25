@@ -13,6 +13,8 @@ const HTML2CANVAS_SCALE = 1.5;
 const HTML_RENDER_TIMEOUT_MS = 15000;
 const MIN_BREAK_MARGIN_PX = 14;
 const MIN_SEGMENT_HEIGHT_PX = 120;
+const INVOICE_RENDER_WIDTH_PX = 800;
+const INVOICE_PAGE_MIN_HEIGHT_PX = Math.round((INVOICE_RENDER_WIDTH_PX * 297) / 210);
 
 const TEMPLATE_COLOR_FALLBACK = {
   primary: '#2980b9',
@@ -592,6 +594,8 @@ const buildInvoiceHtml = ({ invoiceData, templateStyle, companyData }) => {
   const templateVariant = resolveTemplateStyleVariant(normalizedTemplate, templateMeta);
   const colors = resolveTemplateColors(normalizedTemplate);
   const { headerHtml, footerHtml, paddingTop, paddingBottom } = buildTemplateDecorations(templateVariant, colors);
+  const invoiceShellStyle = `max-width:${INVOICE_RENDER_WIDTH_PX}px; min-height:${INVOICE_PAGE_MIN_HEIGHT_PX}px; margin:0 auto; position:relative; overflow:hidden; background:white; border-radius:12px; box-sizing:border-box;`;
+  const invoiceContentStyle = `position:relative; z-index:2; min-height:${INVOICE_PAGE_MIN_HEIGHT_PX}px; padding:${paddingTop}px 40px ${paddingBottom}px 40px; display:flex; flex-direction:column; box-sizing:border-box;`;
   const company = resolveCompanyInfo(companyData);
   const customer = resolveCustomerInfo(invoiceData);
   const lineItems = normalizeLineItems(invoiceData);
@@ -640,10 +644,10 @@ const buildInvoiceHtml = ({ invoiceData, templateStyle, companyData }) => {
     : '';
 
   return `
-    <div id="invoice-content" style="max-width: 800px; margin: 0 auto; position: relative; overflow: hidden; background: white; border-radius: 12px;">
+    <div id="invoice-content" style="${invoiceShellStyle}">
       ${headerHtml}
       ${footerHtml}
-      <div style="position: relative; z-index: 2; padding: ${paddingTop}px 40px ${paddingBottom}px 40px;">
+      <div style="${invoiceContentStyle}">
         <div style="border-bottom: 3px solid ${colors.primary}; padding-bottom: 30px; margin-bottom: 30px;">
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
             <tr>
@@ -722,7 +726,7 @@ const buildInvoiceHtml = ({ invoiceData, templateStyle, companyData }) => {
           </div>
         ` : ''}
 
-        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #dee2e6; text-align: center; color: #6c757d; font-size: 12px;">
+        <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid #dee2e6; text-align: center; color: #6c757d; font-size: 12px;">
           <div>Thank you for your business!</div>
           ${watermarkEnabled && watermarkFooterText
             ? `<div style="margin-top: 8px; font-size: 11px; color: #9ca3af; opacity: 0.6;">${escapeHtml(watermarkFooterText)}</div>`
@@ -810,7 +814,7 @@ const renderInvoiceHtmlToPdf = async (htmlContent) => {
   pdfContainer.style.position = 'absolute';
   pdfContainer.style.left = '-9999px';
   pdfContainer.style.top = '-9999px';
-  pdfContainer.style.width = '800px';
+  pdfContainer.style.width = `${INVOICE_RENDER_WIDTH_PX}px`;
   pdfContainer.style.backgroundColor = 'white';
   pdfContainer.style.padding = '0';
   pdfContainer.style.fontFamily = 'Arial, sans-serif';
