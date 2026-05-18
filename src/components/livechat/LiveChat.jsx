@@ -65,7 +65,7 @@ const LiveChat = () => {
   const [messages, setMessages] = useState([
     { 
       id: 1, 
-      text: 'Welcome to Ledgerly Elite Enterprise Live Chat. I can help with invoices, inventory, payments, reports, and escalation support. How can I assist today?', 
+      text: 'Welcome to BillMetro Elite Enterprise Live Chat. I can help with invoices, inventory, payments, reports, and escalation support. How can I assist today?', 
       sender: 'bot', 
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       type: 'text'
@@ -106,7 +106,7 @@ const LiveChat = () => {
           updated[0] = {
             ...updated[0],
             text:
-              'Welcome to Ledgerly Elite Enterprise Live Chat. ' +
+              'Welcome to BillMetro Elite Enterprise Live Chat. ' +
               'I can assist with invoice operations, payment tracking, inventory risk, and support escalations.'
           };
           return updated;
@@ -136,8 +136,8 @@ const LiveChat = () => {
       setIsFullscreen(false);
     };
 
-    window.addEventListener('ledgerly:open-livechat', openFromSupportPage);
-    return () => window.removeEventListener('ledgerly:open-livechat', openFromSupportPage);
+    window.addEventListener('billmetro:open-livechat', openFromSupportPage);
+    return () => window.removeEventListener('billmetro:open-livechat', openFromSupportPage);
   }, []);
 
   // Mobile detection
@@ -247,7 +247,7 @@ const LiveChat = () => {
 
     // Greetings
     if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
-      return createBotResponse(`Hello ${user?.name || 'there'}! I'm your Ledgerly live support assistant. I can help you manage invoices, inventory, payments, and more. What would you like to do?`, [
+      return createBotResponse(`Hello ${user?.name || 'there'}! I'm your BillMetro live support assistant. I can help you manage invoices, inventory, payments, and more. What would you like to do?`, [
         'View dashboard',
         'Check invoices',
         'Manage inventory',
@@ -1087,7 +1087,7 @@ const LiveChat = () => {
                   <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-primary-800 bg-emerald-400"></span>
                 </div>
                 <div className="ml-3">
-                  <h3 className="font-semibold">Ledgerly Elite Live Chat</h3>
+                  <h3 className="font-semibold">BillMetro Elite Live Chat</h3>
                   <p className="text-xs opacity-90">
                     {assistantStatus}
                     {(getOverdueInvoices().length > 0 || getLowStockProducts().length > 0) && (

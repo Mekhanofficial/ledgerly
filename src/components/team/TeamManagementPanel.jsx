@@ -254,7 +254,7 @@ const TeamManagementPanel = () => {
   };
 
   const shareOnWhatsapp = () => {
-    const message = `You are invited to Ledgerly. Click to accept: ${shareInvite.url}`;
+    const message = `You are invited to BillMetro. Click to accept: ${shareInvite.url}`;
     const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };

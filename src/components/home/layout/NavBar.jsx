@@ -27,10 +27,10 @@ const NavBar = () => {
               loading="eager"
               decoding="async"
               src={logo}
-              alt="Ledgerly"
+              alt="BillMetro"
               className="block h-11 w-11 object-contain sm:h-12 sm:w-12"
             />
-            <span className="sr-only">Ledgerly</span>
+            <span className="sr-only">BillMetro</span>
           </Link>
 
           {/* Desktop Navigation */}

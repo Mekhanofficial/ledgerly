@@ -158,12 +158,12 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const desktopSaved = Number(window.sessionStorage.getItem('ledgerly_sidebar_scroll_desktop'));
+    const desktopSaved = Number(window.sessionStorage.getItem('billmetro_sidebar_scroll_desktop'));
     if (desktopScrollRef.current && Number.isFinite(desktopSaved)) {
       desktopScrollRef.current.scrollTop = desktopSaved;
     }
 
-    const mobileSaved = Number(window.sessionStorage.getItem('ledgerly_sidebar_scroll_mobile'));
+    const mobileSaved = Number(window.sessionStorage.getItem('billmetro_sidebar_scroll_mobile'));
     if (mobileScrollRef.current && Number.isFinite(mobileSaved)) {
       mobileScrollRef.current.scrollTop = mobileSaved;
     }
@@ -279,7 +279,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
             loading="eager"
             decoding="async"
             src={logo}
-            alt="Ledgerly"
+            alt="BillMetro"
             className="h-10 w-10 flex-shrink-0 object-contain"
           />
         </div>
@@ -287,7 +287,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
         {/* Main Menu */}
         <div
           ref={desktopScrollRef}
-          onScroll={() => persistSidebarScroll('ledgerly_sidebar_scroll_desktop', desktopScrollRef.current)}
+          onScroll={() => persistSidebarScroll('billmetro_sidebar_scroll_desktop', desktopScrollRef.current)}
           className="flex-1 overflow-y-auto py-4 px-3"
         >
           <nav className="space-y-1">
@@ -342,7 +342,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
               loading="eager"
               decoding="async"
               src={logo}
-              alt="Ledgerly"
+              alt="BillMetro"
               className="h-10 w-10 object-contain"
             />
           </div>
@@ -357,7 +357,7 @@ const SideBar = ({ isOpen, mobileOpen, onMobileToggle }) => {
 
         <div
           ref={mobileScrollRef}
-          onScroll={() => persistSidebarScroll('ledgerly_sidebar_scroll_mobile', mobileScrollRef.current)}
+          onScroll={() => persistSidebarScroll('billmetro_sidebar_scroll_mobile', mobileScrollRef.current)}
           className="overflow-y-auto h-full py-4 px-3"
         >
           <nav className="space-y-1">

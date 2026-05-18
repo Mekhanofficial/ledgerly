@@ -171,7 +171,7 @@ const Login = () => {
               loading="eager"
               decoding="async"
               src={logo}
-              alt="Ledgerly logo"
+              alt="BillMetro logo"
               className="mb-4 h-14 w-14 object-contain"
             />
             <h1 className="mb-2 text-4xl font-bold">Invoicing & Inventory</h1>
@@ -213,7 +213,7 @@ const Login = () => {
           </div>
 
           <div className="relative mt-8 border-t border-white/25 pt-6">
-            <p className="text-sm text-cyan-50/90">Join thousands of businesses using Ledgerly</p>
+            <p className="text-sm text-cyan-50/90">Join thousands of businesses using BillMetro</p>
             <div className="flex items-center mt-3 space-x-4">
               <div className="flex -space-x-2">
                 {[1, 2, 3, 4].map((i) => (
@@ -235,12 +235,12 @@ const Login = () => {
               loading="eager"
               decoding="async"
               src={logo}
-              alt="Ledgerly logo"
+              alt="BillMetro logo"
               className="mx-auto mb-4 block h-14 w-14 object-contain lg:hidden"
             />
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Welcome Back</h1>
             <p className="mt-2 text-slate-600 dark:text-slate-300">
-              Sign in to your Ledgerly account
+              Sign in to your BillMetro account
             </p>
             {hasPendingCheckout && (
               <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-left dark:border-cyan-800 dark:bg-cyan-950/35">
@@ -410,7 +410,7 @@ const Login = () => {
                   className="inline-block w-full rounded-xl border border-cyan-600 py-3 text-center font-medium text-cyan-700 transition hover:bg-cyan-50 dark:border-cyan-500 dark:text-cyan-300 dark:hover:bg-cyan-900/20"
                   onClick={clearErrors}
                 >
-                  Create Ledgerly Account
+                  Create BillMetro Account
                 </Link>
               </div>
             </div>

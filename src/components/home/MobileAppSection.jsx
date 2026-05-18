@@ -94,7 +94,7 @@ const MobileAppSection = () => {
                 <div>
                   <div className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200">
                     <Smartphone className="h-3.5 w-3.5" />
-                    Ledgerly Mobile
+                    BillMetro Mobile
                   </div>
 
                   <h2 className="mt-4 max-w-2xl text-3xl font-bold leading-tight text-slate-900 dark:text-white md:text-4xl">
@@ -152,7 +152,7 @@ const MobileAppSection = () => {
                 <div className="relative drop-shadow-[0_30px_60px_rgba(15,23,42,0.35)]">
                   <img
                     src={LIGHT_MODE_PREVIEW}
-                    alt="Ledgerly mobile app preview in light mode"
+                    alt="BillMetro mobile app preview in light mode"
                     className={`block h-auto w-full select-none transition-opacity duration-500 ${isDarkMode ? 'opacity-0' : 'opacity-100'}`}
                     loading="lazy"
                     decoding="async"
@@ -160,7 +160,7 @@ const MobileAppSection = () => {
                   />
                   <img
                     src={DARK_MODE_PREVIEW}
-                    alt="Ledgerly mobile app preview in dark mode"
+                    alt="BillMetro mobile app preview in dark mode"
                     className={`absolute inset-0 h-full w-full select-none transition-opacity duration-500 ${isDarkMode ? 'opacity-100' : 'opacity-0'}`}
                     loading="lazy"
                     decoding="async"

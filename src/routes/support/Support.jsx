@@ -96,7 +96,7 @@ const Support = () => {
     subject: '',
     priority: 'medium',
     contactMethod: 'Send Email',
-    contactDetail: accountInfo?.email || 'support@ledgerly.com',
+    contactDetail: accountInfo?.email || 'support@billmetro.com',
     message: ''
   });
 
@@ -128,7 +128,7 @@ const Support = () => {
       id: `TCK-${Date.now().toString().slice(-6)}`,
       subject: supportForm.subject.trim(),
       customer: customerName,
-      email: supportForm.contactDetail || accountInfo?.email || 'support@ledgerly.com',
+      email: supportForm.contactDetail || accountInfo?.email || 'support@billmetro.com',
       priority: supportForm.priority,
       status: 'open',
       lastUpdated: 'Just now',
@@ -156,7 +156,7 @@ const Support = () => {
       subject: '',
       priority: 'medium',
       contactMethod: 'Send Email',
-      contactDetail: accountInfo?.email || 'support@ledgerly.com',
+      contactDetail: accountInfo?.email || 'support@billmetro.com',
       message: ''
     });
   };
@@ -164,7 +164,7 @@ const Support = () => {
   const handleContactMethodClick = (action) => {
     switch (action) {
       case 'Send Email':
-        window.open('mailto:support@ledgerly.com');
+        window.open('mailto:support@billmetro.com');
         break;
       case 'Call Now':
         window.open('tel:+15551234567');
@@ -178,14 +178,14 @@ const Support = () => {
   };
 
   const handleStatusClick = () => {
-    window.open('https://status.ledgerly.com', '_blank');
+    window.open('https://status.billmetro.com', '_blank');
   };
 
   const contactMethods = [
     {
       icon: Mail,
       title: 'Email Support',
-      description: 'support@ledgerly.com',
+      description: 'support@billmetro.com',
       responseTime: 'Typically within 2 hours',
       action: 'Send Email'
     },
@@ -394,7 +394,7 @@ const Support = () => {
                 name="contactDetail"
                 value={supportForm.contactDetail}
                 onChange={handleSupportFormChange}
-                placeholder="support@ledgerly.com"
+                placeholder="support@billmetro.com"
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                   isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-900'
                 }`}

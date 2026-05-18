@@ -22,7 +22,7 @@ import {
   buildBrandedEmailMessage,
   getEmailSenderConfig,
   resolveInvoiceBaseUrl,
-  shouldHideLedgerlyBrandingEverywhere,
+  shouldHideBillMetroBrandingEverywhere,
   shouldShowWatermark
 } from '../../utils/brandingPlan';
 import { fetchTaxSettings } from '../../services/taxSettingsService';
@@ -429,8 +429,8 @@ const EditInvoice = () => {
     try {
       const brandedEmailMessage = buildBrandedEmailMessage(emailMessage, accountInfo);
       const emailSenderConfig = getEmailSenderConfig(accountInfo);
-      const hideLedgerlyBrandingEverywhere = shouldHideLedgerlyBrandingEverywhere(accountInfo);
-      const invoiceBaseUrl = resolveInvoiceBaseUrl(accountInfo, 'https://ledgerly.com');
+      const hideBillMetroBrandingEverywhere = shouldHideBillMetroBrandingEverywhere(accountInfo);
+      const invoiceBaseUrl = resolveInvoiceBaseUrl(accountInfo, 'https://billmetro.com');
 
       const draftPayload = {
         invoiceNumber,
@@ -470,7 +470,7 @@ const EditInvoice = () => {
         emailMessage: brandedEmailMessage,
         emailFrom: emailSenderConfig.fromAddress,
         emailFooterText: emailSenderConfig.footerText,
-        hideLedgerlyBrandingEverywhere,
+        hideBillMetroBrandingEverywhere,
         invoiceBaseUrl
       }, { throwOnError: true });
       if (!sentInvoice) {
@@ -530,7 +530,7 @@ const EditInvoice = () => {
       addToast('PDF invoice downloaded successfully!', 'success');
       if (shouldShowWatermark(accountInfo)) {
         addToast(
-          'Remove Ledgerly branding and unlock professional features -> Upgrade to Professional',
+          'Remove BillMetro branding and unlock professional features -> Upgrade to Professional',
           'info'
         );
       }

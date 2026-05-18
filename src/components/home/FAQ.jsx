@@ -17,7 +17,7 @@ import { Link } from 'react-router-dom';
 const FAQS = [
   {
     id: 'start',
-    question: 'How do I get started with Ledgerly?',
+    question: 'How do I get started with BillMetro?',
     answer:
       'Create your account, complete your business profile, and choose a plan. You can start sending invoices immediately after onboarding.',
     icon: Zap,
@@ -27,7 +27,7 @@ const FAQS = [
     id: 'payments',
     question: 'What payment methods do you support?',
     answer:
-      'Ledgerly works with major gateways and bank transfer workflows, so clients can pay using their preferred method while you keep one tracking timeline.',
+      'BillMetro works with major gateways and bank transfer workflows, so clients can pay using their preferred method while you keep one tracking timeline.',
     icon: CreditCard,
     tags: ['Gateway integrations', 'Card + transfer support', 'Unified tracking']
   },
@@ -43,7 +43,7 @@ const FAQS = [
     id: 'security',
     question: 'Is my financial data secure?',
     answer:
-      'Your data is protected with encrypted transport, secure storage, and routine backups. Ledgerly is built for high-trust billing operations.',
+      'Your data is protected with encrypted transport, secure storage, and routine backups. BillMetro is built for high-trust billing operations.',
     icon: Shield,
     tags: ['Encrypted data', 'Routine backups', 'Secure access']
   },

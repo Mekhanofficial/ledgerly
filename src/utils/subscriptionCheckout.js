@@ -1,4 +1,4 @@
-const CHECKOUT_STORAGE_KEY = 'ledgerly_pending_subscription_checkout';
+const CHECKOUT_STORAGE_KEY = 'billmetro_pending_subscription_checkout';
 const STALE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const PLAN_IDS = ['starter', 'professional', 'enterprise'];

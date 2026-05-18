@@ -233,7 +233,7 @@ const normalizeInvoiceItems = (invoiceData) => {
   });
 };
 
-const addLedgerlyFooterWatermark = (doc, companyData = {}) => {
+const addBillMetroFooterWatermark = (doc, companyData = {}) => {
   if (!shouldShowWatermark(companyData)) return;
   const watermarkText = getWatermarkFooterText(companyData);
   if (!watermarkText) return;
@@ -294,7 +294,7 @@ const drawBasicInvoice = (doc, template, invoiceData, companyData, pageWidth, pa
   doc.setFont(resolveFont(fonts.title), 'bold');
   doc.setFontSize(13);
   doc.setTextColor(255, 255, 255);
-  doc.text(companyData?.name || 'Ledgerly Business', margin, 10);
+  doc.text(companyData?.name || 'BillMetro Business', margin, 10);
 
   doc.setFont(resolveFont(fonts.body), 'normal');
   doc.setFontSize(9);
@@ -328,7 +328,7 @@ const drawBasicInvoice = (doc, template, invoiceData, companyData, pageWidth, pa
   doc.setFont(resolveFont(fonts.body), 'bold');
   doc.text('From', pageWidth - margin - 80, y);
   doc.setFont(resolveFont(fonts.body), 'normal');
-  doc.text(companyData?.name || 'Ledgerly Business', pageWidth - margin - 80, y + 6);
+  doc.text(companyData?.name || 'BillMetro Business', pageWidth - margin - 80, y + 6);
   if (companyData?.email) {
     doc.text(companyData.email, pageWidth - margin - 80, y + 12);
   }
@@ -1018,7 +1018,7 @@ export const generateInvoicePDF = (invoiceData, templateId = 'standard', company
       drawBasicInvoice(doc, template, invoiceData, companyData, pageWidth, pageHeight);
   }
 
-  addLedgerlyFooterWatermark(doc, companyData);
+  addBillMetroFooterWatermark(doc, companyData);
 
   return doc;
 };

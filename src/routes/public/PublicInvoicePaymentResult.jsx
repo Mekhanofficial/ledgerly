@@ -6,9 +6,9 @@ import {
 } from '../../services/publicInvoicePaymentService';
 import { buildReceiptEmailPdfAttachment } from '../../utils/receiptEmailPdf';
 
-const getPaymentStateStorageKey = (slugValue) => `ledgerly_public_invoice_payment_state_${String(slugValue || '').trim()}`;
+const getPaymentStateStorageKey = (slugValue) => `billmetro_public_invoice_payment_state_${String(slugValue || '').trim()}`;
 const getReceiptSentStorageKey = (slugValue, reference) =>
-  `ledgerly_public_receipt_email_sent_${String(slugValue || '').trim()}_${String(reference || '').trim()}`;
+  `billmetro_public_receipt_email_sent_${String(slugValue || '').trim()}_${String(reference || '').trim()}`;
 
 const readPendingPaymentState = (slugValue) => {
   if (typeof window === 'undefined') return null;

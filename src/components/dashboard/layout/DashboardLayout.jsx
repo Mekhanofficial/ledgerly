@@ -25,7 +25,7 @@ const DashboardLayout = ({ children, disableContentLayoutAnimation = false }) =>
 
   const modalStorageKey = useMemo(() => {
     const id = resolvedUser?.id || resolvedUser?._id;
-    return id ? `ledgerly_upgrade_modal_dismissed_${id}` : 'ledgerly_upgrade_modal_dismissed';
+    return id ? `billmetro_upgrade_modal_dismissed_${id}` : 'billmetro_upgrade_modal_dismissed';
   }, [resolvedUser]);
 
   const subscriptionBanner = useMemo(() => {

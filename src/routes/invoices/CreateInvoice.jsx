@@ -28,7 +28,7 @@ import {
   getEmailSenderConfig,
   getWatermarkFooterText,
   resolveInvoiceBaseUrl,
-  shouldHideLedgerlyBrandingEverywhere,
+  shouldHideBillMetroBrandingEverywhere,
   shouldShowWatermark
 } from '../../utils/brandingPlan';
 import { fetchTaxSettings } from '../../services/taxSettingsService';
@@ -44,6 +44,90 @@ const TEMPLATE_COLOR_FALLBACK = {
 
 const INVOICE_RENDER_WIDTH_PX = 800;
 const INVOICE_PAGE_MIN_HEIGHT_PX = Math.round((INVOICE_RENDER_WIDTH_PX * 297) / 210);
+const PDF_HTML_RENDER_SCALE = 2;
+const PDF_BREAK_MARGIN_PX = 14;
+const PDF_MIN_SEGMENT_HEIGHT_PX = 120;
+
+const collectPdfRowBreaks = ({ rootElement, scale, canvasHeight, pageHeightPx }) => {
+  const rows = Array.from(rootElement.querySelectorAll('tbody tr'));
+  if (!rows.length) return [];
+
+  const rootRect = rootElement.getBoundingClientRect();
+  const rowBounds = rows
+    .map((row) => {
+      const rowRect = row.getBoundingClientRect();
+      return {
+        top: Math.round((rowRect.top - rootRect.top) * scale),
+        bottom: Math.round((rowRect.bottom - rootRect.top) * scale)
+      };
+    })
+    .filter(
+      ({ top, bottom }) =>
+        Number.isFinite(top)
+        && Number.isFinite(bottom)
+        && top >= 0
+        && bottom > top
+        && bottom < canvasHeight
+    )
+    .sort((a, b) => a.top - b.top);
+
+  if (!rowBounds.length) return [];
+
+  const breaks = [];
+  let segmentStart = 0;
+
+  while (segmentStart + pageHeightPx < canvasHeight) {
+    const naturalBreak = segmentStart + pageHeightPx;
+    const latestAllowedBreak = naturalBreak - PDF_BREAK_MARGIN_PX;
+    const crossingRow = rowBounds.find(
+      ({ top, bottom }) =>
+        top < latestAllowedBreak
+        && bottom > latestAllowedBreak
+        && top > segmentStart + PDF_MIN_SEGMENT_HEIGHT_PX
+    );
+    const completedRow = [...rowBounds]
+      .reverse()
+      .find(
+        ({ bottom }) =>
+          bottom <= latestAllowedBreak
+          && bottom > segmentStart + PDF_MIN_SEGMENT_HEIGHT_PX
+      );
+
+    let nextBreak = crossingRow?.top || completedRow?.bottom || naturalBreak;
+    if (nextBreak - segmentStart < PDF_MIN_SEGMENT_HEIGHT_PX) {
+      nextBreak = naturalBreak;
+    }
+    if (nextBreak <= segmentStart || nextBreak >= canvasHeight) break;
+
+    breaks.push(nextBreak);
+    segmentStart = nextBreak;
+  }
+
+  return breaks;
+};
+
+const buildPdfCanvasSlice = (sourceCanvas, startY, endY) => {
+  const sliceHeight = Math.max(0, endY - startY);
+  const pageCanvas = document.createElement('canvas');
+  pageCanvas.width = sourceCanvas.width;
+  pageCanvas.height = sliceHeight;
+  const context = pageCanvas.getContext('2d');
+  if (!context) {
+    throw new Error('Unable to render invoice PDF segment');
+  }
+  context.drawImage(
+    sourceCanvas,
+    0,
+    startY,
+    sourceCanvas.width,
+    sliceHeight,
+    0,
+    0,
+    sourceCanvas.width,
+    sliceHeight
+  );
+  return pageCanvas;
+};
 
 const toCssColor = (colorValue, fallback) => {
   if (Array.isArray(colorValue)) {
@@ -216,12 +300,12 @@ const CreateInvoice = () => {
   const watermarkFooterText = useMemo(() => getWatermarkFooterText(accountInfo), [accountInfo]);
   const businessLogoUrl = useMemo(() => getBusinessLogoUrl(accountInfo), [accountInfo]);
   const emailSenderConfig = useMemo(() => getEmailSenderConfig(accountInfo), [accountInfo]);
-  const hideLedgerlyBrandingEverywhere = useMemo(
-    () => shouldHideLedgerlyBrandingEverywhere(accountInfo),
+  const hideBillMetroBrandingEverywhere = useMemo(
+    () => shouldHideBillMetroBrandingEverywhere(accountInfo),
     [accountInfo]
   );
   const invoiceBaseUrl = useMemo(
-    () => resolveInvoiceBaseUrl(accountInfo, 'https://ledgerly.com'),
+    () => resolveInvoiceBaseUrl(accountInfo, 'https://billmetro.com'),
     [accountInfo]
   );
   
@@ -273,11 +357,19 @@ const CreateInvoice = () => {
     taxEnabled: true,
     taxName: 'VAT',
     taxRate: 7.5,
-    allowManualOverride: true
+    allowManualOverride: true,
+    withholdingEnabled: false,
+    withholdingName: 'WHT',
+    withholdingRate: 0,
+    allowWithholdingOverride: true,
+    withholdingBase: 'taxable_amount'
   });
   const [useTaxOverride, setUseTaxOverride] = useState(false);
   const [taxRateOverride, setTaxRateOverride] = useState('');
   const [taxAmountOverride, setTaxAmountOverride] = useState('');
+  const [useWithholdingOverride, setUseWithholdingOverride] = useState(false);
+  const [withholdingRateOverride, setWithholdingRateOverride] = useState('');
+  const [withholdingAmountOverride, setWithholdingAmountOverride] = useState('');
   
   // Inventory products state
   const [availableProducts, setAvailableProducts] = useState([]);
@@ -354,8 +446,38 @@ const CreateInvoice = () => {
     : 0;
   const totalTax = roundMoney(Math.max(0, effectiveTaxAmount));
   const totalAmount = roundMoney(subtotal + totalTax);
+  const withholdingEnabled = taxSettings.withholdingEnabled ?? false;
+  const allowWithholdingOverride = taxSettings.allowWithholdingOverride ?? true;
+  const withholdingName = taxSettings.withholdingName || 'WHT';
+  const withholdingBase = taxSettings.withholdingBase || 'taxable_amount';
+  const baseWithholdingRate = Number.isFinite(Number(taxSettings.withholdingRate))
+    ? Number(taxSettings.withholdingRate)
+    : 0;
+  const withholdingOverrideRateValue = allowWithholdingOverride && useWithholdingOverride && withholdingRateOverride !== ''
+    ? Number(withholdingRateOverride)
+    : NaN;
+  const withholdingOverrideAmountValue = allowWithholdingOverride && useWithholdingOverride && withholdingAmountOverride !== ''
+    ? Number(withholdingAmountOverride)
+    : NaN;
+  const hasWithholdingOverrideRate = Number.isFinite(withholdingOverrideRateValue);
+  const hasWithholdingOverrideAmount = Number.isFinite(withholdingOverrideAmountValue);
+  const effectiveWithholdingRate = withholdingEnabled
+    ? Math.max(0, (hasWithholdingOverrideRate ? withholdingOverrideRateValue : baseWithholdingRate))
+    : 0;
+  const withholdingBaseAmount = withholdingBase === 'gross_total' ? totalAmount : subtotal;
+  const effectiveWithholdingAmount = withholdingEnabled
+    ? (hasWithholdingOverrideAmount
+      ? Math.max(0, withholdingOverrideAmountValue)
+      : withholdingBaseAmount * (effectiveWithholdingRate / 100))
+    : 0;
+  const totalWithholding = roundMoney(Math.max(0, effectiveWithholdingAmount));
+  const netAmountDue = roundMoney(Math.max(0, totalAmount - totalWithholding));
   const resolvedCurrency = canUseMultiCurrency ? currency : baseCurrency;
   const isTaxOverridden = taxEnabled && allowManualOverride && useTaxOverride && (hasOverrideRate || hasOverrideAmount);
+  const isWithholdingOverridden = withholdingEnabled
+    && allowWithholdingOverride
+    && useWithholdingOverride
+    && (hasWithholdingOverrideRate || hasWithholdingOverrideAmount);
   const inputClassName = 'w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-slate-600 dark:bg-slate-800 dark:text-white';
   const formatMoney = useCallback(
     (value, currencyCode = resolvedCurrency) => formatCurrency(value, currencyCode),
@@ -426,7 +548,12 @@ const CreateInvoice = () => {
           taxEnabled: settings.taxEnabled ?? true,
           taxName: settings.taxName || 'VAT',
           taxRate: Number(settings.taxRate) || 0,
-          allowManualOverride: settings.allowManualOverride ?? true
+          allowManualOverride: settings.allowManualOverride ?? true,
+          withholdingEnabled: settings.withholdingEnabled ?? false,
+          withholdingName: settings.withholdingName || 'WHT',
+          withholdingRate: Number(settings.withholdingRate) || 0,
+          allowWithholdingOverride: settings.allowWithholdingOverride ?? true,
+          withholdingBase: settings.withholdingBase || 'taxable_amount'
         });
       } catch (error) {
         console.error('Failed to load tax settings:', error);
@@ -447,6 +574,14 @@ const CreateInvoice = () => {
       setTaxAmountOverride('');
     }
   }, [taxSettings.allowManualOverride, taxSettings.taxEnabled]);
+
+  useEffect(() => {
+    if (!taxSettings.allowWithholdingOverride || !taxSettings.withholdingEnabled) {
+      setUseWithholdingOverride(false);
+      setWithholdingRateOverride('');
+      setWithholdingAmountOverride('');
+    }
+  }, [taxSettings.allowWithholdingOverride, taxSettings.withholdingEnabled]);
 
   useEffect(() => {
     if (availableTemplates.length === 0) return;
@@ -795,6 +930,17 @@ const CreateInvoice = () => {
           )
         : 0;
       const normalizedTotalAmount = roundMoney(normalizedSubtotal + normalizedTaxAmount);
+      const normalizedWithholdingBaseAmount = withholdingBase === 'gross_total'
+        ? normalizedTotalAmount
+        : normalizedSubtotal;
+      const normalizedWithholdingAmount = withholdingEnabled
+        ? roundMoney(
+            hasWithholdingOverrideAmount
+              ? Math.max(0, Number(withholdingAmountOverride) || 0)
+              : normalizedWithholdingBaseAmount * (effectiveWithholdingRate / 100)
+          )
+        : 0;
+      const normalizedNetAmountDue = roundMoney(Math.max(0, normalizedTotalAmount - normalizedWithholdingAmount));
       
       const invoiceData = {
         invoiceNumber,
@@ -811,6 +957,13 @@ const CreateInvoice = () => {
         taxAmount: normalizedTaxAmount,
         taxName,
         isTaxOverridden,
+        withholdingEnabled,
+        withholdingRateUsed: effectiveWithholdingRate,
+        withholdingAmount: normalizedWithholdingAmount,
+        withholdingName,
+        withholdingBase,
+        isWithholdingOverridden,
+        netAmountDue: normalizedNetAmountDue,
         notes,
         terms,
         currency: resolvedCurrency,
@@ -836,6 +989,7 @@ const CreateInvoice = () => {
   };
 
   const generatePDF = async (download = true, overrideLineItems = null) => {
+    let pdfContainer = null;
     try {
       const customer = getSelectedCustomer() || newCustomer;
       const sourceLineItems = (overrideLineItems && overrideLineItems.length > 0) ? overrideLineItems : lineItems;
@@ -849,9 +1003,18 @@ const CreateInvoice = () => {
           )
         : 0;
       const pdfTotalAmount = roundMoney(pdfSubtotal + pdfTaxAmount);
+      const pdfWithholdingBaseAmount = withholdingBase === 'gross_total' ? pdfTotalAmount : pdfSubtotal;
+      const pdfWithholdingAmount = withholdingEnabled
+        ? roundMoney(
+            hasWithholdingOverrideAmount
+              ? Math.max(0, Number(withholdingAmountOverride) || 0)
+              : pdfWithholdingBaseAmount * (effectiveWithholdingRate / 100)
+          )
+        : 0;
+      const pdfNetAmountDue = roundMoney(Math.max(0, pdfTotalAmount - pdfWithholdingAmount));
       
       // Create a hidden div for PDF generation
-      const pdfContainer = document.createElement('div');
+      pdfContainer = document.createElement('div');
       pdfContainer.style.position = 'absolute';
       pdfContainer.style.left = '-9999px';
       pdfContainer.style.top = '-9999px';
@@ -946,7 +1109,19 @@ const CreateInvoice = () => {
         ? `
             <div style="margin-bottom: 20px;">
               <span style="color: #6c757d; font-size: 14px;">${taxName} (${effectiveTaxRate}%):</span>
-              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${pdfTaxAmount.toFixed(2)}</span>
+              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${resolvedCurrency} ${pdfTaxAmount.toFixed(2)}</span>
+            </div>
+          `
+        : '';
+      const withholdingSummaryHtml = withholdingEnabled
+        ? `
+            <div style="margin-bottom: 20px;">
+              <span style="color: #6c757d; font-size: 14px;">Less ${withholdingName} (${effectiveWithholdingRate}%):</span>
+              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">-${resolvedCurrency} ${pdfWithholdingAmount.toFixed(2)}</span>
+            </div>
+            <div style="margin-bottom: 20px;">
+              <span style="color: #6c757d; font-size: 14px;">Net Payable:</span>
+              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${resolvedCurrency} ${pdfNetAmountDue.toFixed(2)}</span>
             </div>
           `
         : '';
@@ -998,27 +1173,34 @@ const CreateInvoice = () => {
           ` : ''}
           
           <!-- Items Table -->
-          <table style="width: 100%; border-collapse: collapse; margin: 20px 0 30px 0;">
+          <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin: 20px 0 30px 0;">
+            <colgroup>
+              <col style="width: 52%;" />
+              <col style="width: 10%;" />
+              <col style="width: 14%;" />
+              <col style="width: 10%;" />
+              <col style="width: 14%;" />
+            </colgroup>
             <thead>
               <tr style="background: ${colors.primary}; color: white;">
-                <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Description</th>
-                <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Qty</th>
-                <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Rate</th>
-                <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Tax</th>
-                <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Amount</th>
+                <th style="padding: 15px; text-align: left; vertical-align: top; font-weight: bold; font-size: 14px;">Description</th>
+                <th style="padding: 15px; text-align: left; vertical-align: top; font-weight: bold; font-size: 14px;">Qty</th>
+                <th style="padding: 15px; text-align: left; vertical-align: top; font-weight: bold; font-size: 14px;">Rate</th>
+                <th style="padding: 15px; text-align: left; vertical-align: top; font-weight: bold; font-size: 14px;">Tax</th>
+                <th style="padding: 15px; text-align: left; vertical-align: top; font-weight: bold; font-size: 14px;">Amount</th>
               </tr>
             </thead>
             <tbody>
               ${pdfLineItems.map((item, index) => `
-                <tr style="${index % 2 === 0 ? `background: ${colors.accent};` : ''} border-bottom: 1px solid #e9ecef;">
-                  <td style="padding: 15px; font-size: 14px; color: #495057;">
+                <tr style="${index % 2 === 0 ? `background: ${colors.accent};` : ''} border-bottom: 1px solid #e9ecef; break-inside: avoid; page-break-inside: avoid;">
+                  <td style="padding: 15px; vertical-align: top; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; word-break: break-word; font-size: 14px; color: #495057;">
                     ${item.description || 'Item'}
                     ${item.sku ? `<div style="font-size: 12px; color: #6c757d;">SKU: ${item.sku}</div>` : ''}
                   </td>
-                  <td style="padding: 15px; font-size: 14px; color: #495057;">${item.quantity}</td>
-                  <td style="padding: 15px; font-size: 14px; color: #495057;">${currency} ${item.rate.toFixed(2)}</td>
-                  <td style="padding: 15px; font-size: 14px; color: #495057;">${item.tax}%</td>
-                  <td style="padding: 15px; font-size: 14px; font-weight: bold; color: #495057;">${currency} ${item.amount.toFixed(2)}</td>
+                  <td style="padding: 15px; vertical-align: top; font-size: 14px; color: #495057;">${item.quantity}</td>
+                  <td style="padding: 15px; vertical-align: top; font-size: 14px; color: #495057;">${currency} ${item.rate.toFixed(2)}</td>
+                  <td style="padding: 15px; vertical-align: top; font-size: 14px; color: #495057;">${item.tax}%</td>
+                  <td style="padding: 15px; vertical-align: top; font-size: 14px; font-weight: bold; color: #495057;">${currency} ${item.amount.toFixed(2)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -1028,12 +1210,13 @@ const CreateInvoice = () => {
           <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid ${colors.primary}; text-align: right;">
             <div style="margin-bottom: 10px;">
               <span style="color: #6c757d; font-size: 14px;">Subtotal:</span>
-              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${pdfSubtotal.toFixed(2)}</span>
+              <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${resolvedCurrency} ${pdfSubtotal.toFixed(2)}</span>
             </div>
             ${taxSummaryHtml}
+            ${withholdingSummaryHtml}
             <div>
               <span style="color: ${colors.primary}; font-weight: bold; font-size: 20px;">Total:</span>
-              <span style="color: ${colors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${pdfTotalAmount.toFixed(2)}</span>
+              <span style="color: ${colors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${resolvedCurrency} ${pdfTotalAmount.toFixed(2)}</span>
             </div>
           </div>
           
@@ -1078,35 +1261,48 @@ const CreateInvoice = () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Generate PDF from HTML
-      const canvas = await html2canvas(pdfContainer, {
-        scale: 2,
+      const invoiceElement = pdfContainer.querySelector('#invoice-content') || pdfContainer;
+      const canvas = await html2canvas(invoiceElement, {
+        scale: PDF_HTML_RENDER_SCALE,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff'
       });
-      
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      let heightLeft = imgHeight;
-      let position = 0;
-      
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-      
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+      const pageHeightPx = Math.floor((canvas.width * pageHeight) / pageWidth);
+      const breakPoints = [
+        ...collectPdfRowBreaks({
+          rootElement: invoiceElement,
+          scale: PDF_HTML_RENDER_SCALE,
+          canvasHeight: canvas.height,
+          pageHeightPx
+        }),
+        canvas.height
+      ];
+
+      let currentStart = 0;
+      let renderedPages = 0;
+
+      breakPoints.forEach((endY) => {
+        if (endY <= currentStart) return;
+        const pageCanvas = buildPdfCanvasSlice(canvas, currentStart, endY);
+        if (renderedPages > 0) {
+          pdf.addPage();
+        }
+        const renderedHeight = (pageCanvas.height * pageWidth) / pageCanvas.width;
+        const imageData = pageCanvas.toDataURL('image/jpeg', 0.92);
+        pdf.addImage(imageData, 'JPEG', 0, 0, pageWidth, renderedHeight);
+        renderedPages += 1;
+        currentStart = endY;
+      });
+
+      if (renderedPages === 0) {
+        const imageData = canvas.toDataURL('image/jpeg', 0.92);
+        const renderedHeight = (canvas.height * pageWidth) / canvas.width;
+        pdf.addImage(imageData, 'JPEG', 0, 0, pageWidth, renderedHeight);
       }
-      
-      // Clean up
-      document.body.removeChild(pdfContainer);
       
       if (download) {
         pdf.save(`${invoiceNumber}.pdf`);
@@ -1119,6 +1315,10 @@ const CreateInvoice = () => {
       console.error('Error generating PDF:', error);
       addToast('Error generating PDF: ' + error.message, 'error');
       throw error;
+    } finally {
+      if (pdfContainer?.parentNode) {
+        pdfContainer.parentNode.removeChild(pdfContainer);
+      }
     }
   };
 
@@ -1127,7 +1327,7 @@ const CreateInvoice = () => {
       await generatePDF(true);
       if (watermarkEnabled) {
         addToast(
-          'Remove Ledgerly branding and unlock professional features -> Upgrade to Professional',
+          'Remove BillMetro branding and unlock professional features -> Upgrade to Professional',
           'info'
         );
       }
@@ -1249,6 +1449,17 @@ const CreateInvoice = () => {
           : 0
       );
       const sanitizedTotalAmount = roundMoney(sanitizedSubtotal + sanitizedTotalTax);
+      const sanitizedWithholdingBaseAmount = withholdingBase === 'gross_total'
+        ? sanitizedTotalAmount
+        : sanitizedSubtotal;
+      const sanitizedWithholdingAmount = withholdingEnabled
+        ? roundMoney(
+            hasWithholdingOverrideAmount
+              ? Math.max(0, Number(withholdingAmountOverride) || 0)
+              : sanitizedWithholdingBaseAmount * (effectiveWithholdingRate / 100)
+          )
+        : 0;
+      const sanitizedNetAmountDue = roundMoney(Math.max(0, sanitizedTotalAmount - sanitizedWithholdingAmount));
       const brandedEmailMessage = buildBrandedEmailMessage(emailMessage, accountInfo);
       
       const invoiceData = {
@@ -1279,6 +1490,13 @@ const CreateInvoice = () => {
         taxAmount: sanitizedTotalTax,
         taxName,
         isTaxOverridden,
+        withholdingEnabled,
+        withholdingRateUsed: effectiveWithholdingRate,
+        withholdingAmount: sanitizedWithholdingAmount,
+        withholdingName,
+        withholdingBase,
+        isWithholdingOverridden,
+        netAmountDue: sanitizedNetAmountDue,
         notes,
         terms,
         emailSubject,
@@ -1303,7 +1521,7 @@ const CreateInvoice = () => {
         emailMessage: brandedEmailMessage,
         emailFrom: emailSenderConfig.fromAddress,
         emailFooterText: emailSenderConfig.footerText,
-        hideLedgerlyBrandingEverywhere,
+        hideBillMetroBrandingEverywhere,
         invoiceBaseUrl
       };
 
@@ -1352,6 +1570,15 @@ const CreateInvoice = () => {
         )
       : 0;
     const printTotalAmount = roundMoney(printSubtotal + printTaxAmount);
+    const printWithholdingBaseAmount = withholdingBase === 'gross_total' ? printTotalAmount : printSubtotal;
+    const printWithholdingAmount = withholdingEnabled
+      ? roundMoney(
+          hasWithholdingOverrideAmount
+            ? Math.max(0, Number(withholdingAmountOverride) || 0)
+            : printWithholdingBaseAmount * (effectiveWithholdingRate / 100)
+        )
+      : 0;
+    const printNetAmountDue = roundMoney(Math.max(0, printTotalAmount - printWithholdingAmount));
     const printColors = resolveTemplateColors(selectedTemplate, availableTemplates);
     const templateMeta = availableTemplates.find((item) => item.id === selectedTemplate)
       || templateStorage.getTemplate(selectedTemplate);
@@ -1363,7 +1590,19 @@ const CreateInvoice = () => {
       ? `
           <div style="margin-bottom: 20px;">
             <span style="color: #6c757d; font-size: 14px;">${taxName} (${effectiveTaxRate}%):</span>
-            <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${printTaxAmount.toFixed(2)}</span>
+            <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${resolvedCurrency} ${printTaxAmount.toFixed(2)}</span>
+          </div>
+        `
+      : '';
+    const printWithholdingSummaryHtml = withholdingEnabled
+      ? `
+          <div style="margin-bottom: 20px;">
+            <span style="color: #6c757d; font-size: 14px;">Less ${withholdingName} (${effectiveWithholdingRate}%):</span>
+            <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">-${resolvedCurrency} ${printWithholdingAmount.toFixed(2)}</span>
+          </div>
+          <div style="margin-bottom: 20px;">
+            <span style="color: #6c757d; font-size: 14px;">Net Payable:</span>
+            <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${resolvedCurrency} ${printNetAmountDue.toFixed(2)}</span>
           </div>
         `
       : '';
@@ -1502,12 +1741,13 @@ const CreateInvoice = () => {
           <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid ${printColors.primary}; text-align: right;">
               <div style="margin-bottom: 20px;">
                 <span style="color: #6c757d; font-size: 14px;">Subtotal:</span>
-                <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${currency} ${printSubtotal.toFixed(2)}</span>
+                <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${resolvedCurrency} ${printSubtotal.toFixed(2)}</span>
               </div>
               ${printTaxSummaryHtml}
+              ${printWithholdingSummaryHtml}
               <div>
               <span style="color: ${printColors.primary}; font-weight: bold; font-size: 20px;">Total:</span>
-              <span style="color: ${printColors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${currency} ${printTotalAmount.toFixed(2)}</span>
+              <span style="color: ${printColors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${resolvedCurrency} ${printTotalAmount.toFixed(2)}</span>
               </div>
             </div>
             
@@ -1572,6 +1812,9 @@ const CreateInvoice = () => {
     setUseTaxOverride(false);
     setTaxRateOverride('');
     setTaxAmountOverride('');
+    setUseWithholdingOverride(false);
+    setWithholdingRateOverride('');
+    setWithholdingAmountOverride('');
   };
 
   return (
@@ -1892,6 +2135,10 @@ const CreateInvoice = () => {
               currency={resolvedCurrency}
               taxLabel={`${taxName} (${effectiveTaxRate}%)`}
               showTax={taxEnabled}
+              withholdingAmount={totalWithholding}
+              withholdingLabel={`Less ${withholdingName} (${effectiveWithholdingRate}%)`}
+              showWithholding={withholdingEnabled}
+              netAmountDue={netAmountDue}
             />
 
             {taxEnabled && (
@@ -1953,6 +2200,73 @@ const CreateInvoice = () => {
                 ) : (
                   <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
                     Manual tax overrides are disabled by the administrator.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {withholdingEnabled && (
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                <h3 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Withholding</h3>
+                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                  <div>
+                    <span className="font-medium">Withholding Name:</span> {withholdingName}
+                  </div>
+                  <div>
+                    <span className="font-medium">Default Rate:</span> {baseWithholdingRate}%
+                  </div>
+                  <div>
+                    <span className="font-medium">Base:</span> {withholdingBase === 'gross_total' ? 'Gross total' : 'Taxable amount'}
+                  </div>
+                </div>
+
+                {allowWithholdingOverride ? (
+                  <div className="mt-4 space-y-3">
+                    <label className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                      <input
+                        type="checkbox"
+                        checked={useWithholdingOverride}
+                        onChange={(e) => setUseWithholdingOverride(e.target.checked)}
+                        className="mr-2"
+                      />
+                      Override withholding for this invoice
+                    </label>
+
+                    {useWithholdingOverride && (
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <label className="text-xs text-gray-500 dark:text-gray-400">Override Rate (%)</label>
+                          <input
+                            type="number"
+                            value={withholdingRateOverride}
+                            onChange={(e) => setWithholdingRateOverride(e.target.value)}
+                            className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            min="0"
+                            step="0.01"
+                            placeholder={`${baseWithholdingRate}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 dark:text-gray-400">Override Amount</label>
+                          <input
+                            type="number"
+                            value={withholdingAmountOverride}
+                            onChange={(e) => setWithholdingAmountOverride(e.target.value)}
+                            className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            min="0"
+                            step="0.01"
+                            placeholder={formatMoney(totalWithholding, resolvedCurrency)}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          If you enter a withholding amount, it overrides the rate-based deduction.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                    Manual withholding overrides are disabled by the administrator.
                   </p>
                 )}
               </div>
@@ -2148,6 +2462,11 @@ const CreateInvoice = () => {
             taxName,
             taxRateUsed: effectiveTaxRate,
             isTaxOverridden,
+            withholdingName,
+            withholdingRateUsed: effectiveWithholdingRate,
+            withholdingAmount: totalWithholding,
+            netAmountDue,
+            isWithholdingOverridden,
             notes,
             terms,
             currency: resolvedCurrency,

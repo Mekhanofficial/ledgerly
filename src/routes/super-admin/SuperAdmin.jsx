@@ -601,7 +601,7 @@ const SuperAdmin = () => {
             <ShieldCheck className="w-10 h-10 text-primary-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Super Admin Only</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-              This page is restricted to the Ledgerly owner account.
+              This page is restricted to the BillMetro owner account.
             </p>
           </div>
         </div>
@@ -617,7 +617,7 @@ const SuperAdmin = () => {
             Super Admin Console
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            View and manage all data across Ledgerly businesses.
+            View and manage all data across BillMetro businesses.
           </p>
         </div>
         <button
@@ -1159,7 +1159,7 @@ const SuperAdmin = () => {
                 <input
                   value={partnerForm.webhookUrl}
                   onChange={(event) => setPartnerForm((prev) => ({ ...prev, webhookUrl: event.target.value }))}
-                  placeholder="https://partner.com/webhooks/ledgerly"
+                  placeholder="https://partner.com/webhooks/billmetro"
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
                 />
               </div>

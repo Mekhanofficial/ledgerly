@@ -74,7 +74,7 @@ const TemplatePreviewBase = ({ template, templateId, variant = 'card', className
             <div className={`${titleText} font-semibold`} style={{ color: palette.primary }}>
               {resolvedTemplate?.name || 'Template'}
             </div>
-            <div className={`${bodyText} text-slate-500`}>Ledgerly Studio</div>
+            <div className={`${bodyText} text-slate-500`}>BillMetro Studio</div>
           </div>
           <div className="text-right">
             <div className={`${metaText} text-slate-400`}>Invoice #</div>
@@ -92,8 +92,8 @@ const TemplatePreviewBase = ({ template, templateId, variant = 'card', className
           </div>
           <div className="text-right">
             <div className="font-semibold" style={{ color: palette.primary }}>From</div>
-            <div>Ledgerly Inc.</div>
-            <div>billing@ledgerly.com</div>
+            <div>BillMetro Inc.</div>
+            <div>billing@billmetro.com</div>
           </div>
         </div>
 

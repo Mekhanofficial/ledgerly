@@ -154,7 +154,7 @@ const Pricing = () => {
       name: 'White-label Add-on',
       price: 60000,
       suffix: '/year',
-      description: 'Remove Ledgerly branding (Professional only).'
+      description: 'Remove BillMetro branding (Professional only).'
     },
     {
       name: 'Extra Team Member',

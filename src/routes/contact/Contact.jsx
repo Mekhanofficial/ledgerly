@@ -24,9 +24,9 @@ const SUPPORT_CHANNELS = [
     id: 'email',
     title: 'Email Support',
     description: 'Best for billing, account, and document questions.',
-    detail: 'support@ledgerly.com',
+    detail: 'support@billmetro.com',
     ctaLabel: 'Send Email',
-    ctaHref: 'mailto:support@ledgerly.com',
+    ctaHref: 'mailto:support@billmetro.com',
     icon: Mail
   },
   {
@@ -200,7 +200,7 @@ const ContactPage = () => {
         return (
           <button
             type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent('ledgerly:open-livechat'))}
+            onClick={() => window.dispatchEvent(new CustomEvent('billmetro:open-livechat'))}
             className={`${classes} bg-transparent`}
           >
             Open Live Chat
@@ -210,7 +210,7 @@ const ContactPage = () => {
       }
 
       return (
-        <a href="mailto:sales@ledgerly.com?subject=Upgrade%20to%20Enterprise%20Live%20Chat" className={classes}>
+        <a href="mailto:sales@billmetro.com?subject=Upgrade%20to%20Enterprise%20Live%20Chat" className={classes}>
           Upgrade To Enterprise
           <ArrowRight className="h-4 w-4" />
         </a>
@@ -267,7 +267,7 @@ const ContactPage = () => {
               <div className="lg:col-span-8">
                 <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-200/80 bg-cyan-50/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-cyan-200">
                   <Sparkles className="h-3.5 w-3.5" />
-                  Contact Ledgerly
+                  Contact BillMetro
                 </p>
                 <h1 className="mt-4 text-3xl font-bold text-slate-900 dark:text-white md:text-5xl">
                   Real support for serious billing workflows

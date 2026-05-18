@@ -430,7 +430,7 @@ const Settings = () => {
               <div className={`font-medium ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                Ledgerly {APP_VERSION}
+                BillMetro {APP_VERSION}
               </div>
             </div>
             <div>

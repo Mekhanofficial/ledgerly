@@ -54,7 +54,7 @@ const ResetPassword = () => {
       <div className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 text-white text-center">
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-            <img loading="eager" decoding="async" src={logo} alt="Ledgerly logo" className="h-9 w-9 object-contain" />
+            <img loading="eager" decoding="async" src={logo} alt="BillMetro logo" className="h-9 w-9 object-contain" />
           </div>
           <h1 className="text-3xl font-bold">Set New Password</h1>
           <p className="text-blue-100 mt-2">Create a new password for your account</p>

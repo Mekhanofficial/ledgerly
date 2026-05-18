@@ -28,7 +28,7 @@ const Footer = () => {
   };
 
   const contactInfo = [
-    { icon: Mail, text: 'hello@ledgerly.com' },
+    { icon: Mail, text: 'hello@billmetro.com' },
     { icon: Phone, text: '+1 (555) 123-4567' },
     { icon: MapPin, text: 'San Francisco, CA' }
   ];
@@ -59,7 +59,7 @@ const Footer = () => {
               Streamline your invoicing workflow today
             </h3>
             <p className="text-base text-cyan-50/90 md:text-lg">
-              Join teams using Ledgerly for invoices, receipts, and payment tracking in one platform.
+              Join teams using BillMetro for invoices, receipts, and payment tracking in one platform.
             </p>
           </div>
           <div className="w-full lg:w-1/2 xl:w-2/5">
@@ -88,11 +88,11 @@ const Footer = () => {
                 loading="eager"
                 decoding="async"
                 src={logo}
-                alt="Ledgerly"
+                alt="BillMetro"
                 className="h-14 w-14 shrink-0 object-contain sm:h-16 sm:w-16"
               />
               <div>
-                <span className="text-2xl font-bold text-slate-900 dark:text-white">Ledgerly</span>
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">BillMetro</span>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Professional Billing & Inventory Platform</p>
               </div>
             </div>
@@ -150,7 +150,7 @@ const Footer = () => {
         <div className="pt-8 border-t border-slate-200/80 dark:border-slate-700/80">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="text-slate-600 dark:text-slate-400 text-sm text-center md:text-left">
-              &copy; {new Date().getFullYear()} Ledgerly, Inc. All rights reserved.
+              &copy; {new Date().getFullYear()} BillMetro, Inc. All rights reserved.
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6">

@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { fetchPublicInvoice, initializePublicInvoicePayment, verifyPublicInvoicePayment } from '../../services/publicInvoicePaymentService';
 import { resolveServerBaseUrl } from '../../utils/apiConfig';
 
-const getPaymentStateStorageKey = (slugValue) => `ledgerly_public_invoice_payment_state_${String(slugValue || '').trim()}`;
+const getPaymentStateStorageKey = (slugValue) => `billmetro_public_invoice_payment_state_${String(slugValue || '').trim()}`;
 const savePendingPaymentState = (slugValue, payload = {}) => {
   if (typeof window === 'undefined') return;
   const key = getPaymentStateStorageKey(slugValue);

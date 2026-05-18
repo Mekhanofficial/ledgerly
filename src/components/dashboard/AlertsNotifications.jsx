@@ -34,7 +34,7 @@ const AlertsNotifications = () => {
   // Load reports from localStorage
   useEffect(() => {
     try {
-      const savedReports = JSON.parse(localStorage.getItem('ledgerly_reports') || '[]');
+      const savedReports = JSON.parse(localStorage.getItem('billmetro_reports') || '[]');
       setReports(savedReports);
     } catch (error) {
       console.error('Error loading reports:', error);
@@ -51,7 +51,7 @@ const AlertsNotifications = () => {
   useEffect(() => {
     const handleReportUpdate = () => {
       try {
-        const savedReports = JSON.parse(localStorage.getItem('ledgerly_reports') || '[]');
+        const savedReports = JSON.parse(localStorage.getItem('billmetro_reports') || '[]');
         setReports(savedReports);
       } catch (error) {
         console.error('Error updating reports:', error);
@@ -597,15 +597,15 @@ const AlertsNotifications = () => {
   const handleAlertClick = (alert) => {
     if (alert.reportId) {
       // Store which report to show when navigating
-      localStorage.setItem('ledgerly_focus_report', alert.reportId);
+      localStorage.setItem('billmetro_focus_report', alert.reportId);
     }
     if (alert.transactionId) {
       // Store transaction to focus
-      localStorage.setItem('ledgerly_focus_transaction', alert.transactionId);
+      localStorage.setItem('billmetro_focus_transaction', alert.transactionId);
     }
     if (alert.invoiceId) {
       // Store invoice to focus
-      localStorage.setItem('ledgerly_focus_invoice', alert.invoiceId);
+      localStorage.setItem('billmetro_focus_invoice', alert.invoiceId);
     }
   };
 

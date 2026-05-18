@@ -587,7 +587,7 @@ const BillingSettings = () => {
                     <p className={`text-xs ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-500'
                     }`}>
-                      Remove Ledgerly branding (Professional+)
+                      Remove BillMetro branding (Professional+)
                     </p>
                     <p className="mt-1 text-xs text-purple-600 dark:text-purple-400">
                       {isYearly ? formatCurrency(ADD_ON_PRICING.whiteLabel.yearly) : formatCurrency(ADD_ON_PRICING.whiteLabel.monthly)} {isYearly ? 'per year' : 'per month'}

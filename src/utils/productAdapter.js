@@ -1,9 +1,35 @@
+import { resolveServerBaseUrl } from './apiConfig';
+
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
 const isValidObjectId = (value) => typeof value === 'string' && /^[a-fA-F0-9]{24}$/.test(value);
+
+const resolveProductImageUrl = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  if (/^(?:https?:|data:|blob:)/i.test(raw)) {
+    return raw;
+  }
+
+  const normalized = raw
+    .replace(/\\/g, '/')
+    .replace(/^\.?\//, '')
+    .replace(/^\/+/, '');
+
+  if (/^api\/v\d+\/uploads\//i.test(normalized)) {
+    return `${resolveServerBaseUrl()}/${normalized.replace(/^api\/v\d+\//i, '')}`;
+  }
+
+  if (/^uploads\//i.test(normalized)) {
+    return `${resolveServerBaseUrl()}/${normalized}`;
+  }
+
+  return raw;
+};
 
 export const mapProductFromApi = (product = {}) => {
   const stockQuantity = product.stock?.quantity ?? product.quantity ?? 0;
@@ -32,7 +58,7 @@ export const mapProductFromApi = (product = {}) => {
     reserved: toNumber(product.stock?.reserved ?? 0),
     reorderLevel: toNumber(reorderLevel),
     isActive: product.isActive !== false,
-    image: primaryImage?.url || product.image || null,
+    image: resolveProductImageUrl(primaryImage?.url || product.image || null),
     raw: product
   };
 };

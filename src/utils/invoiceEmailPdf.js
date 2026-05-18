@@ -396,6 +396,19 @@ const LEGACY_generateInvoicePdfDocument = async ({
   const taxRateUsed = toFiniteNumber(invoiceData?.taxRateUsed ?? invoiceData?.tax?.percentage, 0);
   const taxName = toSafeString(invoiceData?.taxName || invoiceData?.tax?.description || 'Tax') || 'Tax';
   const showTax = totalTax > 0 || taxRateUsed > 0;
+  const withholdingAmount = toFiniteNumber(
+    invoiceData?.withholdingAmount ?? invoiceData?.withholding?.amount,
+    0
+  );
+  const withholdingRateUsed = toFiniteNumber(
+    invoiceData?.withholdingRateUsed ?? invoiceData?.withholding?.percentage,
+    0
+  );
+  const withholdingName = toSafeString(
+    invoiceData?.withholdingName || invoiceData?.withholding?.description || 'WHT'
+  ) || 'WHT';
+  const showWithholding = withholdingAmount > 0 || withholdingRateUsed > 0;
+  const netAmountDue = toFiniteNumber(invoiceData?.netAmountDue, totalAmount - withholdingAmount);
   const watermarkEnabled = shouldShowWatermark(companyData);
   const watermarkFooterText = getWatermarkFooterText(companyData);
 
@@ -533,7 +546,7 @@ const LEGACY_generateInvoicePdfDocument = async ({
   const totalsX = pageWidth - marginX - totalsWidth;
   doc.setDrawColor(...primaryRgb);
   doc.setLineWidth(0.35);
-  doc.roundedRect(totalsX, y, totalsWidth, showTax ? 26 : 20, 1.6, 1.6, 'S');
+  doc.roundedRect(totalsX, y, totalsWidth, showWithholding ? 38 : (showTax ? 26 : 20), 1.6, 1.6, 'S');
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
@@ -548,12 +561,27 @@ const LEGACY_generateInvoicePdfDocument = async ({
     totalsLineY += 6;
   }
 
+  if (showWithholding) {
+    doc.text(`Less ${withholdingName} (${withholdingRateUsed.toFixed(2)}%):`, totalsX + 4, totalsLineY);
+    doc.text(`-${formatMoney(currency, withholdingAmount)}`, totalsX + totalsWidth - 4, totalsLineY, { align: 'right' });
+    totalsLineY += 6;
+  }
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...primaryRgb);
   doc.text('Total:', totalsX + 4, totalsLineY);
   doc.text(formatMoney(currency, totalAmount), totalsX + totalsWidth - 4, totalsLineY, { align: 'right' });
   y = totalsLineY + 8;
+
+  if (showWithholding) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(90, 96, 106);
+    doc.text('Net Payable:', totalsX + 4, y);
+    doc.text(formatMoney(currency, netAmountDue), totalsX + totalsWidth - 4, y, { align: 'right' });
+    y += 6;
+  }
 
   y = drawWrappedBlock({
     doc,
@@ -616,21 +644,34 @@ const buildInvoiceHtml = ({ invoiceData, templateStyle, companyData }) => {
   const taxRateUsed = toFiniteNumber(invoiceData?.taxRateUsed ?? invoiceData?.tax?.percentage, 0);
   const taxName = toSafeString(invoiceData?.taxName || invoiceData?.tax?.description || 'Tax') || 'Tax';
   const showTax = totalTax > 0 || taxRateUsed > 0;
+  const withholdingAmount = toFiniteNumber(
+    invoiceData?.withholdingAmount ?? invoiceData?.withholding?.amount,
+    0
+  );
+  const withholdingRateUsed = toFiniteNumber(
+    invoiceData?.withholdingRateUsed ?? invoiceData?.withholding?.percentage,
+    0
+  );
+  const withholdingName = toSafeString(
+    invoiceData?.withholdingName || invoiceData?.withholding?.description || 'WHT'
+  ) || 'WHT';
+  const showWithholding = withholdingAmount > 0 || withholdingRateUsed > 0;
+  const netAmountDue = toFiniteNumber(invoiceData?.netAmountDue, totalAmount - withholdingAmount);
   const notes = toSafeString(invoiceData?.notes);
   const terms = toSafeString(invoiceData?.terms);
   const watermarkEnabled = shouldShowWatermark(companyData);
   const watermarkFooterText = getWatermarkFooterText(companyData);
 
   const rowsHtml = lineItems.map((item, index) => `
-    <tr style="${index % 2 === 0 ? `background: ${colors.accent};` : ''} border-bottom: 1px solid #e9ecef;">
-      <td style="padding: 15px; font-size: 14px; color: #495057;">
+    <tr style="${index % 2 === 0 ? `background: ${colors.accent};` : ''} border-bottom: 1px solid #e9ecef; break-inside: avoid; page-break-inside: avoid;">
+      <td style="padding: 15px; vertical-align: top; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; word-break: break-word; font-size: 14px; color: #495057;">
         ${escapeHtml(item.description || 'Item')}
         ${item.sku ? `<div style="font-size: 12px; color: #6c757d;">SKU: ${escapeHtml(item.sku)}</div>` : ''}
       </td>
-      <td style="padding: 15px; font-size: 14px; color: #495057;">${item.quantity}</td>
-      <td style="padding: 15px; font-size: 14px; color: #495057;">${escapeHtml(currency)} ${item.rate.toFixed(2)}</td>
-      <td style="padding: 15px; font-size: 14px; color: #495057;">${item.tax}%</td>
-      <td style="padding: 15px; font-size: 14px; font-weight: bold; color: #495057;">${escapeHtml(currency)} ${item.amount.toFixed(2)}</td>
+      <td style="padding: 15px; vertical-align: top; font-size: 14px; color: #495057;">${item.quantity}</td>
+      <td style="padding: 15px; vertical-align: top; font-size: 14px; color: #495057;">${escapeHtml(currency)} ${item.rate.toFixed(2)}</td>
+      <td style="padding: 15px; vertical-align: top; font-size: 14px; color: #495057;">${item.tax}%</td>
+      <td style="padding: 15px; vertical-align: top; font-size: 14px; font-weight: bold; color: #495057;">${escapeHtml(currency)} ${item.amount.toFixed(2)}</td>
     </tr>
   `).join('');
 
@@ -639,6 +680,18 @@ const buildInvoiceHtml = ({ invoiceData, templateStyle, companyData }) => {
       <div style="margin-bottom: 20px;">
         <span style="color: #6c757d; font-size: 14px;">${escapeHtml(taxName)} (${taxRateUsed}%):</span>
         <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${escapeHtml(currency)} ${totalTax.toFixed(2)}</span>
+      </div>
+    `
+    : '';
+  const withholdingHtml = showWithholding
+    ? `
+      <div style="margin-bottom: 20px;">
+        <span style="color: #6c757d; font-size: 14px;">Less ${escapeHtml(withholdingName)} (${withholdingRateUsed}%):</span>
+        <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">-${escapeHtml(currency)} ${withholdingAmount.toFixed(2)}</span>
+      </div>
+      <div style="margin-bottom: 20px;">
+        <span style="color: #6c757d; font-size: 14px;">Net Payable:</span>
+        <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${escapeHtml(currency)} ${netAmountDue.toFixed(2)}</span>
       </div>
     `
     : '';
@@ -687,14 +740,21 @@ const buildInvoiceHtml = ({ invoiceData, templateStyle, companyData }) => {
           </div>
         ` : ''}
 
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0 30px 0;">
+        <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin: 20px 0 30px 0;">
+          <colgroup>
+            <col style="width: 52%;" />
+            <col style="width: 10%;" />
+            <col style="width: 14%;" />
+            <col style="width: 10%;" />
+            <col style="width: 14%;" />
+          </colgroup>
           <thead>
             <tr style="background: ${colors.primary}; color: white;">
-              <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Description</th>
-              <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Qty</th>
-              <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Rate</th>
-              <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Tax</th>
-              <th style="padding: 15px; text-align: left; font-weight: bold; font-size: 14px;">Amount</th>
+              <th style="padding: 15px; text-align: left; vertical-align: top; font-weight: bold; font-size: 14px;">Description</th>
+              <th style="padding: 15px; text-align: left; vertical-align: top; font-weight: bold; font-size: 14px;">Qty</th>
+              <th style="padding: 15px; text-align: left; vertical-align: top; font-weight: bold; font-size: 14px;">Rate</th>
+              <th style="padding: 15px; text-align: left; vertical-align: top; font-weight: bold; font-size: 14px;">Tax</th>
+              <th style="padding: 15px; text-align: left; vertical-align: top; font-weight: bold; font-size: 14px;">Amount</th>
             </tr>
           </thead>
           <tbody>${rowsHtml}</tbody>
@@ -706,6 +766,7 @@ const buildInvoiceHtml = ({ invoiceData, templateStyle, companyData }) => {
             <span style="font-weight: bold; color: #495057; margin-left: 20px; font-size: 16px;">${escapeHtml(currency)} ${subtotal.toFixed(2)}</span>
           </div>
           ${taxHtml}
+          ${withholdingHtml}
           <div>
             <span style="color: ${colors.primary}; font-weight: bold; font-size: 20px;">Total:</span>
             <span style="color: ${colors.primary}; font-weight: bold; margin-left: 20px; font-size: 24px;">${escapeHtml(currency)} ${totalAmount.toFixed(2)}</span>
@@ -747,18 +808,25 @@ const collectInvoiceRowBreaks = ({
   if (!rows.length) return [];
 
   const invoiceRect = invoiceElement.getBoundingClientRect();
-  const sortedRowBottoms = Array.from(
-    new Set(
-      rows
-        .map((row) => {
-          const rowRect = row.getBoundingClientRect();
-          return Math.round((rowRect.bottom - invoiceRect.top) * scale);
-        })
-        .filter((value) => Number.isFinite(value) && value > 0 && value < canvasHeight)
+  const rowBounds = rows
+    .map((row) => {
+      const rowRect = row.getBoundingClientRect();
+      return {
+        top: Math.round((rowRect.top - invoiceRect.top) * scale),
+        bottom: Math.round((rowRect.bottom - invoiceRect.top) * scale)
+      };
+    })
+    .filter(
+      ({ top, bottom }) =>
+        Number.isFinite(top)
+        && Number.isFinite(bottom)
+        && top >= 0
+        && bottom > top
+        && bottom < canvasHeight
     )
-  ).sort((a, b) => a - b);
+    .sort((a, b) => a.top - b.top);
 
-  if (!sortedRowBottoms.length) return [];
+  if (!rowBounds.length) return [];
 
   const breaks = [];
   let segmentStart = 0;
@@ -766,13 +834,24 @@ const collectInvoiceRowBreaks = ({
   while (segmentStart + pageHeightPx < canvasHeight) {
     const naturalBreak = segmentStart + pageHeightPx;
     const latestAllowedBreak = naturalBreak - MIN_BREAK_MARGIN_PX;
-    const rowBreak = [...sortedRowBottoms]
+    const crossingRow = rowBounds.find(
+      ({ top, bottom }) =>
+        top < latestAllowedBreak
+        && bottom > latestAllowedBreak
+        && top > segmentStart + MIN_SEGMENT_HEIGHT_PX
+    );
+    const completedRow = [...rowBounds]
       .reverse()
       .find(
-        (value) => value <= latestAllowedBreak && value > segmentStart + MIN_SEGMENT_HEIGHT_PX
+        ({ bottom }) =>
+          bottom <= latestAllowedBreak
+          && bottom > segmentStart + MIN_SEGMENT_HEIGHT_PX
       );
 
-    const nextBreak = rowBreak && rowBreak > segmentStart ? rowBreak : naturalBreak;
+    let nextBreak = crossingRow?.top || completedRow?.bottom || naturalBreak;
+    if (nextBreak - segmentStart < MIN_SEGMENT_HEIGHT_PX) {
+      nextBreak = naturalBreak;
+    }
     if (nextBreak <= segmentStart || nextBreak >= canvasHeight) break;
 
     breaks.push(nextBreak);

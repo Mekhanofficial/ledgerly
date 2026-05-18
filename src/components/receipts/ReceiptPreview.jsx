@@ -104,7 +104,7 @@ const ReceiptPreview = ({
     return paymentMethod === 'Card' ? 'Card payment' : paymentMethod === 'Mobile Money' ? 'Mobile transfer' : 'Cash payment';
   };
 
-  const companyName = accountInfo?.companyName || accountInfo?.businessName || 'Ledgerly';
+  const companyName = accountInfo?.companyName || accountInfo?.businessName || 'BillMetro';
   const locationParts = [
     accountInfo?.address,
     [accountInfo?.city, accountInfo?.state, accountInfo?.zipCode].filter(Boolean).join(', '),

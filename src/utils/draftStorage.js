@@ -2,9 +2,9 @@
 export const draftStorage = {
   saveDraft: (draftData) => {
     try {
-      const drafts = JSON.parse(localStorage.getItem('ledgerly_drafts') || '[]');
+      const drafts = JSON.parse(localStorage.getItem('billmetro_drafts') || '[]');
       drafts.push(draftData);
-      localStorage.setItem('ledgerly_drafts', JSON.stringify(drafts));
+      localStorage.setItem('billmetro_drafts', JSON.stringify(drafts));
       return true;
     } catch (error) {
       console.error('Error saving draft:', error);
@@ -14,7 +14,7 @@ export const draftStorage = {
 
   getDrafts: () => {
     try {
-      return JSON.parse(localStorage.getItem('ledgerly_drafts') || '[]');
+      return JSON.parse(localStorage.getItem('billmetro_drafts') || '[]');
     } catch (error) {
       console.error('Error getting drafts:', error);
       return [];
@@ -23,7 +23,7 @@ export const draftStorage = {
 
   getDraft: (id) => {
     try {
-      const drafts = JSON.parse(localStorage.getItem('ledgerly_drafts') || '[]');
+      const drafts = JSON.parse(localStorage.getItem('billmetro_drafts') || '[]');
       return drafts.find(d => d.id === id);
     } catch (error) {
       console.error('Error getting draft:', error);
@@ -33,11 +33,11 @@ export const draftStorage = {
 
   updateDraft: (id, updatedData) => {
     try {
-      const drafts = JSON.parse(localStorage.getItem('ledgerly_drafts') || '[]');
+      const drafts = JSON.parse(localStorage.getItem('billmetro_drafts') || '[]');
       const index = drafts.findIndex(d => d.id === id);
       if (index !== -1) {
         drafts[index] = { ...drafts[index], ...updatedData };
-        localStorage.setItem('ledgerly_drafts', JSON.stringify(drafts));
+        localStorage.setItem('billmetro_drafts', JSON.stringify(drafts));
         return true;
       }
       return false;
@@ -49,9 +49,9 @@ export const draftStorage = {
 
   deleteDraft: (id) => {
     try {
-      const drafts = JSON.parse(localStorage.getItem('ledgerly_drafts') || '[]');
+      const drafts = JSON.parse(localStorage.getItem('billmetro_drafts') || '[]');
       const updatedDrafts = drafts.filter(d => d.id !== id);
-      localStorage.setItem('ledgerly_drafts', JSON.stringify(updatedDrafts));
+      localStorage.setItem('billmetro_drafts', JSON.stringify(updatedDrafts));
       return true;
     } catch (error) {
       console.error('Error deleting draft:', error);
@@ -61,7 +61,7 @@ export const draftStorage = {
 
   clearDrafts: () => {
     try {
-      localStorage.removeItem('ledgerly_drafts');
+      localStorage.removeItem('billmetro_drafts');
       return true;
     } catch (error) {
       console.error('Error clearing drafts:', error);

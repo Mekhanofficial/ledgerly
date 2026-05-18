@@ -215,7 +215,7 @@ export const PaymentProvider = ({ children }) => {
   }, [normalizeListPayload]);
   
   useEffect(() => {
-    const savedMethods = JSON.parse(localStorage.getItem('ledgerly_payment_methods')) || getDefaultPaymentMethods();
+    const savedMethods = JSON.parse(localStorage.getItem('billmetro_payment_methods')) || getDefaultPaymentMethods();
     setPaymentMethods(savedMethods);
   }, []);
 
@@ -343,7 +343,7 @@ export const PaymentProvider = ({ children }) => {
   // Save payment methods to localStorage
   useEffect(() => {
     if (!loading) {
-      localStorage.setItem('ledgerly_payment_methods', JSON.stringify(paymentMethods));
+      localStorage.setItem('billmetro_payment_methods', JSON.stringify(paymentMethods));
     }
   }, [paymentMethods, loading]);
 
@@ -699,8 +699,8 @@ export const PaymentProvider = ({ children }) => {
         setPendingPayments([]);
         
         // Clear localStorage
-        localStorage.removeItem('ledgerly_transactions');
-        localStorage.removeItem('Ledgerly_receipts');
+        localStorage.removeItem('billmetro_transactions');
+        localStorage.removeItem('billmetro_receipts');
         localStorage.removeItem('pending_payments');
         
         // Update related invoice statuses
@@ -755,8 +755,8 @@ export const PaymentProvider = ({ children }) => {
       setPendingPayments(backup.pendingPayments || []);
       
       // Save to localStorage
-      localStorage.setItem('ledgerly_transactions', JSON.stringify(backup.transactions || []));
-      localStorage.setItem('Ledgerly_receipts', JSON.stringify(backup.receipts || []));
+      localStorage.setItem('billmetro_transactions', JSON.stringify(backup.transactions || []));
+      localStorage.setItem('billmetro_receipts', JSON.stringify(backup.receipts || []));
       localStorage.setItem('pending_payments', JSON.stringify(backup.pendingPayments || []));
       
       addToast('Payment history restored from backup!', 'success');

@@ -23,9 +23,9 @@ export const PLAN_FEATURES = {
 };
 
 const DEFAULT_EMAIL_SENDERS = {
-  starter: 'invoices@ledgerly.com',
-  professional: 'billing@ledgerly.com',
-  enterprise: 'billing@ledgerly.com'
+  starter: 'invoices@billmetro.com',
+  professional: 'billing@billmetro.com',
+  enterprise: 'billing@billmetro.com'
 };
 
 const sanitizeDomain = (domainValue = '') => {
@@ -72,8 +72,8 @@ export const resolveBrandingProfile = (userLike = {}) => {
     enabled: Boolean(incomingWhiteLabel.enabled ?? isEnterprise),
     customDomain: isEnterprise ? customDomain : '',
     customEmailSender: isEnterprise ? customEmailSender : '',
-    hideLedgerlyBrandingEverywhere: Boolean(
-      incomingWhiteLabel.hideLedgerlyBrandingEverywhere ?? isEnterprise
+    hideBillMetroBrandingEverywhere: Boolean(
+      incomingWhiteLabel.hideBillMetroBrandingEverywhere ?? isEnterprise
     )
   };
 
@@ -94,11 +94,11 @@ export const getPlanFeatures = (userLike = {}) => {
   return PLAN_FEATURES[profile.plan] || PLAN_FEATURES.starter;
 };
 
-export const shouldHideLedgerlyBrandingEverywhere = (userLike = {}) => {
+export const shouldHideBillMetroBrandingEverywhere = (userLike = {}) => {
   const profile = resolveBrandingProfile(userLike);
   return Boolean(
     profile.isWhiteLabelClient ||
-    profile.whiteLabel?.hideLedgerlyBrandingEverywhere
+    profile.whiteLabel?.hideBillMetroBrandingEverywhere
   );
 };
 
@@ -106,13 +106,13 @@ export const shouldShowWatermark = (userLike = {}) => {
   const profile = resolveBrandingProfile(userLike);
   const features = getPlanFeatures(profile);
   if (!features.watermark) return false;
-  if (shouldHideLedgerlyBrandingEverywhere(profile)) return false;
+  if (shouldHideBillMetroBrandingEverywhere(profile)) return false;
   return !profile.brandingSettings?.removeWatermark;
 };
 
 export const getWatermarkFooterText = (userLike = {}) => {
   if (!shouldShowWatermark(userLike)) return '';
-  return 'Powered by Ledgerly';
+  return 'Powered by BillMetro';
 };
 
 export const canUseBusinessLogo = (userLike = {}) => {
@@ -139,9 +139,9 @@ export const getEmailSenderConfig = (userLike = {}) => {
 
   let footerText = '';
   if (profile.plan === 'starter') {
-    footerText = 'Sent via Ledgerly';
+    footerText = 'Sent via BillMetro';
   }
-  if (shouldHideLedgerlyBrandingEverywhere(profile)) {
+  if (shouldHideBillMetroBrandingEverywhere(profile)) {
     footerText = '';
   }
 
@@ -153,7 +153,7 @@ export const getEmailSenderConfig = (userLike = {}) => {
 
 export const resolveInvoiceBaseUrl = (
   userLike = {},
-  defaultBaseUrl = 'https://ledgerly.com'
+  defaultBaseUrl = 'https://billmetro.com'
 ) => {
   const profile = resolveBrandingProfile(userLike);
   const features = getPlanFeatures(profile);
@@ -169,15 +169,15 @@ export const buildBrandedEmailMessage = (message, userLike = {}) => {
   const profile = resolveBrandingProfile(userLike);
   const trimmed = String(message || '').trim();
   const senderConfig = getEmailSenderConfig(profile);
-  const hideLedgerly = shouldHideLedgerlyBrandingEverywhere(profile);
+  const hideBillMetro = shouldHideBillMetroBrandingEverywhere(profile);
 
-  if (hideLedgerly) {
+  if (hideBillMetro) {
     return trimmed;
   }
 
   if (profile.plan === 'starter' && senderConfig.footerText) {
     const lower = trimmed.toLowerCase();
-    if (lower.includes('sent via ledgerly')) {
+    if (lower.includes('sent via billmetro')) {
       return trimmed;
     }
     return `${trimmed}\n\n${senderConfig.footerText}`.trim();

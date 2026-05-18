@@ -380,7 +380,7 @@ const SignUpPage = () => {
             </h2>
             
             <p className="text-gray-600 dark:text-gray-300 mb-6 text-center">
-              Enter the 6-digit code sent to <strong>{verificationEmail || formData.email}</strong> to activate your Ledgerly account.
+              Enter the 6-digit code sent to <strong>{verificationEmail || formData.email}</strong> to activate your BillMetro account.
             </p>
 
             {apiErrorMessage && (
@@ -516,7 +516,7 @@ const SignUpPage = () => {
               loading="eager"
               decoding="async"
               src={logo}
-              alt="Ledgerly logo"
+              alt="BillMetro logo"
               className="mb-4 h-14 w-14 object-contain"
             />
             <h1 className="mb-2 text-4xl font-bold">Invoicing & Inventory</h1>
@@ -558,7 +558,7 @@ const SignUpPage = () => {
           </div>
 
           <div className="relative mt-8 border-t border-white/25 pt-6">
-            <p className="mb-3 text-sm text-cyan-50/90">Join thousands of businesses using Ledgerly</p>
+            <p className="mb-3 text-sm text-cyan-50/90">Join thousands of businesses using BillMetro</p>
             <div className="flex items-center space-x-4">
               <div className="flex -space-x-2">
                 {[1, 2, 3, 4].map((i) => (
@@ -962,7 +962,7 @@ const SignUpPage = () => {
                 </div>
 
                 <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Ledgerly Features:</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">BillMetro Features:</h4>
                   <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                     <li className="flex items-center">
                       <CheckCircle className="w-4 h-4 text-emerald-500 mr-2" />
@@ -1010,7 +1010,7 @@ const SignUpPage = () => {
                       and{" "}
                       <a href="/privacy" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">
                         Privacy Policy
-                      </a>. I understand that Ledgerly will process my data in accordance with these terms.
+                      </a>. I understand that BillMetro will process my data in accordance with these terms.
                     </span>
                   </label>
                   {errors.acceptTerms && (

@@ -41,6 +41,16 @@ const PROVIDERS = [
     ]
   },
   {
+    id: 'flutterwave',
+    label: 'Flutterwave',
+    category: 'Payments',
+    fields: [
+      { key: 'publicKey', label: 'Public Key' },
+      { key: 'secretKey', label: 'Secret Key', type: 'password' },
+      { key: 'webhookSecret', label: 'Webhook Secret', type: 'password' }
+    ]
+  },
+  {
     id: 'email',
     label: 'SMTP / Email',
     category: 'Messaging',
@@ -89,7 +99,10 @@ const PROVIDERS = [
     category: 'Messaging',
     fields: [
       { key: 'apiKey', label: 'API Key', type: 'password' },
-      { key: 'senderId', label: 'Sender ID' }
+      { key: 'senderId', label: 'Sender ID' },
+      { key: 'defaultCountryCode', label: 'Default Country Code' },
+      { key: 'invoiceTemplate', label: 'Invoice Template', type: 'textarea' },
+      { key: 'reminderTemplate', label: 'Reminder Template', type: 'textarea' }
     ]
   },
   {
@@ -109,6 +122,22 @@ const PROVIDERS = [
     fields: [
       { key: 'keyRotationDays', label: 'Key Rotation (days)', type: 'number' },
       { key: 'webhookBaseUrl', label: 'Webhook Base URL' }
+    ]
+  },
+  {
+    id: 'nigeriaEInvoice',
+    label: 'Nigeria E-Invoice',
+    category: 'Compliance',
+    fields: [
+      { key: 'regime', label: 'Regime' },
+      { key: 'schemaVersion', label: 'Schema Version' },
+      { key: 'sellerTin', label: 'Seller TIN' },
+      { key: 'appProvider', label: 'APP Provider' },
+      { key: 'appProviderId', label: 'APP Provider ID' },
+      { key: 'apiBaseUrl', label: 'API Base URL' },
+      { key: 'autoSubmitOnSend', label: 'Auto Queue On Send', type: 'checkbox' },
+      { key: 'requireBuyerTin', label: 'Require Buyer TIN', type: 'checkbox' },
+      { key: 'autoGenerateQr', label: 'Auto Generate QR', type: 'checkbox' }
     ]
   }
 ];
@@ -233,6 +262,25 @@ const IntegrationsSettings = () => {
               <option key={option} value={option}>{option}</option>
             ))}
           </select>
+        </div>
+      );
+    }
+
+    if (field.type === 'textarea') {
+      return (
+        <div key={field.key} className="md:col-span-2">
+          <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            {field.label}
+          </label>
+          <textarea
+            value={value ?? ''}
+            disabled={readOnly}
+            onChange={(event) => setField(activeProvider, field.key, event.target.value)}
+            rows={4}
+            className={`w-full px-3 py-2 border rounded-lg resize-y ${
+              isDarkMode ? 'bg-gray-900/60 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'
+            }`}
+          />
         </div>
       );
     }

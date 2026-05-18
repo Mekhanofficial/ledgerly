@@ -1,8 +1,8 @@
 // components/animations/GlowingBorderTrail.jsx
 import React, { useEffect, useRef } from 'react';
 
-const TRAIL_TIMELINE_KEY = '__ledgerly_border_trail_timeline__';
-const TRAIL_TIMELINE_STORAGE_KEY = '__ledgerly_border_trail_timeline_session__';
+const TRAIL_TIMELINE_KEY = '__billmetro_border_trail_timeline__';
+const TRAIL_TIMELINE_STORAGE_KEY = '__billmetro_border_trail_timeline_session__';
 
 const GlowingBorderTrail = ({ isActive = true, duration = 22000, pauseDuration = 0, isDarkMode = false }) => {
   const trailRef = useRef(null);

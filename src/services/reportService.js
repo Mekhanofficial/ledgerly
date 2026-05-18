@@ -1,7 +1,7 @@
 import api from './api';
 import { isAccessDeniedError } from '../utils/accessControl';
 
-const LOCAL_REPORTS_KEY = 'ledgerly_reports';
+const LOCAL_REPORTS_KEY = 'billmetro_reports';
 const LOCAL_REPORT_ID_PREFIX = 'LOCAL-REPORT-';
 
 const mapReportResponse = (report = {}) => ({

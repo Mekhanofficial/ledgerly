@@ -9,7 +9,7 @@ const REVIEWS = [
     role: 'Freelance Designer',
     avatar: 'https://i.pravatar.cc/120?img=12',
     quote:
-      'Ledgerly helped me send invoices in under 2 minutes. Follow-ups are automatic, and my monthly paid invoices increased without extra admin work.',
+      'BillMetro helped me send invoices in under 2 minutes. Follow-ups are automatic, and my monthly paid invoices increased without extra admin work.',
     rating: 5,
     metric: '32 invoices paid last month'
   },
@@ -108,7 +108,7 @@ const Testimonials = () => {
             Invoice Success Stories
           </p>
           <h2 className="mt-2 text-2xl md:text-3xl font-bold text-slate-800 dark:text-white">
-            Teams billing faster with Ledgerly
+            Teams billing faster with BillMetro
           </h2>
         </motion.div>
 

@@ -130,5 +130,5 @@ export const getAvatarSeed = (user) => {
     return user.firstName;
   }
 
-  return 'Ledgerly';
+  return 'BillMetro';
 };

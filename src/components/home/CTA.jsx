@@ -40,7 +40,7 @@ const CTA = () => {
             </h2>
 
             <p className="mt-4 text-base md:text-lg text-slate-600 dark:text-slate-300">
-              Join teams using Ledgerly to automate billing, improve follow-ups, and track every payment in one dashboard.
+              Join teams using BillMetro to automate billing, improve follow-ups, and track every payment in one dashboard.
             </p>
 
             <div className="mt-7 flex justify-center">

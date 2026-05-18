@@ -231,7 +231,7 @@ const DataBackupSettings = () => {
                 value={backup.backupLocation || ''}
                 onChange={handleChange}
                 disabled={readOnly}
-                placeholder="e.g. s3://ledgerly-backups/acme-inc or \\\\server\\backup"
+                placeholder="e.g. s3://billmetro-backups/acme-inc or \\\\server\\backup"
                 className={`w-full px-3 py-2 border rounded-lg ${
                   isDarkMode ? 'bg-gray-900/60 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'
                 }`}
@@ -283,4 +283,3 @@ const DataBackupSettings = () => {
 };
 
 export default DataBackupSettings;
-

@@ -25,8 +25,8 @@ export const NotificationProvider = ({ children }) => {
     (value, currencyCode) => formatCurrency(value, currencyCode || baseCurrency),
     [baseCurrency]
   );
-  const notificationsKey = userId ? `ledgerly_notifications_${userId}` : null;
-  const processedKey = userId ? `ledgerly_processed_items_${userId}` : null;
+  const notificationsKey = userId ? `billmetro_notifications_${userId}` : null;
+  const processedKey = userId ? `billmetro_processed_items_${userId}` : null;
   
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -192,7 +192,7 @@ export const NotificationProvider = ({ children }) => {
 
       // Check for new receipts
       try {
-        const savedReceipts = JSON.parse(localStorage.getItem('Ledgerly_receipts') || '[]');
+        const savedReceipts = JSON.parse(localStorage.getItem('billmetro_receipts') || '[]');
         const recentReceipts = savedReceipts.filter(receipt => {
           const receiptKey = `receipt_${receipt.id}`;
           if (currentProcessedItems.has(receiptKey)) return false;
@@ -227,7 +227,7 @@ export const NotificationProvider = ({ children }) => {
 
       // Check for completed reports
       try {
-        const reports = JSON.parse(localStorage.getItem('ledgerly_reports') || '[]');
+        const reports = JSON.parse(localStorage.getItem('billmetro_reports') || '[]');
         const completedReports = reports.filter(report => {
           const reportKey = `report_${report.id}`;
           if (currentProcessedItems.has(reportKey)) return false;

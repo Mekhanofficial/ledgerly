@@ -1,7 +1,18 @@
 // src/components/invoices/create/InvoiceSummary.jsx
 import React from 'react';
 
-const InvoiceSummary = ({ subtotal, totalTax, totalAmount, currency, taxLabel = 'Tax', showTax = true }) => {
+const InvoiceSummary = ({
+  subtotal,
+  totalTax,
+  totalAmount,
+  currency,
+  taxLabel = 'Tax',
+  showTax = true,
+  withholdingAmount = 0,
+  withholdingLabel = 'WHT',
+  showWithholding = false,
+  netAmountDue = 0
+}) => {
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
       <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
@@ -23,6 +34,14 @@ const InvoiceSummary = ({ subtotal, totalTax, totalAmount, currency, taxLabel = 
             </span>
           </div>
         )}
+        {showWithholding && (
+          <div className="flex justify-between">
+            <span className="text-gray-600 dark:text-gray-300">{withholdingLabel}:</span>
+            <span className="font-medium text-gray-900 dark:text-white">
+              -{currency} {withholdingAmount.toFixed(2)}
+            </span>
+          </div>
+        )}
         <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center">
             <span className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -32,6 +51,14 @@ const InvoiceSummary = ({ subtotal, totalTax, totalAmount, currency, taxLabel = 
               {currency} {totalAmount.toFixed(2)}
             </span>
           </div>
+          {showWithholding && (
+            <div className="mt-3 flex justify-between items-center text-sm">
+              <span className="font-medium text-gray-700 dark:text-gray-200">Net Payable:</span>
+              <span className="font-semibold text-gray-900 dark:text-white">
+                {currency} {netAmountDue.toFixed(2)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

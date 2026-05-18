@@ -9,7 +9,12 @@ const defaultState = {
   taxEnabled: true,
   taxName: 'VAT',
   taxRate: 0,
-  allowManualOverride: true
+  allowManualOverride: true,
+  withholdingEnabled: false,
+  withholdingName: 'WHT',
+  withholdingRate: 0,
+  allowWithholdingOverride: true,
+  withholdingBase: 'taxable_amount'
 };
 
 const TaxConfigurationSettings = () => {
@@ -28,7 +33,12 @@ const TaxConfigurationSettings = () => {
         taxEnabled: data?.taxEnabled ?? true,
         taxName: data?.taxName || 'VAT',
         taxRate: Number.isFinite(Number(data?.taxRate)) ? Number(data.taxRate) : 0,
-        allowManualOverride: data?.allowManualOverride ?? true
+        allowManualOverride: data?.allowManualOverride ?? true,
+        withholdingEnabled: data?.withholdingEnabled ?? false,
+        withholdingName: data?.withholdingName || 'WHT',
+        withholdingRate: Number.isFinite(Number(data?.withholdingRate)) ? Number(data.withholdingRate) : 0,
+        allowWithholdingOverride: data?.allowWithholdingOverride ?? true,
+        withholdingBase: data?.withholdingBase || 'taxable_amount'
       });
       setReadOnly(false);
     } catch (error) {
@@ -50,7 +60,9 @@ const TaxConfigurationSettings = () => {
     const { name, value, type, checked } = event.target;
     setForm((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : (name === 'taxRate' ? Number(value) : value)
+      [name]: type === 'checkbox'
+        ? checked
+        : (name === 'taxRate' || name === 'withholdingRate' ? Number(value) : value)
     }));
   };
 
@@ -62,14 +74,24 @@ const TaxConfigurationSettings = () => {
         taxEnabled: Boolean(form.taxEnabled),
         taxName: String(form.taxName || 'VAT').trim() || 'VAT',
         taxRate: Math.max(0, Number(form.taxRate || 0)),
-        allowManualOverride: Boolean(form.allowManualOverride)
+        allowManualOverride: Boolean(form.allowManualOverride),
+        withholdingEnabled: Boolean(form.withholdingEnabled),
+        withholdingName: String(form.withholdingName || 'WHT').trim() || 'WHT',
+        withholdingRate: Math.max(0, Number(form.withholdingRate || 0)),
+        allowWithholdingOverride: Boolean(form.allowWithholdingOverride),
+        withholdingBase: form.withholdingBase === 'gross_total' ? 'gross_total' : 'taxable_amount'
       };
       const updated = await updateTaxSettings(payload);
       setForm({
         taxEnabled: updated?.taxEnabled ?? payload.taxEnabled,
         taxName: updated?.taxName || payload.taxName,
         taxRate: Number(updated?.taxRate ?? payload.taxRate),
-        allowManualOverride: updated?.allowManualOverride ?? payload.allowManualOverride
+        allowManualOverride: updated?.allowManualOverride ?? payload.allowManualOverride,
+        withholdingEnabled: updated?.withholdingEnabled ?? payload.withholdingEnabled,
+        withholdingName: updated?.withholdingName || payload.withholdingName,
+        withholdingRate: Number(updated?.withholdingRate ?? payload.withholdingRate),
+        allowWithholdingOverride: updated?.allowWithholdingOverride ?? payload.allowWithholdingOverride,
+        withholdingBase: updated?.withholdingBase || payload.withholdingBase
       });
       addToast('Tax configuration updated', 'success');
     } catch (error) {
@@ -191,12 +213,115 @@ const TaxConfigurationSettings = () => {
             </div>
           </div>
 
+          <div className={`rounded-xl border p-4 ${isDarkMode ? 'border-gray-700 bg-gray-900/20' : 'border-gray-200 bg-gray-50'}`}>
+            <div className={`text-sm font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Withholding Tax
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className={`flex items-center justify-between rounded-lg border p-4 ${
+                isDarkMode ? 'border-gray-700 bg-gray-900/30' : 'border-gray-200 bg-white'
+              }`}>
+                <div>
+                  <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Enable WHT</div>
+                  <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Deduct withholding from the gross invoice payable.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  name="withholdingEnabled"
+                  checked={Boolean(form.withholdingEnabled)}
+                  onChange={handleChange}
+                  disabled={readOnly}
+                  className="h-4 w-4"
+                />
+              </label>
+
+              <label className={`flex items-center justify-between rounded-lg border p-4 ${
+                isDarkMode ? 'border-gray-700 bg-gray-900/30' : 'border-gray-200 bg-white'
+              }`}>
+                <div>
+                  <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Allow WHT Override</div>
+                  <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Let invoice editors override the WHT rate or amount per invoice.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  name="allowWithholdingOverride"
+                  checked={Boolean(form.allowWithholdingOverride)}
+                  onChange={handleChange}
+                  disabled={readOnly}
+                  className="h-4 w-4"
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  WHT Label
+                </label>
+                <input
+                  type="text"
+                  name="withholdingName"
+                  value={form.withholdingName}
+                  onChange={handleChange}
+                  disabled={readOnly}
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    isDarkMode ? 'bg-gray-900/60 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                  placeholder="WHT / Withholding Tax"
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Default WHT Rate (%)
+                </label>
+                <input
+                  type="number"
+                  name="withholdingRate"
+                  min="0"
+                  step="0.01"
+                  value={form.withholdingRate}
+                  onChange={handleChange}
+                  disabled={readOnly}
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    isDarkMode ? 'bg-gray-900/60 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  WHT Base
+                </label>
+                <select
+                  name="withholdingBase"
+                  value={form.withholdingBase}
+                  onChange={handleChange}
+                  disabled={readOnly}
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    isDarkMode ? 'bg-gray-900/60 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                >
+                  <option value="taxable_amount">Taxable amount</option>
+                  <option value="gross_total">Gross total</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           <div className={`rounded-lg border p-4 ${isDarkMode ? 'border-gray-700 bg-gray-900/20' : 'border-gray-200 bg-gray-50'}`}>
             <div className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Preview</div>
             <div className={`mt-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               {form.taxEnabled
                 ? `${form.taxName || 'Tax'} at ${Number(form.taxRate || 0).toFixed(2)}% will be applied by default.`
                 : 'Tax is disabled. New invoices and receipts will not include tax unless manually configured.'}
+              {form.withholdingEnabled
+                ? ` ${form.withholdingName || 'WHT'} at ${Number(form.withholdingRate || 0).toFixed(2)}% will be deducted from the ${form.withholdingBase === 'gross_total' ? 'gross total' : 'taxable amount'}.`
+                : ' Withholding tax is disabled by default.'}
             </div>
           </div>
 
@@ -220,4 +345,3 @@ const TaxConfigurationSettings = () => {
 };
 
 export default TaxConfigurationSettings;
-

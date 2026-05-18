@@ -117,6 +117,10 @@ export const mapInvoiceFromApi = (invoice = {}) => {
   const totalTax = toNumber(invoice.taxAmount ?? invoice.tax?.amount ?? invoice.tax);
   const taxRateUsed = toNumber(invoice.taxRateUsed ?? invoice.tax?.percentage ?? 0);
   const taxName = invoice.taxName || invoice.tax?.description || 'Tax';
+  const withholdingAmount = toNumber(invoice.withholdingAmount ?? invoice.withholding?.amount ?? 0);
+  const withholdingRateUsed = toNumber(invoice.withholdingRateUsed ?? invoice.withholding?.percentage ?? 0);
+  const withholdingName = invoice.withholdingName || invoice.withholding?.description || 'WHT';
+  const netAmountDue = toNumber(invoice.netAmountDue ?? ((invoice.total ?? invoice.totalAmount ?? invoice.amount) - withholdingAmount));
   const totalAmount = toNumber(invoice.total ?? invoice.totalAmount ?? invoice.amount);
   const amountPaid = toNumber(invoice.amountPaid);
   const balance = toNumber(invoice.balance ?? (totalAmount - amountPaid));
@@ -143,6 +147,13 @@ export const mapInvoiceFromApi = (invoice = {}) => {
     taxName,
     taxAmount: totalTax,
     isTaxOverridden: Boolean(invoice.isTaxOverridden),
+    withholdingAmount,
+    withholdingRateUsed,
+    withholdingName,
+    withholdingBase: invoice.withholding?.base || 'taxable_amount',
+    withholdingEnabled: Boolean(invoice.withholding?.enabled || withholdingAmount > 0 || withholdingRateUsed > 0),
+    isWithholdingOverridden: Boolean(invoice.isWithholdingOverridden),
+    netAmountDue,
     totalAmount,
     amountPaid,
     balance,
@@ -167,6 +178,7 @@ export const mapInvoiceFromApi = (invoice = {}) => {
       : undefined,
     emailSubject: invoice.emailSubject || '',
     emailMessage: invoice.emailMessage || '',
+    compliance: invoice.compliance || {},
     raw: invoice
   };
 };
@@ -273,6 +285,35 @@ export const buildInvoicePayload = (invoiceData = {}) => {
 
   if (typeof invoiceData.isTaxOverridden === 'boolean') {
     payload.isTaxOverridden = invoiceData.isTaxOverridden;
+  }
+
+  const withholdingRate = toNumber(
+    invoiceData.withholdingRateUsed ?? invoiceData.withholdingRate,
+    Number.NaN
+  );
+  if (Number.isFinite(withholdingRate)) {
+    payload.withholdingRateUsed = withholdingRate;
+  }
+
+  const withholdingAmount = toNumber(invoiceData.withholdingAmount, Number.NaN);
+  if (Number.isFinite(withholdingAmount)) {
+    payload.withholdingAmount = withholdingAmount;
+  }
+
+  if (invoiceData.withholdingName) {
+    payload.withholdingName = invoiceData.withholdingName;
+  }
+
+  if (typeof invoiceData.withholdingEnabled === 'boolean') {
+    payload.withholdingEnabled = invoiceData.withholdingEnabled;
+  }
+
+  if (invoiceData.withholdingBase) {
+    payload.withholdingBase = invoiceData.withholdingBase;
+  }
+
+  if (typeof invoiceData.isWithholdingOverridden === 'boolean') {
+    payload.isWithholdingOverridden = invoiceData.isWithholdingOverridden;
   }
 
   if (discountAmount > 0 || discountPercentage > 0 || invoiceData.discountDescription) {

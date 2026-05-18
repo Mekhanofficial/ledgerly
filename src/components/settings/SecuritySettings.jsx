@@ -177,7 +177,7 @@ const SecuritySettings = () => {
             </h3>
           </div>
           <p className={`mt-1 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Change password and manage security preferences synced to Ledgerly backend.
+            Change password and manage security preferences synced to BillMetro backend.
           </p>
         </div>
         <button

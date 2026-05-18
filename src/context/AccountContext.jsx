@@ -7,7 +7,7 @@ import { isAccessDeniedError } from '../utils/accessControl';
 import { resolveBrandingProfile } from '../utils/brandingPlan';
 import { hasPermission as hasUserPermission, normalizeRole, resolvePermissions } from '../utils/permissions';
 
-const STORAGE_KEY = 'ledgerly_account_info';
+const STORAGE_KEY = 'billmetro_account_info';
 const normalizeCurrencyCode = (value) => {
   if (typeof value !== 'string') return '';
   const normalized = value.trim().toUpperCase();
@@ -52,7 +52,7 @@ const buildEmptyAccountInfo = (preferredCurrency = 'USD') => ({
     enabled: false,
     customDomain: '',
     customEmailSender: '',
-    hideLedgerlyBrandingEverywhere: false
+    hideBillMetroBrandingEverywhere: false
   },
   isWhiteLabelClient: false,
   profileImage: '',
@@ -99,7 +99,7 @@ const mapBusinessToAccount = (business = {}, user = {}) => {
       enabled: business.whiteLabel?.enabled,
       customDomain: business.whiteLabel?.customDomain || business.customDomain || '',
       customEmailSender: business.whiteLabel?.customEmailSender || business.customEmailSender || '',
-      hideLedgerlyBrandingEverywhere: business.whiteLabel?.hideLedgerlyBrandingEverywhere
+      hideBillMetroBrandingEverywhere: business.whiteLabel?.hideBillMetroBrandingEverywhere
     },
     isWhiteLabelClient: Boolean(business.isWhiteLabelClient),
     profileImage: resolvedProfile,

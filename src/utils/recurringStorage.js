@@ -1,5 +1,5 @@
 // src/utils/recurringStorage.js
-const STORAGE_PREFIX = 'ledgerly_recurring';
+const STORAGE_PREFIX = 'billmetro_recurring';
 
 const resolveUserId = (explicitUserId) => {
   if (explicitUserId) return explicitUserId;

@@ -150,7 +150,7 @@ const Pricing = () => {
   const isValidEmail = (value) => /^\S+@\S+\.\S+$/.test(String(value || '').trim().toLowerCase());
 
   const resolveCheckoutEmail = () => {
-    const saved = String(localStorage.getItem('ledgerly_checkout_email') || '').trim().toLowerCase();
+    const saved = String(localStorage.getItem('billmetro_checkout_email') || '').trim().toLowerCase();
     if (isValidEmail(saved)) {
       return saved;
     }
@@ -164,7 +164,7 @@ const Pricing = () => {
       return '';
     }
 
-    localStorage.setItem('ledgerly_checkout_email', normalized);
+    localStorage.setItem('billmetro_checkout_email', normalized);
     return normalized;
   };
 

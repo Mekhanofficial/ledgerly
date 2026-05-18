@@ -32,6 +32,13 @@ const InvoicePreviewModal = ({
     : 0;
   const taxLabel = invoiceData.taxName || 'Tax';
   const showTax = Number(invoiceData.totalTax || 0) > 0 || taxRateUsed > 0;
+  const withholdingRateUsed = Number.isFinite(Number(invoiceData.withholdingRateUsed))
+    ? Number(invoiceData.withholdingRateUsed)
+    : 0;
+  const withholdingAmount = Number(invoiceData.withholdingAmount || 0);
+  const withholdingLabel = invoiceData.withholdingName || 'WHT';
+  const showWithholding = withholdingAmount > 0 || withholdingRateUsed > 0;
+  const netAmountDue = Number(invoiceData.netAmountDue ?? (invoiceData.totalAmount - withholdingAmount));
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -74,7 +81,7 @@ const InvoicePreviewModal = ({
                   />
                 )}
                 <div className="text-lg font-bold text-gray-900 dark:text-white">
-                  {accountInfo?.companyName || 'Ledgerly'}
+                  {accountInfo?.companyName || 'BillMetro'}
                 </div>
                 <div className="text-gray-600 dark:text-gray-300 text-sm">
                   {accountInfo?.contactName && <div>{accountInfo.contactName}</div>}
@@ -151,12 +158,30 @@ const InvoicePreviewModal = ({
                     </span>
                   </div>
                 )}
+                {showWithholding && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-300">
+                      {`Less ${withholdingLabel} (${withholdingRateUsed}%)`}:
+                    </span>
+                    <span className="text-gray-900 dark:text-white">
+                      -{formatCurrency(withholdingAmount)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200 dark:border-gray-700">
                   <span className="text-gray-900 dark:text-white">Total:</span>
                   <span className="text-primary-600">
                     {formatCurrency(invoiceData.totalAmount)}
                   </span>
                 </div>
+                {showWithholding && (
+                  <div className="flex justify-between text-sm font-semibold">
+                    <span className="text-gray-900 dark:text-white">Net Payable:</span>
+                    <span className="text-gray-900 dark:text-white">
+                      {formatCurrency(netAmountDue)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             

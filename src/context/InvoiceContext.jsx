@@ -10,7 +10,7 @@ import {
   buildBrandedEmailMessage,
   getEmailSenderConfig,
   resolveInvoiceBaseUrl,
-  shouldHideLedgerlyBrandingEverywhere
+  shouldHideBillMetroBrandingEverywhere
 } from '../utils/brandingPlan';
 import {
   fetchInvoices,
@@ -613,8 +613,8 @@ export const InvoiceProvider = ({ children }) => {
     const throwOnError = options?.throwOnError === true;
     try {
       const senderConfig = getEmailSenderConfig(accountInfo);
-      const hideLedgerlyBranding = shouldHideLedgerlyBrandingEverywhere(accountInfo);
-      const invoiceBaseUrl = resolveInvoiceBaseUrl(accountInfo, 'https://ledgerly.com');
+      const hideBillMetroBranding = shouldHideBillMetroBrandingEverywhere(accountInfo);
+      const invoiceBaseUrl = resolveInvoiceBaseUrl(accountInfo, 'https://billmetro.com');
       const hasEmailOptions = emailOptions && typeof emailOptions === 'object';
       const {
         invoiceData: explicitInvoiceData,
@@ -629,7 +629,7 @@ export const InvoiceProvider = ({ children }) => {
               : emailOptionPayload.emailMessage,
             emailFrom: emailOptionPayload.emailFrom || senderConfig.fromAddress,
             emailFooterText: emailOptionPayload.emailFooterText ?? senderConfig.footerText,
-            hideLedgerlyBrandingEverywhere: emailOptionPayload.hideLedgerlyBrandingEverywhere ?? hideLedgerlyBranding,
+            hideBillMetroBrandingEverywhere: emailOptionPayload.hideBillMetroBrandingEverywhere ?? hideBillMetroBranding,
             invoiceBaseUrl: emailOptionPayload.invoiceBaseUrl || invoiceBaseUrl
           }
         : null;

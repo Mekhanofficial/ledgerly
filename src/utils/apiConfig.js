@@ -18,7 +18,7 @@ const normalizeBaseUrl = (value) => {
 const isRelativeUrl = (value) => /^\/(?!\/)/.test(String(value || '').trim());
 
 export const resolveApiBaseUrl = () => {
-  const runtimeUrl = isBrowser ? window.__LEDGERLY_API_URL__ : undefined;
+  const runtimeUrl = isBrowser ? window.__BILLMETRO_API_URL__ : undefined;
   const envUrl = import.meta.env.VITE_API_URL;
   const rawUrl = runtimeUrl || envUrl;
   const allowRemoteOnLocalhost = String(import.meta.env.VITE_ALLOW_REMOTE_API_ON_LOCALHOST || '')
